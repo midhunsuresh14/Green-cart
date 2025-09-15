@@ -1,0 +1,107 @@
+import React from 'react';
+import { Link } from 'react-router-dom';
+import './Wishlist.css';
+
+const Wishlist = ({ wishlistItems, onRemoveFromWishlist, onAddToCart, onViewDetails }) => {
+  if (wishlistItems.length === 0) {
+    return (
+      <div className="wishlist-page">
+        <div className="wishlist-container">
+          <div className="wishlist-empty">
+            <div className="empty-icon">
+              <span className="material-icons">favorite_border</span>
+            </div>
+            <h2>Your Wishlist is Empty</h2>
+            <p>Start adding plants you love to your wishlist!</p>
+            <Link to="/products" className="browse-btn">
+              Browse Plants
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="wishlist-page">
+      <div className="wishlist-container">
+        <div className="wishlist-header">
+          <h1>My Wishlist</h1>
+          <p>{wishlistItems.length} {wishlistItems.length === 1 ? 'item' : 'items'} in your wishlist</p>
+        </div>
+
+        <div className="wishlist-grid">
+          {wishlistItems.map((product) => (
+            <div key={product.id} className="wishlist-card">
+              <div className="wishlist-image-container">
+                <img
+                  src={product.image || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'}
+                  alt={product.name}
+                  className="wishlist-image"
+                />
+                <button
+                  className="remove-wishlist-btn"
+                  onClick={() => onRemoveFromWishlist(product.id)}
+                  title="Remove from Wishlist"
+                >
+                  <span className="material-icons">close</span>
+                </button>
+              </div>
+
+              <div className="wishlist-content">
+                <div className="category-badge">
+                  {product.category}
+                </div>
+                <h3 className="product-name">{product.name}</h3>
+                <p className="product-description">{product.description}</p>
+                
+                <div className="product-rating">
+                  <div className="rating-stars">
+                    {[...Array(5)].map((_, i) => (
+                      <span
+                        key={i}
+                        className={`star ${i < (product.rating || 0) ? 'filled' : 'empty'}`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span className="rating-count">({product.reviews || 0})</span>
+                </div>
+
+                <div className="product-price">
+                  <span className="current-price">₹{product.price}</span>
+                  {product.originalPrice && (
+                    <span className="original-price">₹{product.originalPrice}</span>
+                  )}
+                  {product.discount && (
+                    <span className="discount-badge">-{product.discount}%</span>
+                  )}
+                </div>
+
+                <div className="wishlist-actions">
+                  <button
+                    className="view-details-btn"
+                    onClick={() => onViewDetails(product)}
+                  >
+                    <span className="material-icons">visibility</span>
+                    View Details
+                  </button>
+                  <button
+                    className="add-to-cart-btn"
+                    onClick={() => onAddToCart(product)}
+                  >
+                    <span className="material-icons">shopping_cart</span>
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Wishlist;

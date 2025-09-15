@@ -1,0 +1,31 @@
+/* Plant Identify */
+.identify { min-height:100vh; padding-top:100px; padding-bottom:3rem; background:linear-gradient(135deg,#f0f9ff 0%, #e0f2fe 50%, #b3e5fc 100%); }
+.identify-card { background:rgba(255,255,255,0.95); border:1px solid rgba(72,187,120,0.1); border-radius:20px; padding:2rem; box-shadow:0 10px 30px rgba(0,0,0,0.08); max-width:900px; margin:0 auto; text-align:center; }
+.identify-card h1 { font-size:2rem; margin-bottom:0.5rem; }
+.identify-card p { color:#718096; margin-bottom:1.25rem; }
+.upload { display:flex; justify-content:center; gap:0.75rem; margin-bottom:1rem; }
+.upload-btn, .clear-btn, .identify-btn { display:inline-flex; align-items:center; gap:0.5rem; border:none; border-radius:12px; padding:0.75rem 1.25rem; font-weight:600; cursor:pointer; }
+.upload-btn { background:linear-gradient(135deg,#48bb78,#38a169); color:#fff; }
+.clear-btn { background:#f7fafc; border:2px solid #e2e8f0; color:#2d3748; }
+.preview { margin:1rem 0; }
+.preview img { width:100%; max-height:320px; object-fit:cover; border-radius:12px; box-shadow:0 8px 25px rgba(0,0,0,0.08); }
+.identify-btn { background:linear-gradient(135deg,#48bb78,#38a169); color:#fff; margin-top:0.5rem; }
+.result { text-align:left; margin-top:1.5rem; }
+.result h2 { margin:0 0 0.25rem 0; }
+.result p { color:#4a5568; margin:0 0 1rem 0; }
+.result .grid { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.result h3 { margin:0 0 0.5rem 0; }
+@media (max-width:768px){ .result .grid { grid-template-columns:1fr; } }
+
+
+
+
+
+
+
+
+
+
+
+
+

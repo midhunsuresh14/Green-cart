@@ -1,38 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
+import { Box, Typography, Button, Snackbar, Alert } from '@mui/material';
 import './App.css';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';
 import ForgotPassword from './components/Auth/ForgotPassword';
 import DatabaseStatus from './components/Admin/DatabaseStatus';
+import AdminDashboard from './components/Admin/AdminDashboard';
+import ProductListing from './components/Products/ProductListing';
+import ProductDetail from './components/Products/ProductDetail';
+import ShoppingCart from './components/Cart/ShoppingCart';
+import Checkout from './components/Checkout/Checkout';
+import UserProfile from './components/Profile/UserProfile';
+import About from './components/Static/About';
+import Contact from './components/Static/Contact';
+import HomeMUI from './components/HomeMUI';
+import NavbarMUI from './components/NavbarMUI';
+import AdminNavbar from './components/Admin/AdminNavbar';
+import Wishlist from './components/Wishlist';
 
-function NavBar({ user, onLogout }) {
-  return (
-    <nav className="navbar">
-      <div className="navbar-logo">
-        <img src="/istockphoto-1263328016-612x612.jpg" alt="GreenCart Logo" className="navbar-logo-img" />
-        GreenCart
-      </div>
-      <div className="navbar-links">
-        <Link to="/" className="nav-link"><span className="material-icons">home</span>Home</Link>
-        <Link to="/about" className="nav-link"><span className="material-icons">info</span>About</Link>
-        <Link to="/contact" className="nav-link"><span className="material-icons">contact_mail</span>Contact</Link>
-        <Link to="/cart" className="nav-link"><span className="material-icons">shopping_cart</span>Cart</Link>
-        {user ? (
-          <>
-            <Link to="/dashboard" className="nav-link"><span className="material-icons">dashboard</span>Dashboard</Link>
-            <button className="nav-btn" onClick={onLogout}><span className="material-icons">logout</span>Logout</button>
-          </>
-        ) : (
-          <>
-            <Link to="/login" className="nav-link"><span className="material-icons">login</span>Login</Link>
-            <Link to="/signup" className="nav-link"><span className="material-icons">person_add</span>Sign Up</Link>
-          </>
-        )}
-      </div>
-    </nav>
-  );
-}
+// Lazy load category pages to keep bundle light
+const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
+const SubcategoriesPageLazy = React.lazy(() => import('./components/Products/SubcategoriesPage'));
+
+// Replaced legacy NavBar with MUI NavbarMUI
 
 function Home() {
   return (
@@ -192,15 +183,6 @@ function Home() {
   );
 }
 
-function About() {
-  return <div className="page-content"><h2>About GreenCart</h2><p>GreenCart is your smart agriculture and herbal health platform. More info coming soon!</p></div>;
-}
-function Contact() {
-  return <div className="page-content"><h2>Contact Us</h2><p>Contact form and details coming soon!</p></div>;
-}
-function Cart() {
-  return <div className="page-content"><h2>Your Cart</h2><p>Cart functionality coming soon!</p></div>;
-}
 function Dashboard({ user }) {
   return (
     <div className="page-content">
@@ -221,10 +203,42 @@ function Dashboard({ user }) {
 
 function App() {
   const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [wishlistItems, setWishlistItems] = useState([]);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [orders, setOrders] = useState([]);
+  const [toast, setToast] = useState({ open: false, type: 'info', message: '' });
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const getWishlistKey = () => {
+    const storedUser = user || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null);
+    const userIdentifier = storedUser?.id || storedUser?.email || 'guest';
+    return `wishlist:${userIdentifier}`;
+  };
+
+  const normalizeProduct = (p) => {
+    if (!p) return null;
+    const id = p.id != null ? String(p.id) : undefined;
+    return {
+      id,
+      name: p.name,
+      price: p.price,
+      originalPrice: p.originalPrice,
+      discount: p.discount,
+      category: p.category,
+      subcategory: p.subcategory,
+      imageUrl: p.imageUrl,
+      image: p.image,
+      description: p.description,
+      rating: p.rating,
+      reviews: p.reviews,
+      popularity: p.popularity,
+      isNew: p.isNew,
+    };
+  };
 
   useEffect(() => {
-    // Check if user is already logged in (token exists)
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     if (token && userData) {
@@ -232,27 +246,229 @@ function App() {
     }
   }, []);
 
+  // Load wishlist whenever the user changes (with migration and guest merge)
+  useEffect(() => {
+    try {
+      // Migrate legacy global key if present
+      const legacy = localStorage.getItem('wishlist');
+      if (legacy) {
+        // Move legacy to guest bucket first to avoid showing previous user's data
+        localStorage.setItem('wishlist:guest', legacy);
+        localStorage.removeItem('wishlist');
+      }
+
+      const userKey = getWishlistKey();
+      const guestKey = 'wishlist:guest';
+
+      if (user) {
+        const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
+        const current = JSON.parse(localStorage.getItem(userKey) || '[]');
+        // Merge unique by id
+        const map = new Map();
+        [...current, ...guest].forEach((p) => {
+          if (p && (p.id != null)) map.set(p.id, p);
+        });
+        const merged = Array.from(map.values());
+        localStorage.setItem(userKey, JSON.stringify(merged));
+        localStorage.removeItem(guestKey);
+        setWishlistItems(merged);
+      } else {
+        const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
+        setWishlistItems(guest);
+      }
+    } catch (_) {
+      setWishlistItems([]);
+    }
+  }, [user]);
+
+  // If an admin lands on home, take them to dashboard first (but allow them to stay if they explicitly navigate there)
+  useEffect(() => {
+    if (user?.role === 'admin' && location.pathname === '/' && !sessionStorage.getItem('adminViewingWebsite')) {
+      navigate('/admin', { replace: true });
+    }
+    // Clear the flag when admin goes back to admin dashboard
+    if (user?.role === 'admin' && location.pathname.startsWith('/admin')) {
+      sessionStorage.removeItem('adminViewingWebsite');
+    }
+  }, [user, location.pathname, navigate]);
+
   const handleLogout = async () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    navigate('/'); // Redirect to home page after logout
+    setWishlistItems([]);
+    navigate('/');
+  };
+
+  const handleAddToCart = (product) => {
+    setCartItems((prev) => {
+      const id = product.id;
+      const existingIndex = prev.findIndex((p) => p.id === id);
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: (updated[existingIndex].quantity || 1) + (product.quantity || 1),
+          finalPrice: product.finalPrice || product.price,
+        };
+        return updated;
+      }
+      return [
+        ...prev,
+        {
+          ...product,
+          quantity: product.quantity || 1,
+          finalPrice: product.finalPrice || product.price,
+        },
+      ];
+    });
+    navigate('/cart');
+  };
+
+  const handleUpdateQuantity = (itemId, newQty) => {
+    setCartItems((prev) =>
+      prev.map((item) => (item.id === itemId ? { ...item, quantity: newQty } : item))
+    );
+  };
+
+  const handleRemoveItem = (itemId) => {
+    setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+  };
+
+  const handleViewDetails = (product) => {
+    setSelectedProduct(product);
+    navigate('/product');
+  };
+
+  const handleOrderComplete = (order) => {
+    setOrders((prev) => [order, ...prev]);
+    setCartItems([]);
+    navigate('/profile');
+  };
+
+  const handleToggleWishlist = (product) => {
+    const normalized = normalizeProduct(product);
+    if (!normalized || !normalized.id) return;
+    setWishlistItems((prev) => {
+      const isInWishlist = prev.some((item) => String(item.id) === String(normalized.id));
+      let updatedWishlist;
+
+      if (isInWishlist) {
+        updatedWishlist = prev.filter((item) => String(item.id) !== String(normalized.id));
+      } else {
+        updatedWishlist = [...prev, normalized];
+      }
+      try {
+        localStorage.setItem(getWishlistKey(), JSON.stringify(updatedWishlist));
+      } catch (_) {}
+
+      // Show user feedback
+      setToast({
+        open: true,
+        type: isInWishlist ? 'info' : 'success',
+        message: isInWishlist ? 'Removed from wishlist' : 'Added to wishlist',
+      });
+
+      return updatedWishlist;
+    });
+  };
+
+  const handleRemoveFromWishlist = (productId) => {
+    const idStr = String(productId);
+    setWishlistItems((prev) => {
+      const updatedWishlist = prev.filter((item) => String(item.id) !== idStr);
+      try {
+        localStorage.setItem(getWishlistKey(), JSON.stringify(updatedWishlist));
+      } catch (_) {}
+      return updatedWishlist;
+    });
   };
 
   return (
     <>
-      <NavBar user={user} onLogout={handleLogout} />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/about" element={<About />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/cart" element={<Cart />} />
-        <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
-        <Route path="/login" element={<Login user={user} setUser={setUser} />} />
-        <Route path="/signup" element={<Signup user={user} setUser={setUser} />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/db-status" element={<DatabaseStatus />} />
-      </Routes>
+      {location.pathname.startsWith('/admin') ? (
+        <AdminNavbar user={user} onLogout={handleLogout} />
+      ) : (
+        <NavbarMUI user={user} onLogout={handleLogout} wishlistItems={wishlistItems} />
+      )}
+      {/* Show admin notification when viewing website */}
+      {user?.role === 'admin' && !location.pathname.startsWith('/admin') && sessionStorage.getItem('adminViewingWebsite') && (
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bgcolor: 'primary.main',
+            color: 'white',
+            p: 1,
+            textAlign: 'center',
+            zIndex: 9999,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <Typography variant="body2">
+            Admin Viewing Website
+          </Typography>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="small"
+            onClick={() => {
+              sessionStorage.removeItem('adminViewingWebsite');
+              navigate('/admin');
+            }}
+          >
+            Back to Admin Dashboard
+          </Button>
+        </Box>
+      )}
+      <main>
+        <Routes>
+          <Route path="/" element={<HomeMUI />} />
+          <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+          <Route path="/products" element={<ProductListing onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} onToggleWishlist={handleToggleWishlist} wishlistItems={wishlistItems} />} />
+          <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
+          <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
+          <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} />} />
+          <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
+          <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
+          <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
+          <Route path="/profile" element={<UserProfile user={user} orders={orders} />} />
+          
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
+          <Route path="/login" element={<Login user={user} setUser={setUser} />} />
+          <Route path="/signup" element={<Signup user={user} setUser={setUser} />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/db-status" element={<DatabaseStatus />} />
+        </Routes>
+
+        {/* Global toast for wishlist feedback */}
+        <Snackbar
+          open={toast.open}
+          autoHideDuration={2200}
+          onClose={() => setToast((t) => ({ ...t, open: false }))}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setToast((t) => ({ ...t, open: false }))}
+            severity={toast.type}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {toast.message}
+          </Alert>
+        </Snackbar>
+      </main>
     </>
   );
 }

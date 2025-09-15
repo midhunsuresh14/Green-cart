@@ -1,6 +1,19 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import './Auth.css';
+import {
+  Box,
+  Container,
+  Paper,
+  Typography,
+  TextField,
+  Button,
+  Alert,
+  Stack,
+  InputAdornment,
+  CircularProgress,
+} from '@mui/material';
+import EmailOutlined from '@mui/icons-material/EmailOutlined';
+import SendRounded from '@mui/icons-material/SendRounded';
 
 function validateEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -14,12 +27,12 @@ function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!email.trim()) {
       setError('Email is required');
       return;
     }
-    
+
     if (!validateEmail(email)) {
       setError('Please enter a valid email address');
       return;
@@ -29,80 +42,80 @@ function ForgotPassword() {
     setError('');
     setMessage('');
 
-    // Simulate API call (you can implement this later)
     setTimeout(() => {
       setIsLoading(false);
       setMessage('If an account with this email exists, you will receive password reset instructions.');
-    }, 2000);
+    }, 1200);
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-container">
-        <div className="auth-header">
-          <div className="auth-logo">
-            <img src="/istockphoto-1263328016-612x612.jpg" alt="GreenCart" />
-          </div>
-          <h1>Reset Password</h1>
-          <p>Enter your email to receive reset instructions</p>
-        </div>
+    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#F7FAF8,#EEF7F1)' }}>
+      <Container maxWidth="sm">
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', boxShadow: '0 10px 30px rgba(0,0,0,0.06)' }}>
+          <Stack spacing={3} alignItems="center">
+            <Box sx={{ width: 72, height: 72, borderRadius: 3, overflow: 'hidden', bgcolor: 'grey.100', display: 'grid', placeItems: 'center' }}>
+              <img src="/istockphoto-1263328016-612x612.jpg" alt="GreenCart" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </Box>
 
-        <form onSubmit={handleSubmit} className="auth-form" noValidate>
-          <div className="form-group">
-            <label htmlFor="email">Email Address</label>
-            <div className="input-wrapper">
-              <span className="material-icons input-icon">email</span>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={error ? 'error' : ''}
-                disabled={isLoading}
-                autoComplete="email"
-              />
-            </div>
-            {error && <span className="error-message">{error}</span>}
-          </div>
+            <Box textAlign="center">
+              <Typography variant="h4" fontWeight={800} gutterBottom>Reset Password</Typography>
+              <Typography color="text.secondary">Enter your email to receive reset instructions</Typography>
+            </Box>
 
-          {message && (
-            <div className="success-alert">
-              <span className="material-icons">check_circle</span>
-              {message}
-            </div>
-          )}
+            <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }} noValidate>
+              <Stack spacing={2}>
+                <TextField
+                  type="email"
+                  label="Email address"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  autoComplete="email"
+                  fullWidth
+                  error={Boolean(error)}
+                  helperText={error || ' '}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <EmailOutlined color="action" />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
 
-          <button 
-            type="submit" 
-            className="auth-btn primary"
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <div className="spinner"></div>
-                Sending...
-              </>
-            ) : (
-              <>
-                <span className="material-icons">send</span>
-                Send Reset Link
-              </>
-            )}
-          </button>
-        </form>
+                {message && (
+                  <Alert severity="success">{message}</Alert>
+                )}
 
-        <div className="auth-footer">
-          <p>
-            Remember your password?{' '}
-            <Link to="/login" className="auth-link">
-              Back to Login
-            </Link>
-          </p>
-        </div>
-      </div>
-    </div>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  fullWidth
+                  startIcon={!isLoading && <SendRounded />}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <CircularProgress size={20} sx={{ mr: 1 }} /> Sending...
+                    </>
+                  ) : (
+                    'Send Reset Link'
+                  )}
+                </Button>
+              </Stack>
+            </Box>
+
+            <Typography variant="body2" color="text.secondary">
+              Remember your password?{' '}
+              <Link to="/login" style={{ color: 'inherit', textDecoration: 'underline' }}>Back to Login</Link>
+            </Typography>
+          </Stack>
+        </Paper>
+      </Container>
+    </Box>
   );
 }
 
