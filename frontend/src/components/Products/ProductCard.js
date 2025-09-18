@@ -12,17 +12,28 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')}`;
 
+  const resolveImageUrl = (src) => {
+    if (!src) return null;
+    if (/^https?:\/\//i.test(src)) return src;
+    const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+    const host = apiBase.replace(/\/api\/?$/, '');
+    return src.startsWith('/') ? host + src : host + '/' + src;
+  };
+
+  const primarySrc = resolveImageUrl(product.imageUrl || product.image) ||
+    'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+
   return (
     <div className={"product-card " + categoryClass}>
       <div className="product-image-container" onClick={() => onViewDetails && onViewDetails(product)}>
         <img
-          src={
-            product.imageUrl ||
-            product.image ||
-            'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'
-          }
+          src={primarySrc}
           alt={product.name}
           className="product-image"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+          }}
         />
 
         <div className="category-badge">
@@ -33,7 +44,15 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           <button
             className={`action-btn ${isInWishlist ? 'wishlist-active' : ''}`}
             title={isInWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-            onClick={(e) => { e.stopPropagation(); onToggleWishlist && onToggleWishlist(product); }}
+            onClick={(e) => { 
+              e.stopPropagation(); 
+              const btn = e.currentTarget;
+              btn.classList.remove('wishlist-anim');
+              // Force reflow to restart animation
+              void btn.offsetWidth;
+              btn.classList.add('wishlist-anim');
+              onToggleWishlist && onToggleWishlist(product); 
+            }}
           >
             <span className="material-icons">
               {isInWishlist ? 'favorite' : 'favorite_border'}
@@ -91,13 +110,22 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           )}
         </div>
 
-        <button
-          className="add-to-cart-btn"
-          onClick={() => onAddToCart && onAddToCart(product)}
-        >
-          <span className="material-icons">shopping_cart</span>
-          <span>Add to Cart</span>
-        </button>
+        <div className="product-actions-row">
+          <button
+            className="add-to-cart-btn"
+            onClick={() => onAddToCart && onAddToCart(product)}
+          >
+            <span className="material-icons">shopping_cart</span>
+            <span>Add to Cart</span>
+          </button>
+          <button
+            className={"add-to-wishlist-btn " + (isInWishlist ? 'active' : '')}
+            onClick={() => onToggleWishlist && onToggleWishlist(product)}
+          >
+            <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
+            <span>{isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}</span>
+          </button>
+        </div>
       </div>
     </div>
   );

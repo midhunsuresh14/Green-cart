@@ -1,4 +1,4 @@
-const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
 
 function getAuthHeaders() {
   try {
@@ -47,8 +47,10 @@ export const api = {
   },
 
   // Orders
-  listOrders: () => request('/orders'),
+  listOrders: (paymentStatus) => request(`/orders${paymentStatus ? `?paymentStatus=${encodeURIComponent(paymentStatus)}` : ''}`),
   updateOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  createOrder: (payload) => request('/orders/create', { method: 'POST', body: JSON.stringify(payload) }),
+  verifyPayment: (payload) => request('/orders/verify', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Users
   listUsers: () => request('/users'),
@@ -62,6 +64,12 @@ export const api = {
   updateRemedy: (id, data) => request(`/remedies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRemedy: (id) => request(`/remedies/${id}`, { method: 'DELETE' }),
 };
+
+
+
+
+
+
 
 
 

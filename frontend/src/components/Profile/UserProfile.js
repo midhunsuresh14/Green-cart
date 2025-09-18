@@ -33,20 +33,20 @@ const UserProfile = ({ user, orders = [] }) => {
 
           <div className="profile-card">
             <h2>Recent Orders</h2>
-            {orders.length === 0 ? (
+            {(!orders || orders.length === 0) ? (
               <div className="empty">
                 <span className="material-icons">inventory_2</span>
                 <p>No orders yet. Start shopping to place your first order!</p>
               </div>
             ) : (
               <div className="orders">
-                {orders.map((order) => (
-                  <div key={order.orderId} className="order">
+                {orders.map((order, idx) => (
+                  <div key={order.orderId || idx} className="order">
                     <div>
-                      <h3>Order {order.orderId}</h3>
-                      <p>{new Date(order.date).toLocaleDateString()}</p>
+                      <h3>Order {order.orderId || ''}</h3>
+                      <p>{order.date ? new Date(order.date).toLocaleDateString() : ''}</p>
                     </div>
-                    <div className="order-total">${order.total.toFixed(2)}</div>
+                    <div className="order-total">${Number(order.total || 0).toFixed(2)}</div>
                   </div>
                 ))}
               </div>
@@ -68,6 +68,13 @@ const UserProfile = ({ user, orders = [] }) => {
 };
 
 export default UserProfile;
+
+
+
+
+
+
+
 
 
 

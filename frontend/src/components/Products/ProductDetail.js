@@ -1,51 +1,58 @@
 import React, { useState } from 'react';
 
-const ProductDetail = ({ product, onAddToCart, onBack }) => {
+const ProductDetail = ({ product, onAddToCart, onBack, onToggleWishlist, isInWishlist }) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [selectedSize, setSelectedSize] = useState('medium');
   const [activeTab, setActiveTab] = useState('description');
 
-  // Sample product data with multiple images
-  const productData = product || {
-    id: 1,
-    name: 'Aloe Vera Plant',
+  const resolveImageUrl = (src) => {
+    if (!src) return null;
+    if (/^https?:\/\//i.test(src)) return src;
+    const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+    const host = apiBase.replace(/\/api\/?$/, '');
+    return src.startsWith('/') ? host + src : host + '/' + src;
+  };
+
+  const fallbackImages = [
+    resolveImageUrl(product && (product.imageUrl || product.image)) || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80'
+  ];
+
+  const productData = {
+    ...(product || {}),
+    id: product?.id ?? 1,
+    name: product?.name ?? 'Aloe Vera Plant',
     description:
-      'Medicinal succulent perfect for skin care and air purification. This versatile plant is known for its healing properties and easy maintenance.',
+      product?.description ?? 'Medicinal succulent perfect for skin care and air purification. This versatile plant is known for its healing properties and easy maintenance.',
     longDescription:
-      "The Aloe Vera plant is a succulent species that has been used for medicinal purposes for thousands of years. It's known for its thick, fleshy leaves that contain a gel-like substance rich in vitamins, minerals, and antioxidants. This plant is perfect for beginners as it requires minimal care and can thrive in various conditions.",
-    price: 24.99,
-    originalPrice: 34.99,
-    discount: 29,
-    images: [
-      'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=800&q=80',
-    ],
-    category: 'Succulents',
-    rating: 4.5,
-    reviews: 128,
-    inStock: true,
-    sizes: [
+      product?.longDescription ?? "The Aloe Vera plant is a succulent species that has been used for medicinal purposes for thousands of years. It's known for its thick, fleshy leaves that contain a gel-like substance rich in vitamins, minerals, and antioxidants. This plant is perfect for beginners as it requires minimal care and can thrive in various conditions.",
+    price: product?.price ?? 24.99,
+    originalPrice: product?.originalPrice ?? 34.99,
+    discount: product?.discount ?? 29,
+    images: Array.isArray(product?.images) && product?.images.length > 0 ? product.images.map(resolveImageUrl) : fallbackImages,
+    category: product?.category ?? 'Succulents',
+    rating: product?.rating ?? 4.5,
+    reviews: product?.reviews ?? 128,
+    inStock: product?.inStock ?? true,
+    sizes: Array.isArray(product?.sizes) && product.sizes.length > 0 ? product.sizes : [
       { name: 'small', label: 'Small (4-6 inches)', price: 19.99 },
       { name: 'medium', label: 'Medium (6-8 inches)', price: 24.99 },
       { name: 'large', label: 'Large (8-10 inches)', price: 29.99 },
     ],
-    careInstructions: {
+    careInstructions: product?.careInstructions ?? {
       light: 'Bright, indirect light',
       water: 'Water every 2-3 weeks',
       soil: 'Well-draining cactus mix',
       temperature: '65-80°F (18-27°C)',
     },
-    benefits: [
+    benefits: Array.isArray(product?.benefits) && product.benefits.length > 0 ? product.benefits : [
       'Natural air purifier',
       'Skin healing properties',
       'Low maintenance',
       'Pet-friendly',
       'Medicinal uses',
     ],
-    specifications: {
+    specifications: product?.specifications ?? {
       height: '6-8 inches',
       potSize: '6 inches',
       origin: 'Arabian Peninsula',
@@ -97,6 +104,7 @@ const ProductDetail = ({ product, onAddToCart, onBack }) => {
                 src={productData.images[selectedImage]}
                 alt={productData.name}
                 className="h-[420px] w-full object-cover transition-transform duration-300 md:h-[500px] hover:scale-[1.02]"
+                onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80'; }}
               />
               {productData.discount && (
                 <div className="absolute left-4 top-4 rounded-full bg-gradient-to-br from-rose-500 to-red-600 px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-[0_4px_15px_rgba(245,101,101,0.3)]">
@@ -119,7 +127,7 @@ const ProductDetail = ({ product, onAddToCart, onBack }) => {
                     }
                     onClick={() => setSelectedImage(index)}
                   >
-                    <img src={image} alt={`${productData.name} ${index + 1}`} className="h-full w-full object-cover" />
+                    <img src={image} alt={`${productData.name} ${index + 1}`} className="h-full w-full object-cover" onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=200&q=80'; }} />
                   </button>
                 );
               })}
@@ -237,9 +245,12 @@ const ProductDetail = ({ product, onAddToCart, onBack }) => {
 
             {/* Quick Actions */}
             <div className="flex gap-4">
-              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-4 text-slate-700 transition-colors hover:border-green-500 hover:bg-green-500/5 hover:text-green-500">
-                <span className="material-icons">favorite_border</span>
-                Add to Wishlist
+              <button
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-4 text-slate-700 transition-colors hover:border-green-500 hover:bg-green-500/5 hover:text-green-500"
+                onClick={() => onToggleWishlist && onToggleWishlist(productData)}
+              >
+                <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
+                {isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}
               </button>
               <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-4 text-slate-700 transition-colors hover:border-green-500 hover:bg-green-500/5 hover:text-green-500">
                 <span className="material-icons">share</span>

@@ -40,7 +40,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   // Load products from backend
   React.useEffect(() => {
     let isMounted = true;
-    const base = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+    const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
 
     const fetchProducts = async () => {
       try {

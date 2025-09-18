@@ -83,6 +83,8 @@ function Login({ user, setUser }) {
     setErrors((prev) => ({ ...prev, [name]: message }));
   };
 
+  
+
   const validateForm = () => {
     const newErrors = {};
     if (!formData.email.trim()) newErrors.email = 'Email is required';
@@ -102,7 +104,7 @@ function Login({ user, setUser }) {
     setErrors({});
 
     try {
-      const response = await fetch('http://localhost:5000/api/login', {
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -141,7 +143,7 @@ function Login({ user, setUser }) {
       };
 
       try {
-        const response = await fetch('http://localhost:5000/api/google-auth', {
+        const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/google-auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -287,6 +289,8 @@ function Login({ user, setUser }) {
                 >
                   Continue with Google
                 </Button>
+
+                
               </Stack>
             </Box>
 

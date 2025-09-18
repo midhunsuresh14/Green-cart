@@ -15,7 +15,7 @@ function DatabaseStatus() {
 
   const fetchDatabaseStatus = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/db-status');
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/db-status');
       const data = await response.json();
       setDbStatus(data);
     } catch (err) {
@@ -25,7 +25,7 @@ function DatabaseStatus() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/users');
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/users');
       const data = await response.json();
       if (data.success) {
         setUsers(data.users);

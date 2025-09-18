@@ -437,7 +437,7 @@ function App() {
           <Route path="/products" element={<ProductListing onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} onToggleWishlist={handleToggleWishlist} wishlistItems={wishlistItems} />} />
           <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
           <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
-          <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} />} />
+          <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w)=> String(w.id)===String(selectedProduct?.id))} />} />
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
           <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />

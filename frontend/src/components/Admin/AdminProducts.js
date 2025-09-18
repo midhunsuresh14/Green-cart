@@ -34,7 +34,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const [form, setForm] = useState({ id: null, name: '', category: '', price: '', stock: '', description: '', imageUrl: '' });
+  const [form, setForm] = useState({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
   const [file, setFile] = useState(null);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -55,18 +55,18 @@ export default function AdminProducts() {
   }, [q]);
 
   function onEdit(p) {
-    setForm({ id: p.id, name: p.name, category: p.category, price: p.price, stock: p.stock, description: p.description || '', imageUrl: p.imageUrl || '' });
+    setForm({ id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '', price: p.price, stock: p.stock, description: p.description || '', imageUrl: p.imageUrl || '' });
     setOpen(true);
   }
 
   function onAdd() {
-    setForm({ id: null, name: '', category: '', price: '', stock: '', description: '', imageUrl: '' });
+    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
     setFile(null);
     setOpen(true);
   }
 
   function resetForm() {
-    setForm({ id: null, name: '', category: '', price: '', stock: '', description: '', imageUrl: '' });
+    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
   }
 
   async function onSubmit(e) {
@@ -90,6 +90,7 @@ export default function AdminProducts() {
       const payload = {
         name: form.name,
         category: form.category,
+        subcategory: form.subcategory || '',
         price: priceNum,
         stock: stockNum,
         description: form.description,
@@ -145,6 +146,7 @@ export default function AdminProducts() {
                 <TableCell>Image</TableCell>
                 <TableCell>Name</TableCell>
                 <TableCell>Category</TableCell>
+                <TableCell>Subcategory</TableCell>
                 <TableCell>Price</TableCell>
                 <TableCell>Stock</TableCell>
                 <TableCell align="right">Actions</TableCell>
@@ -156,6 +158,7 @@ export default function AdminProducts() {
                   <TableCell>{p.imageUrl ? <img src={p.imageUrl} alt={p.name} style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 6 }} /> : '-'}</TableCell>
                   <TableCell>{p.name}</TableCell>
                   <TableCell>{p.category}</TableCell>
+                  <TableCell>{p.subcategory || '-'}</TableCell>
                   <TableCell>₹{Number(p.price).toFixed(0)}</TableCell>
                   <TableCell>{p.stock ?? '-'}</TableCell>
                   <TableCell align="right">
@@ -178,7 +181,7 @@ export default function AdminProducts() {
             <TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required fullWidth />
             <FormControl fullWidth required>
               <InputLabel id="category-label">Category</InputLabel>
-              <Select labelId="category-label" label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+              <Select labelId="category-label" label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value, subcategory: '' })}>
                 <MenuItem value="Plants">Plants</MenuItem>
                 <MenuItem value="Crops & Seeds">Crops & Seeds</MenuItem>
                 <MenuItem value="Pots & Planters">Pots & Planters</MenuItem>
@@ -187,6 +190,25 @@ export default function AdminProducts() {
                 <MenuItem value="Herbal & Eco Products">Herbal & Eco Products</MenuItem>
               </Select>
             </FormControl>
+            {form.category && (
+              <FormControl fullWidth>
+                <InputLabel id="subcategory-label">Subcategory</InputLabel>
+                <Select labelId="subcategory-label" label="Subcategory" value={form.subcategory} onChange={(e) => setForm({ ...form, subcategory: e.target.value })}>
+                  {(
+                    {
+                      'Plants': ['Indoor', 'Outdoor', 'Flowering', 'Air-Purifying', 'Medicinal/Herbal', 'Succulent'],
+                      'Crops & Seeds': ['Vegetables', 'Fruits', 'Grains/Pulses', 'Spices/Herbs'],
+                      'Pots & Planters': ['Ceramic', 'Clay/Terracotta', 'Hanging', 'Self-Watering', 'Decorative'],
+                      'Soil & Fertilizers': ['Potting Mix', 'Compost/Manure', 'Chemical Fertilizers', 'Soil Conditioners'],
+                      'Gardening Tools': ['Hand Tools', 'Watering Tools', 'Supports'],
+                      'Herbal & Eco Products': ['Herbal Remedies', 'Eco-Friendly Packs']
+                    }[form.category] || []
+                  ).map((opt) => (
+                    <MenuItem key={opt} value={opt}>{opt}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField type="number" inputProps={{ step: '0.01', min: 0 }} label="Price (₹)" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required fullWidth />
               <TextField type="number" inputProps={{ step: '1', min: 0 }} label="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} fullWidth />
@@ -213,6 +235,7 @@ export default function AdminProducts() {
     </Box>
   );
 }
+
 
 
 

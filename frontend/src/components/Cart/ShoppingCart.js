@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './ShoppingCart.css';
 
 const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
   const [cart, setCart] = useState(cartItems || []);
   const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setCart(cartItems || []);
@@ -68,7 +70,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
               <span className="material-icons">shopping_cart</span>
               <h2>Your cart is empty</h2>
               <p>Looks like you haven't added any plants to your cart yet.</p>
-              <button className="continue-shopping-btn">
+              <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
                 <span className="material-icons">arrow_back</span>
                 Continue Shopping
               </button>
@@ -214,12 +216,12 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
               </div>
 
               <div className="checkout-actions">
-                <button className="checkout-btn">
+                <button className="checkout-btn" onClick={() => navigate('/checkout')}>
                   <span className="material-icons">shopping_cart</span>
                   Proceed to Checkout
                 </button>
                 
-                <button className="continue-shopping-btn">
+                <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
                   <span className="material-icons">arrow_back</span>
                   Continue Shopping
                 </button>

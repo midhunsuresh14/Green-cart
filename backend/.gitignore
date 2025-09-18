@@ -1,0 +1,50 @@
+# Sensitive docs
+EMAIL_SETUP_GUIDE.md
+OTP_SETUP.md
+SMS_SETUP.md
+README.md
+README.*
+*.md
+
+# Environment files
+.env
+*.env
+*.env.*
+*.env.local
+.env.*.local
+
+# Python artifacts
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Node
+node_modules/
+
+# Logs and runtime
+*.log
+app_startup.log
+*.pid
+
+# Generated/uploads
+uploads/
+
+# IDE/OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Project-specific scripts
+seed.py
+setup_email.py
+# Sensitive docs
+EMAIL_SETUP_GUIDE.md
+OTP_SETUP.md
+SMS_SETUP.md
+README.md
+README.*
+*.md
+

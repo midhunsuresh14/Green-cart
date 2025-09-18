@@ -21,31 +21,66 @@ function validateEmail(email) {
 
 function ForgotPassword() {
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [step, setStep] = useState(1); // 1=request, 2=verify+reset
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleRequest = async (e) => {
     e.preventDefault();
-
-    if (!email.trim()) {
-      setError('Email is required');
-      return;
-    }
-
-    if (!validateEmail(email)) {
-      setError('Please enter a valid email address');
-      return;
-    }
+    const trimmed = (email || '').trim();
+    if (!trimmed) return setError('Email is required');
+    if (!validateEmail(trimmed)) return setError('Please enter a valid email address');
 
     setIsLoading(true);
     setError('');
     setMessage('');
-
-    setTimeout(() => {
+    try {
+      const res = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/password/request-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmed }),
+      });
+      await res.json();
+      setMessage('If an account exists, a reset code has been sent to your email.');
+      setStep(2);
+    } catch (_) {
+      setError('Network error. Please try again.');
+    } finally {
       setIsLoading(false);
-      setMessage('If an account with this email exists, you will receive password reset instructions.');
-    }, 1200);
+    }
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    const trimmedEmail = (email || '').trim();
+    const trimmedCode = (code || '').trim();
+    if (!trimmedEmail || !validateEmail(trimmedEmail)) return setError('Valid email is required');
+    if (!trimmedCode) return setError('Verification code is required');
+    if (!newPassword || newPassword.length < 6) return setError('Password must be at least 6 characters');
+
+    setIsLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const res = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/password/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, code: trimmedCode, newPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage('Password reset successful. You can now log in.');
+      } else {
+        setError(data.error || 'Failed to reset password');
+      }
+    } catch (_) {
+      setError('Network error. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -62,7 +97,7 @@ function ForgotPassword() {
               <Typography color="text.secondary">Enter your email to receive reset instructions</Typography>
             </Box>
 
-            <Box component="form" onSubmit={handleSubmit} sx={{ width: '100%' }} noValidate>
+            <Box component="form" onSubmit={step === 1 ? handleRequest : handleReset} sx={{ width: '100%' }} noValidate>
               <Stack spacing={2}>
                 <TextField
                   type="email"
@@ -84,6 +119,29 @@ function ForgotPassword() {
                   }}
                 />
 
+                {step === 2 && (
+                  <>
+                    <TextField
+                      type="text"
+                      label="Verification code"
+                      placeholder="6-digit code"
+                      value={code}
+                      onChange={(e) => setCode(e.target.value)}
+                      disabled={isLoading}
+                      fullWidth
+                    />
+                    <TextField
+                      type="password"
+                      label="New password"
+                      placeholder="At least 6 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      disabled={isLoading}
+                      fullWidth
+                    />
+                  </>
+                )}
+
                 {message && (
                   <Alert severity="success">{message}</Alert>
                 )}
@@ -99,10 +157,10 @@ function ForgotPassword() {
                 >
                   {isLoading ? (
                     <>
-                      <CircularProgress size={20} sx={{ mr: 1 }} /> Sending...
+                      <CircularProgress size={20} sx={{ mr: 1 }} /> {step === 1 ? 'Sending...' : 'Resetting...'}
                     </>
                   ) : (
-                    'Send Reset Link'
+                    step === 1 ? 'Send Code' : 'Reset Password'
                   )}
                 </Button>
               </Stack>

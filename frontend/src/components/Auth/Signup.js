@@ -139,7 +139,7 @@ function Signup({ user, setUser }) {
     setErrors({});
 
     try {
-      const response = await fetch('http://localhost:5000/api/signup', {
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -175,7 +175,7 @@ function Signup({ user, setUser }) {
     setOtpError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/verify-otp', {
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -215,7 +215,7 @@ function Signup({ user, setUser }) {
     setOtpError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/resend-otp', {
+      const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/resend-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -253,7 +253,7 @@ function Signup({ user, setUser }) {
       };
 
       try {
-        const response = await fetch('http://localhost:5000/api/google-auth', {
+        const response = await fetch((process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api') + '/google-auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

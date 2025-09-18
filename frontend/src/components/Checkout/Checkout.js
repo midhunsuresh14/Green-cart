@@ -1,5 +1,18 @@
 import React, { useState } from 'react';
 import './Checkout.css';
+import { api } from '../../lib/api';
+
+function loadRazorpay() {
+  return new Promise((resolve) => {
+    if (document.getElementById('razorpay-sdk')) return resolve(true);
+    const script = document.createElement('script');
+    script.id = 'razorpay-sdk';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 const Checkout = ({ cartItems, onOrderComplete }) => {
   const [currentStep, setCurrentStep] = useState(1);
@@ -13,7 +26,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     city: '',
     state: '',
     zipCode: '',
-    country: 'US',
+    country: 'IN',
     
     // Billing Information
     billingSameAsShipping: true,
@@ -45,6 +58,8 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
 
   const [errors, setErrors] = useState({});
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   const deliveryOptions = [
     { value: 'standard', label: 'Standard Delivery', price: 9.99, days: '3-5 business days' },
@@ -73,6 +88,34 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
         [name]: ''
       }));
     }
+
+    // Auto-detect city and state from PIN code
+    if (name === 'zipCode' && value.length === 6) {
+      handlePinCodeLookup(value);
+    }
+  };
+
+  const handlePinCodeLookup = async (pinCode) => {
+    if (!/^\d{6}$/.test(pinCode)) return;
+    
+    setIsLoadingLocation(true);
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pinCode}`);
+      const data = await response.json();
+      
+      if (data && data[0] && data[0].Status === 'Success' && data[0].PostOffice && data[0].PostOffice.length > 0) {
+        const postOffice = data[0].PostOffice[0];
+        setFormData(prev => ({
+          ...prev,
+          city: postOffice.District || '',
+          state: postOffice.State || ''
+        }));
+      }
+    } catch (error) {
+      console.error('PIN code lookup failed:', error);
+    } finally {
+      setIsLoadingLocation(false);
+    }
   };
 
   const validateStep = (step) => {
@@ -99,10 +142,8 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     }
     
     if (step === 3) {
-      if (!formData.cardNumber) newErrors.cardNumber = 'Card number is required';
-      if (!formData.expiryDate) newErrors.expiryDate = 'Expiry date is required';
-      if (!formData.cvv) newErrors.cvv = 'CVV is required';
-      if (!formData.cardName) newErrors.cardName = 'Cardholder name is required';
+      // For Razorpay, we don't collect card details here; ensure a payment method is chosen
+      if (!formData.paymentMethod) newErrors.paymentMethod = 'Select a payment method';
     }
     
     setErrors(newErrors);
@@ -133,19 +174,66 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     e.preventDefault();
     
     if (!validateStep(3)) return;
-    
     setIsProcessing(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsProcessing(false);
-      onOrderComplete({
-        orderId: `GC-${Date.now()}`,
-        ...formData,
-        items: cartItems,
-        ...calculateOrderTotal()
+    setPaymentError('');
+    try {
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error('Failed to load payment SDK');
+
+      const orderTotal = calculateOrderTotal();
+      const productsPayload = cartItems.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.finalPrice }));
+      const createRes = await api.createOrder({ products: productsPayload, totalAmount: orderTotal.total });
+
+      const options = {
+        key: createRes.razorpayKeyId,
+        amount: createRes.amount,
+        currency: createRes.currency || 'INR',
+        name: 'GreenCart',
+        description: 'Order Payment',
+        order_id: createRes.orderId,
+        prefill: {
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email,
+          contact: formData.phone,
+        },
+        notes: { dbOrderId: createRes.dbOrderId },
+        handler: async function (response) {
+          try {
+            const verifyRes = await api.verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              dbOrderId: createRes.dbOrderId,
+            });
+            if (verifyRes.success) {
+              onOrderComplete({ orderId: createRes.dbOrderId, status: 'success', total: orderTotal.total, date: new Date().toISOString() });
+            } else {
+              setPaymentError(verifyRes.error || 'Payment verification failed');
+            }
+          } catch (err) {
+            setPaymentError(err.message || 'Payment verification failed');
+          } finally {
+            setIsProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setIsProcessing(false);
+          }
+        },
+        theme: { color: '#4CAF50' },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function () {
+        setPaymentError('Payment failed. Please try again.');
+        setIsProcessing(false);
       });
-    }, 2000);
+      rzp.open();
+    } catch (err) {
+      setPaymentError(err.message || 'Payment failed. Please try again.');
+      setIsProcessing(false);
+    }
   };
 
   const orderTotal = calculateOrderTotal();
@@ -247,7 +335,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                   </div>
 
                   <div className="form-group">
-                    <label htmlFor="address">Street Address *</label>
+                    <label htmlFor="address">Street Address / Area *</label>
                     <input
                       type="text"
                       id="address"
@@ -255,14 +343,14 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                       value={formData.address}
                       onChange={handleInputChange}
                       className={errors.address ? 'error' : ''}
-                      placeholder="Enter your street address"
+                      placeholder="Enter your area, street, building name"
                     />
                     {errors.address && <span className="error-message">{errors.address}</span>}
                   </div>
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label htmlFor="city">City *</label>
+                      <label htmlFor="city">City / District *</label>
                       <input
                         type="text"
                         id="city"
@@ -271,7 +359,9 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         onChange={handleInputChange}
                         className={errors.city ? 'error' : ''}
                         placeholder="Enter your city"
+                        disabled={isLoadingLocation}
                       />
+                      {isLoadingLocation && <span style={{fontSize: '0.8rem', color: '#666'}}>Detecting location...</span>}
                       {errors.city && <span className="error-message">{errors.city}</span>}
                     </div>
                     
@@ -283,19 +373,51 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         value={formData.state}
                         onChange={handleInputChange}
                         className={errors.state ? 'error' : ''}
+                        disabled={isLoadingLocation}
                       >
                         <option value="">Select State</option>
-                        <option value="CA">California</option>
-                        <option value="NY">New York</option>
-                        <option value="TX">Texas</option>
-                        <option value="FL">Florida</option>
-                        <option value="IL">Illinois</option>
+                        <option value="Andhra Pradesh">Andhra Pradesh</option>
+                        <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                        <option value="Assam">Assam</option>
+                        <option value="Bihar">Bihar</option>
+                        <option value="Chhattisgarh">Chhattisgarh</option>
+                        <option value="Goa">Goa</option>
+                        <option value="Gujarat">Gujarat</option>
+                        <option value="Haryana">Haryana</option>
+                        <option value="Himachal Pradesh">Himachal Pradesh</option>
+                        <option value="Jharkhand">Jharkhand</option>
+                        <option value="Karnataka">Karnataka</option>
+                        <option value="Kerala">Kerala</option>
+                        <option value="Madhya Pradesh">Madhya Pradesh</option>
+                        <option value="Maharashtra">Maharashtra</option>
+                        <option value="Manipur">Manipur</option>
+                        <option value="Meghalaya">Meghalaya</option>
+                        <option value="Mizoram">Mizoram</option>
+                        <option value="Nagaland">Nagaland</option>
+                        <option value="Odisha">Odisha</option>
+                        <option value="Punjab">Punjab</option>
+                        <option value="Rajasthan">Rajasthan</option>
+                        <option value="Sikkim">Sikkim</option>
+                        <option value="Tamil Nadu">Tamil Nadu</option>
+                        <option value="Telangana">Telangana</option>
+                        <option value="Tripura">Tripura</option>
+                        <option value="Uttar Pradesh">Uttar Pradesh</option>
+                        <option value="Uttarakhand">Uttarakhand</option>
+                        <option value="West Bengal">West Bengal</option>
+                        <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
+                        <option value="Chandigarh">Chandigarh</option>
+                        <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
+                        <option value="Delhi">Delhi</option>
+                        <option value="Jammu and Kashmir">Jammu and Kashmir</option>
+                        <option value="Ladakh">Ladakh</option>
+                        <option value="Lakshadweep">Lakshadweep</option>
+                        <option value="Puducherry">Puducherry</option>
                       </select>
                       {errors.state && <span className="error-message">{errors.state}</span>}
                     </div>
                     
                     <div className="form-group">
-                      <label htmlFor="zipCode">ZIP Code *</label>
+                      <label htmlFor="zipCode">PIN Code *</label>
                       <input
                         type="text"
                         id="zipCode"
@@ -303,7 +425,8 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         value={formData.zipCode}
                         onChange={handleInputChange}
                         className={errors.zipCode ? 'error' : ''}
-                        placeholder="12345"
+                        placeholder="110001"
+                        maxLength="6"
                       />
                       {errors.zipCode && <span className="error-message">{errors.zipCode}</span>}
                     </div>
@@ -317,6 +440,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                       value={formData.country}
                       onChange={handleInputChange}
                     >
+                      <option value="IN">India</option>
                       <option value="US">United States</option>
                       <option value="CA">Canada</option>
                       <option value="UK">United Kingdom</option>
@@ -647,6 +771,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         </>
                       )}
                     </button>
+                    {paymentError && <div className="error-message" style={{ marginTop: 8 }}>{paymentError}</div>}
                   </div>
                 </div>
               )}
@@ -704,6 +829,12 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
 };
 
 export default Checkout;
+
+
+
+
+
+
 
 
 

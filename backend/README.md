@@ -55,3 +55,48 @@ The backend will run on `http://localhost:5000`
 - JWT token authentication
 - Email validation
 - Phone number validation 
+
+## SMS (Twilio) Configuration
+
+Phone OTP endpoints are available but require Twilio credentials to send messages.
+
+1. Create/Update `.env` in `backend/`:
+
+```env
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_FROM_NUMBER=+15551234567
+# Optional: set a default country code for local numbers (e.g., 1 for US/CA)
+DEFAULT_COUNTRY_CODE=1
+```
+
+2. Install dependencies (already listed):
+
+```bash
+pip install -r requirements.txt
+```
+
+3. Test your credentials by sending a message:
+
+```bash
+cd backend
+python test_sms.py "+15551234567" "Hello from GreenCart"
+```
+
+4. Request an OTP via API (for an existing user phone):
+
+```bash
+curl -X POST http://localhost:5000/api/phone/request-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "+15551234567"}'
+```
+
+5. Verify the OTP you receive:
+
+```bash
+curl -X POST http://localhost:5000/api/phone/verify-otp \
+  -H "Content-Type: application/json" \
+  -d '{"phone": "+15551234567", "otp": "123456"}'
+```
+
+See `SMS_SETUP.md` for details and troubleshooting.

@@ -2,7 +2,8 @@
 .shopping-cart {
   min-height: 100vh;
   background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #b3e5fc 100%);
-  background-attachment: fixed;
+  /* Avoid locking scroll on some browsers */
+  background-attachment: scroll;
   padding-top: 100px;
   padding-bottom: 3rem;
 }
@@ -737,6 +738,12 @@
     font-size: 1rem;
   }
 }
+
+
+
+
+
+
 
 
 
