@@ -103,6 +103,8 @@ export default function AdminProducts() {
         await api.createProduct(payload);
         setToast({ open: true, message: 'Product created', severity: 'success' });
       }
+      // Signal other tabs/pages to refresh product list
+      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) {}
       resetForm();
       setFile(null);
       setOpen(false);
@@ -118,6 +120,8 @@ export default function AdminProducts() {
     try {
       await api.deleteProduct(id);
       setToast({ open: true, message: 'Product deleted', severity: 'success' });
+      // Signal other tabs/pages to refresh product list
+      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) {}
       await load();
     } catch (e) {
       setError(e.message);

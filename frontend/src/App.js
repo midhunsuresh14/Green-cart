@@ -16,8 +16,11 @@ import About from './components/Static/About';
 import Contact from './components/Static/Contact';
 import HomeMUI from './components/HomeMUI';
 import NavbarMUI from './components/NavbarMUI';
+import CartDrawer from './components/Cart/CartDrawer';
 import AdminNavbar from './components/Admin/AdminNavbar';
 import Wishlist from './components/Wishlist';
+import HerbalRemedies from './components/HerbalRemedies/HerbalRemedies';
+import PDPPage from './components/PDP/PDPPage.jsx';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -207,7 +210,8 @@ function App() {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [orders, setOrders] = useState([]);
-  const [toast, setToast] = useState({ open: false, type: 'info', message: '' });
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [toast, setToast] = useState({ open: false, type: 'success', message: '' });
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -215,6 +219,18 @@ function App() {
     const storedUser = user || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || 'null') : null);
     const userIdentifier = storedUser?.id || storedUser?.email || 'guest';
     return `wishlist:${userIdentifier}`;
+  };
+
+  const getCartKey = (currentUser = user) => {
+    if (!currentUser) return 'cart:guest';
+    const userIdentifier = currentUser.id || currentUser.email || 'guest';
+    return `cart:${userIdentifier}`;
+  };
+
+  const saveCart = (items, currentUser = user) => {
+    try {
+      localStorage.setItem(getCartKey(currentUser), JSON.stringify(items || []));
+    } catch (_) {}
   };
 
   const normalizeProduct = (p) => {
@@ -239,12 +255,79 @@ function App() {
   };
 
   useEffect(() => {
+    // One-time cleanup of problematic cart data
+    const cleanup = localStorage.getItem('cart-cleanup-done');
+    if (!cleanup) {
+      // Clear all existing cart data to fix cross-user contamination
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith('cart:') || key === 'cart') {
+          localStorage.removeItem(key);
+        }
+      });
+      localStorage.setItem('cart-cleanup-done', 'true');
+    }
+
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     if (token && userData) {
       setUser(JSON.parse(userData));
+      // If just signed up, show welcome and clean the flag
+      const justSignedUp = localStorage.getItem('justSignedUp');
+      if (justSignedUp) {
+        setToast({ open: true, type: 'success', message: `Welcome to GreenCart!` });
+        localStorage.removeItem('justSignedUp');
+      }
     }
   }, []);
+
+  // Load cart whenever the user changes (with migration and guest merge)
+  useEffect(() => {
+    try {
+      // Migrate legacy global key if present
+      const legacy = localStorage.getItem('cart');
+      if (legacy) {
+        localStorage.setItem('cart:guest', legacy);
+        localStorage.removeItem('cart');
+      }
+
+      const userKey = getCartKey(user);
+      const guestKey = 'cart:guest';
+
+      if (user) {
+        // User is logged in - load their cart and merge any guest cart
+        const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
+        const current = JSON.parse(localStorage.getItem(userKey) || '[]');
+        
+        // Only merge if there are guest items
+        if (guest.length > 0) {
+          const map = new Map();
+          [...current, ...guest].forEach((p) => {
+            if (!p || p.id == null) return;
+            const id = String(p.id);
+            if (!map.has(id)) {
+              map.set(id, { ...p, quantity: Number(p.quantity) || 1 });
+            } else {
+              const prev = map.get(id);
+              map.set(id, { ...prev, quantity: (Number(prev.quantity) || 1) + (Number(p.quantity) || 1) });
+            }
+          });
+          const merged = Array.from(map.values());
+          localStorage.setItem(userKey, JSON.stringify(merged));
+          localStorage.removeItem(guestKey); // Clear guest cart after merge
+          setCartItems(merged);
+        } else {
+          // No guest cart to merge, just load user's cart
+          setCartItems(current);
+        }
+      } else {
+        // No user logged in - load guest cart only
+        const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
+        setCartItems(guest);
+      }
+    } catch (_) {
+      setCartItems([]);
+    }
+  }, [user]);
 
   // Load wishlist whenever the user changes (with migration and guest merge)
   useEffect(() => {
@@ -281,26 +364,57 @@ function App() {
     }
   }, [user]);
 
-  // If an admin lands on home, take them to dashboard first (but allow them to stay if they explicitly navigate there)
+  // If an admin lands on home, take them to dashboard
   useEffect(() => {
-    if (user?.role === 'admin' && location.pathname === '/' && !sessionStorage.getItem('adminViewingWebsite')) {
+    if (user?.role === 'admin' && location.pathname === '/') {
       navigate('/admin', { replace: true });
-    }
-    // Clear the flag when admin goes back to admin dashboard
-    if (user?.role === 'admin' && location.pathname.startsWith('/admin')) {
-      sessionStorage.removeItem('adminViewingWebsite');
     }
   }, [user, location.pathname, navigate]);
 
   const handleLogout = async () => {
+    // Save current user's cart before logout
+    if (user && cartItems.length > 0) {
+      saveCart(cartItems, user);
+    }
+    
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Clear state immediately - don't move to guest cart
     setUser(null);
     setWishlistItems([]);
+    setCartItems([]); // This will trigger the useEffect to load guest cart (which should be empty)
     navigate('/');
   };
 
-  const handleAddToCart = (product) => {
+  const handleAddToCart = async (product) => {
+    // Check stock availability before adding to cart
+    try {
+      const productId = product.id || product._id;
+      const requestedQty = product.quantity || 1;
+      
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const response = await fetch(`${apiBase}/products/${productId}/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: requestedQty })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          setToast({
+            open: true,
+            type: 'error',
+            message: `Only ${data.maxAvailable} items available in stock`
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking stock:', error);
+    }
+
     setCartItems((prev) => {
       const id = product.id;
       const existingIndex = prev.findIndex((p) => p.id === id);
@@ -311,9 +425,10 @@ function App() {
           quantity: (updated[existingIndex].quantity || 1) + (product.quantity || 1),
           finalPrice: product.finalPrice || product.price,
         };
+        saveCart(updated);
         return updated;
       }
-      return [
+      const next = [
         ...prev,
         {
           ...product,
@@ -321,22 +436,68 @@ function App() {
           finalPrice: product.finalPrice || product.price,
         },
       ];
+      saveCart(next);
+      return next;
     });
-    navigate('/cart');
+    setIsCartOpen(true);
+    setToast({
+      open: true,
+      type: 'success',
+      message: 'Product added to cart!'
+    });
   };
 
-  const handleUpdateQuantity = (itemId, newQty) => {
-    setCartItems((prev) =>
-      prev.map((item) => (item.id === itemId ? { ...item, quantity: newQty } : item))
-    );
+  const handleUpdateQuantity = async (itemId, newQty) => {
+    // Check stock availability before updating quantity
+    try {
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const response = await fetch(`${apiBase}/products/${itemId}/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: newQty })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          setToast({
+            open: true,
+            type: 'error',
+            message: `Only ${data.maxAvailable} items available in stock`
+          });
+          // Update to maximum available quantity
+          setCartItems((prev) => {
+            const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: data.maxAvailable } : item));
+            saveCart(next);
+            return next;
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking stock:', error);
+    }
+
+    setCartItems((prev) => {
+      const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: newQty } : item));
+      saveCart(next);
+      return next;
+    });
   };
 
   const handleRemoveItem = (itemId) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== itemId));
+    setCartItems((prev) => {
+      const next = prev.filter((item) => item.id !== itemId);
+      saveCart(next);
+      return next;
+    });
   };
 
   const handleClearCart = () => {
-    setCartItems([]);
+    setCartItems(() => {
+      saveCart([]);
+      return [];
+    });
   };
 
   const handleViewDetails = (product) => {
@@ -346,7 +507,7 @@ function App() {
 
   const handleOrderComplete = (order) => {
     setOrders((prev) => [order, ...prev]);
-    setCartItems([]);
+    setCartItems(() => { saveCart([]); return []; });
     navigate('/profile');
   };
 
@@ -393,55 +554,23 @@ function App() {
       {location.pathname.startsWith('/admin') ? (
         <AdminNavbar user={user} onLogout={handleLogout} />
       ) : (
-        <NavbarMUI user={user} onLogout={handleLogout} wishlistItems={wishlistItems} />
+        <NavbarMUI user={user} onLogout={handleLogout} wishlistItems={wishlistItems} cartCount={cartItems.reduce((s,i)=>s+(i.quantity||1),0)} onOpenCart={()=>setIsCartOpen(true)} />
       )}
-      {/* Show admin notification when viewing website */}
-      {user?.role === 'admin' && !location.pathname.startsWith('/admin') && sessionStorage.getItem('adminViewingWebsite') && (
-        <Box
-          sx={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bgcolor: 'primary.main',
-            color: 'white',
-            p: 1,
-            textAlign: 'center',
-            zIndex: 9999,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 2
-          }}
-        >
-          <Typography variant="body2">
-            Admin Viewing Website
-          </Typography>
-          <Button
-            variant="contained"
-            color="secondary"
-            size="small"
-            onClick={() => {
-              sessionStorage.removeItem('adminViewingWebsite');
-              navigate('/admin');
-            }}
-          >
-            Back to Admin Dashboard
-          </Button>
-        </Box>
-      )}
+
       <main>
         <Routes>
           <Route path="/" element={<HomeMUI />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-          <Route path="/products" element={<ProductListing onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} onToggleWishlist={handleToggleWishlist} wishlistItems={wishlistItems} />} />
+          <Route path="/products" element={<ProductListing onAddToCart={handleAddToCart} onViewDetails={(p)=>{ setSelectedProduct(p); navigate('/pdp'); }} onToggleWishlist={handleToggleWishlist} wishlistItems={wishlistItems} />} />
           <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
           <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
           <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w)=> String(w.id)===String(selectedProduct?.id))} />} />
+          <Route path="/pdp" element={<PDPPage product={selectedProduct} user={user} onAddToCart={handleAddToCart} onOpenCart={()=>setIsCartOpen(true)} />} />
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
           <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
           <Route path="/profile" element={<UserProfile user={user} orders={orders} />} />
+          <Route path="/remedies" element={<HerbalRemedies />} />
           
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
@@ -469,6 +598,15 @@ function App() {
           </Alert>
         </Snackbar>
       </main>
+
+      <CartDrawer
+        open={isCartOpen}
+        onClose={()=>setIsCartOpen(false)}
+        items={cartItems}
+        onUpdateQuantity={handleUpdateQuantity}
+        onRemoveItem={handleRemoveItem}
+        onCheckout={()=>{ setIsCartOpen(false); navigate('/checkout'); }}
+      />
     </>
   );
 }

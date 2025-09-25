@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import './ProductListing.css';
 import ProductCard from './ProductCard';
 import { CATEGORY_TREE } from './categoriesData';
@@ -24,12 +24,16 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   const [selectedCategory, setSelectedCategory] = useState(null); // e.g., "Plants"
   const [selectedSubcategory, setSelectedSubcategory] = useState(null); // e.g., "Indoor"
   const [sortBy, setSortBy] = useState('popularity');
-  const [priceMax, setPriceMax] = useState(600); // INR slider default 600 (₹)
+  const [priceMax, setPriceMax] = useState(600); // current selected upper bound
+  const [priceUpperBound, setPriceUpperBound] = useState(1000); // dynamic slider max
   const [filters, setFilters] = useState({ inStock: false, discount: false });
 
   // Pagination state
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
+
+  // Modal preview state for in-page "View" popup
+  const [previewProduct, setPreviewProduct] = useState(null);
 
   // Derived sets for wishlist check
   const wishlistIds = useMemo(() => new Set((wishlistItems || []).map((w) => String(w.id))), [wishlistItems]);
@@ -40,78 +44,123 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   // Load products from backend
   React.useEffect(() => {
     let isMounted = true;
+    let fetchTimeout = null;
     const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+
+    const applyPriceBounds = (list) => {
+      try {
+        const max = Math.max(1000, ...list.map((p) => Number(p.price) || 0));
+        setPriceUpperBound(max);
+        // Only update priceMax if it's still at default
+        setPriceMax(prev => prev === 600 ? max : prev);
+      } catch (_) {
+        setPriceUpperBound(1000);
+      }
+    };
 
     const fetchProducts = async () => {
       try {
         const res = await fetch(base + '/products');
         if (!res.ok) throw new Error('Failed to fetch products');
         const data = await res.json();
-        if (isMounted) setRemoteProducts(data);
+        if (isMounted) {
+          setRemoteProducts(data);
+          applyPriceBounds(Array.isArray(data) ? data : []);
+        }
       } catch (e) {
         console.error('Falling back to local SAMPLE_PRODUCTS:', e.message);
-        if (isMounted) setRemoteProducts(null);
+        if (isMounted) {
+          setRemoteProducts(null);
+          applyPriceBounds(SAMPLE_PRODUCTS);
+        }
       }
+    };
+
+    // Debounced fetch to prevent rapid API calls
+    const debouncedFetch = () => {
+      if (fetchTimeout) clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(fetchProducts, 300);
     };
 
     fetchProducts();
 
-    // Re-fetch on tab focus and every 30s for freshness
-    const onFocus = () => fetchProducts();
+    // Re-fetch on tab focus (debounced)
+    const onFocus = () => debouncedFetch();
     window.addEventListener('focus', onFocus);
-    const iv = setInterval(fetchProducts, 30000);
 
-    return () => { isMounted = false; window.removeEventListener('focus', onFocus); clearInterval(iv); };
+    // Listen to storage events from Admin panel (debounced)
+    const onStorage = (e) => {
+      if (e.key === 'products:updated') {
+        debouncedFetch();
+      }
+    };
+    window.addEventListener('storage', onStorage);
+
+    // Reduced polling - only every 60 seconds for background updates
+    const iv = setInterval(fetchProducts, 60000);
+
+    return () => {
+      isMounted = false;
+      if (fetchTimeout) clearTimeout(fetchTimeout);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('storage', onStorage);
+      clearInterval(iv);
+    };
   }, []);
 
   const filtered = useMemo(() => {
-    let items = Array.isArray(remoteProducts) ? [...remoteProducts] : [...SAMPLE_PRODUCTS];
+    const items = Array.isArray(remoteProducts) ? remoteProducts : SAMPLE_PRODUCTS;
+    
+    // Early return if no items
+    if (!items.length) return [];
 
-    // Category/subcategory filter
+    let filtered = items;
+
+    // Apply filters in sequence (most selective first for performance)
     if (selectedCategory) {
-      items = items.filter((p) => p.category === selectedCategory);
+      filtered = filtered.filter((p) => p.category === selectedCategory);
     }
     if (selectedSubcategory) {
-      items = items.filter((p) => p.subcategory === selectedSubcategory);
+      filtered = filtered.filter((p) => p.subcategory === selectedSubcategory);
     }
-
+    
     // Price filter
-    items = items.filter((p) => Number(p.price) <= Number(priceMax));
+    filtered = filtered.filter((p) => Number(p.price || 0) <= Number(priceMax));
 
     // Checkbox filters
-    if (filters.inStock) items = items.filter((p) => p.inStock);
-    if (filters.discount) items = items.filter((p) => Number(p.discount || 0) > 0 || p.originalPrice);
-
-    // Sorting helper + group Plants first when no category is selected
-    const applySort = (arr) => {
-      const copy = [...arr];
-      switch (sortBy) {
-        case 'price-asc':
-          copy.sort((a, b) => a.price - b.price);
-          break;
-        case 'price-desc':
-          copy.sort((a, b) => b.price - a.price);
-          break;
-        case 'new':
-          copy.sort((a, b) => (b.isNew === true) - (a.isNew === true));
-          break;
-        case 'popularity':
-        default:
-          copy.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
-          break;
-      }
-      return copy;
-    };
-
-    if (!selectedCategory) {
-      const plants = items.filter((p) => p.category === 'Plants');
-      const others = items.filter((p) => p.category !== 'Plants');
-      items = [...applySort(plants), ...applySort(others)];
-    } else {
-      items = applySort(items);
+    if (filters.inStock) {
+      filtered = filtered.filter((p) => p.inStock);
+    }
+    if (filters.discount) {
+      filtered = filtered.filter((p) => Number(p.discount || 0) > 0 || p.originalPrice);
     }
 
-    return items;
+    // Sorting
+    const sortedItems = [...filtered];
+    switch (sortBy) {
+      case 'price-asc':
+        sortedItems.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
+        break;
+      case 'price-desc':
+        sortedItems.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
+        break;
+      case 'new':
+        sortedItems.sort((a, b) => (b.isNew === true ? 1 : 0) - (a.isNew === true ? 1 : 0));
+        break;
+      case 'popularity':
+      default:
+        sortedItems.sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0));
+        break;
+    }
+
+    // Group Plants first only when no category is selected
+    if (!selectedCategory) {
+      const plants = sortedItems.filter((p) => p.category === 'Plants');
+      const others = sortedItems.filter((p) => p.category !== 'Plants');
+      return [...plants, ...others];
+    }
+
+    return sortedItems;
   }, [remoteProducts, selectedCategory, selectedSubcategory, priceMax, filters, sortBy]);
 
   // Pagination slice
@@ -134,14 +183,14 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
 
   const toggleFilter = (key) => setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const resetFilters = () => {
+  const resetFilters = React.useCallback(() => {
     setSelectedCategory(null);
     setSelectedSubcategory(null);
     setSortBy('popularity');
-    setPriceMax(600);
+    setPriceMax(priceUpperBound); // Reset to current max instead of hardcoded 600
     setFilters({ inStock: false, discount: false });
     setPage(1);
-  };
+  }, [priceUpperBound]);
 
   // Breadcrumb labels
   const breadcrumbTrail = [
@@ -223,7 +272,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
               id="price"
               type="range"
               min="0"
-              max="1000"
+              max={priceUpperBound}
               step="50"
               value={priceMax}
               onChange={(e) => setPriceMax(Number(e.target.value))}
@@ -267,12 +316,49 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
               key={product.id}
               product={product}
               onAddToCart={onAddToCart}
-              onViewDetails={onViewDetails}
+              onViewDetails={onViewDetails ? onViewDetails : (p) => setPreviewProduct(p)}
               onToggleWishlist={onToggleWishlist}
               isInWishlist={wishlistIds.has(String(product.id))}
             />
           ))}
         </div>
+
+        {/* Simple modal popup for product preview */}
+        {(!onViewDetails) && previewProduct && (
+          <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setPreviewProduct(null)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <button className="modal-close" aria-label="Close" onClick={() => setPreviewProduct(null)}>×</button>
+              <div className="modal-body">
+                <div className="modal-image">
+                  <img
+                    src={(function(){
+                      const raw = previewProduct?.imageUrl || previewProduct?.image || previewProduct?.image_path || previewProduct?.imagePath || previewProduct?.thumbnail || previewProduct?.photo || previewProduct?.photoUrl || previewProduct?.url;
+                      if (!raw) return 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+                      if (/^https?:\/\//i.test(raw)) return raw;
+                      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+                      const host = apiBase.replace(/\/api\/?$/, '');
+                      return raw.startsWith('/') ? host + raw : host + '/' + raw;
+                    })()}
+                    alt={previewProduct.name}
+                    onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'; }}
+                  />
+                </div>
+                <div className="modal-details">
+                  <h3>{previewProduct.name}</h3>
+                  <p>{previewProduct.description}</p>
+                  <div className="price">₹{previewProduct.price}</div>
+                  <div className="actions">
+                    <button className="primary" onClick={() => { onAddToCart && onAddToCart(previewProduct); setPreviewProduct(null);} }>
+                      <span className="material-icons">shopping_cart</span>
+                      Add to Cart
+                    </button>
+                    <button onClick={() => setPreviewProduct(null)}>Close</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="pagination">
           <button className="page-btn" disabled={pageSafe === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>

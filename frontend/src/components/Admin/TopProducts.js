@@ -16,21 +16,33 @@ export default function TopProducts() {
       <CardContent>
         <Stack spacing={2}>
           {top.map((p, i) => (
-            <Stack key={p.name} spacing={1}>
-              <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ width: 28, height: 28, bgcolor: 'success.light', color: 'success.dark', fontSize: 14 }}>{i + 1}</Avatar>
-                  <Stack>
-                    <Typography variant="body1" fontWeight={700}>{p.name}</Typography>
+            <Stack key={p.name} spacing={1.5} sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 2, border: '1px solid', borderColor: 'grey.200' }}>
+              <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: 'success.light', color: 'success.dark', fontSize: 14, fontWeight: 700 }}>{i + 1}</Avatar>
+                  <Stack sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="body1" fontWeight={700} sx={{ color: 'text.primary', lineHeight: 1.2 }}>{p.name}</Typography>
                     <Typography variant="caption" color="text.secondary">{p.sales} sales</Typography>
                   </Stack>
                 </Stack>
-                <Stack alignItems="flex-end">
+                <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
                   <Typography variant="body2" color="success.main" fontWeight={700}>{p.growth}</Typography>
-                  <Typography variant="caption" color="text.secondary">{p.amount}</Typography>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>{p.amount}</Typography>
                 </Stack>
               </Stack>
-              <LinearProgress variant="determinate" value={Math.min(100, (p.sales / 124) * 100)} sx={{ height: 8, borderRadius: 999, '& .MuiLinearProgress-bar': { bgcolor: 'success.main' } }} />
+              <LinearProgress 
+                variant="determinate" 
+                value={Math.min(100, (p.sales / 124) * 100)} 
+                sx={{ 
+                  height: 6, 
+                  borderRadius: 999, 
+                  bgcolor: 'grey.200',
+                  '& .MuiLinearProgress-bar': { 
+                    bgcolor: 'success.main',
+                    borderRadius: 999
+                  } 
+                }} 
+              />
             </Stack>
           ))}
         </Stack>
@@ -38,6 +50,10 @@ export default function TopProducts() {
     </Card>
   );
 }
+
+
+
+
 
 
 

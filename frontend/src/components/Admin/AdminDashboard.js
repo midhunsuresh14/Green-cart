@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import './AdminDashboard.css';
 import AdminProducts from './AdminProducts';
@@ -38,6 +38,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import HomeIcon from '@mui/icons-material/Home';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import { api } from '../../lib/api';
 
 const drawerWidth = 260;
 
@@ -53,6 +54,7 @@ export default function AdminDashboard({ user, onLogout }) {
   const [active, setActive] = useState('overview');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileEl, setProfileEl] = useState(null);
+  const [lowCount, setLowCount] = useState(0);
   const navigate = useNavigate();
 
   const openProfile = (e) => setProfileEl(e.currentTarget);
@@ -66,6 +68,19 @@ export default function AdminDashboard({ user, onLogout }) {
     }
     navigate('/');
   };
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.lowStock();
+        if (mounted) setLowCount(res?.count || 0);
+      } catch (_) {
+        if (mounted) setLowCount(0);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
 
   const drawer = (
@@ -94,21 +109,6 @@ export default function AdminDashboard({ user, onLogout }) {
       </List>
       <Box sx={{ flex: 1 }} />
       <Box sx={{ p: 2 }}>
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<HomeIcon />}
-          onClick={(e) => {
-            e.stopPropagation();
-            setMobileOpen(false);
-            console.log('Go to Website clicked - using window.location');
-            sessionStorage.setItem('adminViewingWebsite', 'true');
-            window.location.href = '/';
-          }}
-          sx={{ mb: 1 }}
-        >
-          Go to Website
-        </Button>
         <Button
           fullWidth
           variant="contained"
@@ -147,22 +147,10 @@ export default function AdminDashboard({ user, onLogout }) {
             <Typography variant="h6" fontWeight={700}>Admin Dashboard</Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton 
-              color="inherit" 
-              title="Go to Website"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMobileOpen(false);
-                console.log('Home icon clicked - using window.location');
-                sessionStorage.setItem('adminViewingWebsite', 'true');
-                window.location.href = '/';
-              }}
-            >
-              <HomeIcon />
-            </IconButton>
+
             <IconButton color="inherit"><SearchIcon /></IconButton>
             <IconButton color="inherit">
-              <Badge color="error" variant="dot">
+              <Badge color="error" badgeContent={lowCount} invisible={lowCount === 0}>
                 <NotificationsNoneIcon />
               </Badge>
             </IconButton>

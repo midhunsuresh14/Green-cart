@@ -29,9 +29,10 @@ import { Link as RouterLink } from 'react-router-dom';
 const links = [
   { label: 'Home', to: '/' },
   { label: 'Products', to: '/products' },
+  { label: 'Herbal Remedies', to: '/remedies' },
 ];
 
-export default function NavbarMUI({ user, onLogout, wishlistItems = [] }) {
+export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCount = 0, onOpenCart }) {
   const [open, setOpen] = useState(false);
   const [profileEl, setProfileEl] = useState(null);
 
@@ -52,8 +53,34 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [] }) {
             {links.map((l) => (
               <Button key={l.to} component={RouterLink} to={l.to} color="inherit">{l.label}</Button>
             ))}
-            <IconButton component={RouterLink} to="/cart" color="inherit" aria-label="Cart">
+            <IconButton 
+              onClick={() => onOpenCart && onOpenCart()} 
+              color="inherit" 
+              aria-label="Cart" 
+              sx={{ position: 'relative' }}
+            >
               <ShoppingCartIcon />
+              {cartCount > 0 && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    top: 8,
+                    right: 8,
+                    backgroundColor: 'error.main',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: 20,
+                    height: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                  }}
+                >
+                  {cartCount}
+                </Box>
+              )}
             </IconButton>
             <IconButton component={RouterLink} to="/wishlist" color="inherit" aria-label="Wishlist" sx={{ position: 'relative' }}>
               <span className="material-icons">favorite</span>

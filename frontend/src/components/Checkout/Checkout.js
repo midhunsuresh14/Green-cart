@@ -26,7 +26,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     city: '',
     state: '',
     zipCode: '',
-    country: 'IN',
+    // country removed: store restricted to India
     
     // Billing Information
     billingSameAsShipping: true,
@@ -74,24 +74,154 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     { value: 'google', label: 'Google Pay', icon: 'phone_android' }
   ];
 
+  // Currency formatter for INR
+  const formatINR = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(amount) || 0);
+
+  // Inline validators for focus-based validation
+  const isEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim());
+  const isPhoneIN = (v) => /^[6-9]\d{9}$/.test(String(v || '').trim());
+  const isPincodeIN = (v) => /^\d{6}$/.test(String(v || '').trim());
+  const minLen = (v, n) => String(v || '').trim().length >= n;
+
+  const validateField = (name, value, ctx = {}) => {
+    const v = String(value || '').trim();
+    switch (name) {
+      case 'firstName':
+        if (!v) return 'First name is required';
+        if (!minLen(v, 2)) return 'First name must be at least 2 characters';
+        if (!/^[A-Za-z\s'-]+$/.test(v)) return 'Only letters allowed';
+        return '';
+      case 'lastName':
+        if (!v) return 'Last name is required';
+        if (!minLen(v, 2)) return 'Last name must be at least 2 characters';
+        if (!/^[A-Za-z\s'-]+$/.test(v)) return 'Only letters allowed';
+        return '';
+      case 'email':
+        if (!v) return 'Email is required';
+        if (!isEmail(v)) return 'Enter a valid email address';
+        return '';
+      case 'phone':
+        if (!v) return 'Phone number is required';
+        if (!isPhoneIN(v)) return 'Enter a valid 10-digit Indian mobile number';
+        return '';
+      case 'address':
+        if (!v) return 'Address is required';
+        if (!minLen(v, 5)) return 'Address must be at least 5 characters';
+        return '';
+      case 'city':
+        if (!v) return 'City is required';
+        return '';
+      case 'state':
+        if (!v) return 'State is required';
+        return '';
+      case 'zipCode':
+        if (!v) return 'PIN code is required';
+        if (!isPincodeIN(v)) return 'Enter a valid 6-digit PIN code';
+        return '';
+
+      // Billing fields (only when not same as shipping)
+      case 'billingFirstName':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing first name is required';
+        if (!minLen(v, 2)) return 'Billing first name must be at least 2 characters';
+        if (!/^[A-Za-z\s'-]+$/.test(v)) return 'Only letters allowed';
+        return '';
+      case 'billingLastName':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing last name is required';
+        if (!minLen(v, 2)) return 'Billing last name must be at least 2 characters';
+        if (!/^[A-Za-z\s'-]+$/.test(v)) return 'Only letters allowed';
+        return '';
+      case 'billingAddress':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing address is required';
+        if (!minLen(v, 5)) return 'Billing address must be at least 5 characters';
+        return '';
+      case 'billingCity':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing city is required';
+        return '';
+      case 'billingState':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing state is required';
+        return '';
+      case 'billingZipCode':
+        if (ctx.billingSameAsShipping) return '';
+        if (!v) return 'Billing PIN code is required';
+        if (!isPincodeIN(v)) return 'Enter a valid 6-digit billing PIN code';
+        return '';
+
+      // Card/payment fields
+      case 'cardNumber': {
+        const digits = v.replace(/\D/g, '');
+        if (!digits) return 'Card number is required';
+        if (digits.length < 13 || digits.length > 19) return 'Enter a valid card number';
+        return '';
+      }
+      case 'cardName':
+        if (!v) return 'Cardholder name is required';
+        if (!minLen(v, 2)) return 'Cardholder name must be at least 2 characters';
+        return '';
+      case 'expiryDate': {
+        if (!v) return 'Expiry date is required';
+        if (!/^\d{2}\/\d{2}$/.test(v)) return 'Use MM/YY format';
+        const [mm, yy] = v.split('/').map((n) => parseInt(n, 10));
+        if (mm < 1 || mm > 12) return 'Invalid month';
+        const now = new Date();
+        const curYY = now.getFullYear() % 100;
+        const curMM = now.getMonth() + 1;
+        if (yy < curYY || (yy === curYY && mm < curMM)) return 'Card expired';
+        return '';
+      }
+      case 'cvv': {
+        const d = v.replace(/\D/g, '');
+        if (!d) return 'CVV is required';
+        if (d.length < 3 || d.length > 4) return 'CVV must be 3 or 4 digits';
+        return '';
+      }
+
+      default:
+        return '';
+    }
+  };
+
+  const handleFocus = (e) => {
+    const { name, value } = e.target || {};
+    if (!name) return;
+    const msg = validateField(name, value, { billingSameAsShipping: formData.billingSameAsShipping });
+    setErrors((prev) => ({ ...prev, [name]: msg }));
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // Live sanitization
+    const nameLikeFields = new Set(['firstName', 'lastName', 'billingFirstName', 'billingLastName']);
+    let valueSanitized = value;
+    if (nameLikeFields.has(name)) {
+      // Allow only letters, spaces, apostrophes, hyphens
+      valueSanitized = value.replace(/[^A-Za-z\s'-]/g, '');
+    } else if (name === 'phone') {
+      // Digits only, limit to 10
+      valueSanitized = value.replace(/\D/g, '').slice(0, 10);
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === 'checkbox' ? checked : valueSanitized
     }));
     
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
+    // Live validation for email and phone; otherwise clear error on typing
+    if (name === 'email' || name === 'phone') {
+      const msg = validateField(name, valueSanitized, { billingSameAsShipping: formData.billingSameAsShipping });
+      setErrors(prev => ({ ...prev, [name]: msg }));
+    } else if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
 
     // Auto-detect city and state from PIN code
-    if (name === 'zipCode' && value.length === 6) {
-      handlePinCodeLookup(value);
+    if (name === 'zipCode' && valueSanitized.length === 6) {
+      handlePinCodeLookup(valueSanitized);
     }
   };
 
@@ -123,13 +253,15 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
     
     if (step === 1) {
       if (!formData.firstName) newErrors.firstName = 'First name is required';
+      else if (!/^[A-Za-z\s'-]+$/.test(formData.firstName)) newErrors.firstName = 'Only letters allowed';
       if (!formData.lastName) newErrors.lastName = 'Last name is required';
+      else if (!/^[A-Za-z\s'-]+$/.test(formData.lastName)) newErrors.lastName = 'Only letters allowed';
       if (!formData.email) newErrors.email = 'Email is required';
       if (!formData.phone) newErrors.phone = 'Phone number is required';
       if (!formData.address) newErrors.address = 'Address is required';
       if (!formData.city) newErrors.city = 'City is required';
       if (!formData.state) newErrors.state = 'State is required';
-      if (!formData.zipCode) newErrors.zipCode = 'ZIP code is required';
+      if (!formData.zipCode) newErrors.zipCode = 'PIN code is required';
     }
     
     if (step === 2 && !formData.billingSameAsShipping) {
@@ -182,31 +314,39 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
 
       const orderTotal = calculateOrderTotal();
       const productsPayload = cartItems.map((i) => ({ id: i.id, name: i.name, quantity: i.quantity, price: i.finalPrice }));
-      const createRes = await api.createOrder({ products: productsPayload, totalAmount: orderTotal.total });
+      
+      console.log('DEBUG: Order payload:', { products: productsPayload, totalAmount: orderTotal.total });
+      
+      const createRes = await api.createOrder({ 
+        products: productsPayload, 
+        totalAmount: orderTotal.total,
+        address: `${formData.address}, ${formData.city}, ${formData.state} ${formData.zipCode}`
+      });
 
+      // Razorpay integration
       const options = {
         key: createRes.razorpayKeyId,
         amount: createRes.amount,
         currency: createRes.currency || 'INR',
         name: 'GreenCart',
         description: 'Order Payment',
-        order_id: createRes.orderId,
+        order_id: createRes.razorpayOrderId,
         prefill: {
           name: `${formData.firstName} ${formData.lastName}`.trim(),
           email: formData.email,
           contact: formData.phone,
         },
-        notes: { dbOrderId: createRes.dbOrderId },
+        notes: { dbOrderId: createRes.orderId },
         handler: async function (response) {
           try {
             const verifyRes = await api.verifyPayment({
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-              dbOrderId: createRes.dbOrderId,
+              dbOrderId: createRes.orderId,
             });
             if (verifyRes.success) {
-              onOrderComplete({ orderId: createRes.dbOrderId, status: 'success', total: orderTotal.total, date: new Date().toISOString() });
+              onOrderComplete({ orderId: createRes.orderId, status: 'success', total: orderTotal.total, date: new Date().toISOString() });
             } else {
               setPaymentError(verifyRes.error || 'Payment verification failed');
             }
@@ -224,11 +364,17 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
         theme: { color: '#4CAF50' },
       };
 
+      if (!window.Razorpay) {
+        throw new Error('Razorpay SDK not available');
+      }
       const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', function () {
-        setPaymentError('Payment failed. Please try again.');
+      rzp.on('payment.failed', function (response) {
+        console.log('Payment failed:', response);
+        setPaymentError(response?.error?.description || 'Payment failed. Please try again.');
         setIsProcessing(false);
       });
+      
+      // Open Razorpay payment modal
       rzp.open();
     } catch (err) {
       setPaymentError(err.message || 'Payment failed. Please try again.');
@@ -268,7 +414,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
               </div>
             </div>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} onFocus={handleFocus}>
               {/* Step 1: Shipping Information */}
               {currentStep === 1 && (
                 <div className="checkout-step">
@@ -313,6 +459,8 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         name="email"
                         value={formData.email}
                         onChange={handleInputChange}
+                        inputMode="email"
+                        autoComplete="email"
                         className={errors.email ? 'error' : ''}
                         placeholder="Enter your email"
                       />
@@ -327,6 +475,9 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                         name="phone"
                         value={formData.phone}
                         onChange={handleInputChange}
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength="10"
                         className={errors.phone ? 'error' : ''}
                         placeholder="Enter your phone number"
                       />
@@ -432,20 +583,7 @@ const Checkout = ({ cartItems, onOrderComplete }) => {
                     </div>
                   </div>
 
-                  <div className="form-group">
-                    <label htmlFor="country">Country</label>
-                    <select
-                      id="country"
-                      name="country"
-                      value={formData.country}
-                      onChange={handleInputChange}
-                    >
-                      <option value="IN">India</option>
-                      <option value="US">United States</option>
-                      <option value="CA">Canada</option>
-                      <option value="UK">United Kingdom</option>
-                    </select>
-                  </div>
+
 
                   <div className="step-actions">
                     <button type="button" onClick={handleNext} className="next-btn">

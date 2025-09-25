@@ -3,20 +3,66 @@ import { useNavigate } from 'react-router-dom';
 import './ShoppingCart.css';
 
 const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
-  const [cart, setCart] = useState(cartItems || []);
+  const [cart, setCart] = useState(() => {
+    if (cartItems && cartItems.length) return cartItems;
+    try {
+      const saved = localStorage.getItem('cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Keep local state in sync with props or restore from localStorage on refresh
   useEffect(() => {
-    setCart(cartItems || []);
+    if (cartItems && cartItems.length > 0) {
+      setCart(cartItems);
+    } else {
+      try {
+        const saved = localStorage.getItem('cart');
+        if (saved) setCart(JSON.parse(saved));
+      } catch {}
+    }
   }, [cartItems]);
 
-  const handleQuantityChange = (itemId, newQuantity) => {
+  // Persist cart locally so refresh restores it
+  useEffect(() => {
+    try {
+      localStorage.setItem('cart', JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
+
+  const handleQuantityChange = async (itemId, newQuantity) => {
     if (newQuantity < 1) {
       onRemoveItem(itemId);
-    } else {
-      onUpdateQuantity(itemId, newQuantity);
+      return;
     }
+
+    // Check stock availability before updating quantity
+    try {
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const response = await fetch(`${apiBase}/products/${itemId}/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: newQuantity })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          alert(`Only ${data.maxAvailable} items available in stock`);
+          // Update to maximum available quantity
+          onUpdateQuantity(itemId, data.maxAvailable);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking stock:', error);
+    }
+
+    onUpdateQuantity(itemId, newQuantity);
   };
 
   const handleRemoveItem = (itemId) => {

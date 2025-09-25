@@ -20,7 +20,12 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
     return src.startsWith('/') ? host + src : host + '/' + src;
   };
 
-  const primarySrc = resolveImageUrl(product.imageUrl || product.image) ||
+  const getPrimaryImageSrc = (p) => {
+    const raw = p?.imageUrl || p?.image || p?.image_path || p?.imagePath || p?.thumbnail || p?.photo || p?.photoUrl || p?.url;
+    return resolveImageUrl(raw);
+  };
+
+  const primarySrc = getPrimaryImageSrc(product) ||
     'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
 
   return (
@@ -39,6 +44,13 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
         <div className="category-badge">
           {product.subcategory || product.category}
         </div>
+
+        {/* Stock Status Badge */}
+        {product.stock !== undefined && (
+          <div className={`stock-badge ${product.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
+            {product.stock > 0 ? `${product.stock} left` : 'Out of Stock'}
+          </div>
+        )}
 
         <div className="action-buttons">
           <button

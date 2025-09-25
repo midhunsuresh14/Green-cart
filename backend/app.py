@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from pymongo import MongoClient
@@ -12,21 +12,14 @@ import string
 from bson import ObjectId
 from functools import wraps
 from dotenv import load_dotenv
-try:
-    import razorpay
-except Exception:
-    razorpay = None
-try:
-    from twilio.rest import Client as TwilioClient
-except Exception:
-    TwilioClient = None
 
 # Load environment variables
-# Ensure we load the .env that sits next to this file regardless of current working directory
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+     allow_headers=["Content-Type", "Authorization"])
 
 # Email configuration
 app.config['MAIL_SERVER'] = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
@@ -52,30 +45,26 @@ users_collection = db.users
 products_collection = db.products
 orders_collection = db.orders
 remedies_collection = db.remedies
+reviews_collection = db.reviews
+notifications_collection = db.notifications
 otp_collection = db.otp_verifications
 
 # JWT Configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'greencart-secret-key-2024-secure-jwt-token')
 
-# OTP Configuration
-OTP_LENGTH = int(os.getenv('OTP_LENGTH', 6))
-OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', 10))
-
-# Twilio configuration (for SMS OTP)
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
-TWILIO_FROM_NUMBER = os.getenv('TWILIO_FROM_NUMBER')
-DEFAULT_COUNTRY_CODE = os.getenv('DEFAULT_COUNTRY_CODE', '').lstrip('+')
-
 # Razorpay configuration
 RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
-razorpay_client = None
-if razorpay and RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
-    try:
-        razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-    except Exception:
-        razorpay_client = None
+try:
+    import razorpay
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
+except Exception:
+    razorpay = None
+    razorpay_client = None
+
+# OTP Configuration
+OTP_LENGTH = int(os.getenv('OTP_LENGTH', 6))
+OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', 10))
 
 # OTP Helper Functions
 def generate_otp():
@@ -119,43 +108,6 @@ def send_otp_email(email, otp, name):
         print(f"Error sending email: {str(e)}")
         return False
 
-def send_password_reset_email(email, code, name):
-    """Send password reset verification code email"""
-    try:
-        msg = Message(
-            subject='Reset Your Password - GreenCart',
-            recipients=[email],
-            html=f'''
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <div style="background: linear-gradient(135deg, #4CAF50, #45a049); padding: 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0;">GreenCart</h1>
-                </div>
-                <div style="padding: 30px; background: #f9f9f9;">
-                    <h2 style="color: #333; margin-bottom: 20px;">Password Reset Request</h2>
-                    <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                        Hi {name or 'there'}, use the verification code below to reset your password:
-                    </p>
-                    <div style="background: white; padding: 20px; border-radius: 8px; text-align: center; margin: 20px 0; border: 2px solid #4CAF50;">
-                        <h1 style="color: #4CAF50; font-size: 32px; letter-spacing: 5px; margin: 0;">{code}</h1>
-                    </div>
-                    <p style="color: #666; font-size: 14px;">
-                        This code will expire in {OTP_EXPIRY_MINUTES} minutes. If you didn't request a password reset, you can safely ignore this email.
-                    </p>
-                </div>
-                <div style="background: #333; padding: 20px; text-align: center;">
-                    <p style="color: #ccc; margin: 0; font-size: 12px;">
-                        © 2024 GreenCart. All rights reserved.
-                    </p>
-                </div>
-            </div>
-            '''
-        )
-        mail.send(msg)
-        return True
-    except Exception as e:
-        print(f"Error sending reset email: {str(e)}")
-        return False
-
 def store_otp(email, otp):
     """Store OTP in database with expiry"""
     expiry_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=OTP_EXPIRY_MINUTES)
@@ -189,62 +141,6 @@ def verify_otp(email, otp):
             {'_id': otp_doc['_id']},
             {'$set': {'used': True, 'verified_at': datetime.datetime.utcnow()}}
         )
-        return True
-    return False
-
-# Password reset helpers (use same collection with discriminator to avoid collisions)
-def store_password_reset_code(email, code):
-    expiry_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=OTP_EXPIRY_MINUTES)
-    otp_collection.delete_many({'email': email, 'type': 'password_reset'})
-    otp_doc = {
-        'email': email,
-        'otp': code,
-        'type': 'password_reset',
-        'expires_at': expiry_time,
-        'created_at': datetime.datetime.utcnow(),
-        'used': False
-    }
-    otp_collection.insert_one(otp_doc)
-    return True
-
-def verify_password_reset_code(email, code):
-    otp_doc = otp_collection.find_one({
-        'email': email,
-        'otp': code,
-        'type': 'password_reset',
-        'used': False,
-        'expires_at': {'$gt': datetime.datetime.utcnow()}
-    })
-    if otp_doc:
-        otp_collection.update_one({'_id': otp_doc['_id']}, {'$set': {'used': True, 'verified_at': datetime.datetime.utcnow()}})
-        return True
-    return False
-
-# Phone OTP helpers (separate docs to avoid collisions with email OTPs)
-def store_phone_otp(phone, otp):
-    """Store OTP for phone verification with expiry"""
-    expiry_time = datetime.datetime.utcnow() + datetime.timedelta(minutes=OTP_EXPIRY_MINUTES)
-    otp_collection.delete_many({'phone': phone})
-    otp_doc = {
-        'phone': phone,
-        'otp': otp,
-        'expires_at': expiry_time,
-        'created_at': datetime.datetime.utcnow(),
-        'used': False
-    }
-    otp_collection.insert_one(otp_doc)
-    return True
-
-def verify_phone_otp(phone, otp):
-    """Verify phone OTP and mark as used"""
-    otp_doc = otp_collection.find_one({
-        'phone': phone,
-        'otp': otp,
-        'used': False,
-        'expires_at': {'$gt': datetime.datetime.utcnow()}
-    })
-    if otp_doc:
-        otp_collection.update_one({'_id': otp_doc['_id']}, {'$set': {'used': True, 'verified_at': datetime.datetime.utcnow()}})
         return True
     return False
 
@@ -516,18 +412,27 @@ def verify_otp_endpoint():
         hashed_password = generate_password_hash(password)
         
         # Create user document
-        user_data = {
+        user_doc = {
+            'name': name,
             'email': email,
             'password': hashed_password,
-            'name': name,
-            'phone': phone,
-            'email_verified': True,
-            'created_at': datetime.datetime.utcnow(),
-            'role': 'user'
+            'role': 'user',
+            'created_at': datetime.datetime.utcnow()
         }
         
+        # Create admin notification for new user registration
+        notification_doc = {
+            'type': 'new_user',
+            'message': f'New user registered: {email}',
+            'user_email': email,
+            'user_name': name,
+            'created_at': datetime.datetime.utcnow(),
+            'read': False
+        }
+        notifications_collection.insert_one(notification_doc)
+        
         # Insert user into MongoDB
-        result = users_collection.insert_one(user_data)
+        result = users_collection.insert_one(user_doc)
         
         # Generate JWT token
         token = jwt.encode({
@@ -596,55 +501,6 @@ def resend_otp():
             'error': str(e)
         }), 400
 
-# Password reset: request code
-@app.route('/api/password/request-reset', methods=['POST'])
-def password_request_reset():
-    try:
-        data = request.get_json() or {}
-        email = (data.get('email') or '').strip().lower()
-        if not email:
-            return jsonify({'success': False, 'error': 'Email is required'}), 400
-
-        user = users_collection.find_one({'email': email})
-        # Always respond success to avoid email enumeration, but only send code if user exists
-        if user:
-            code = generate_otp()
-            store_password_reset_code(email, code)
-            send_password_reset_email(email, code, user.get('name', ''))
-
-        return jsonify({'success': True, 'message': 'If an account exists, a reset code has been sent.'}), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
-
-# Password reset: verify code and set new password
-@app.route('/api/password/reset', methods=['POST'])
-def password_reset():
-    try:
-        data = request.get_json() or {}
-        email = (data.get('email') or '').strip().lower()
-        code = (data.get('code') or '').strip()
-        new_password = data.get('newPassword') or ''
-
-        if not email or not code or not new_password:
-            return jsonify({'success': False, 'error': 'Email, code, and new password are required'}), 400
-
-        if len(new_password) < 6:
-            return jsonify({'success': False, 'error': 'Password must be at least 6 characters'}), 400
-
-        if not verify_password_reset_code(email, code):
-            return jsonify({'success': False, 'error': 'Invalid or expired code'}), 400
-
-        user = users_collection.find_one({'email': email})
-        if not user:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-
-        hashed = generate_password_hash(new_password)
-        users_collection.update_one({'_id': user['_id']}, {'$set': {'password': hashed}})
-
-        return jsonify({'success': True, 'message': 'Password has been reset. You can now log in.'}), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
-
 @app.route('/api/login', methods=['POST'])
 def login():
     try:
@@ -692,168 +548,6 @@ def login():
             'success': False,
             'error': str(e)
         }), 400
-
-# Login with phone number only (must be an existing registered user)
-@app.route('/api/login-phone', methods=['POST'])
-def login_phone():
-    try:
-        data = request.get_json()
-        phone = (data or {}).get('phone', '').strip()
-
-        if not phone:
-            return jsonify({'success': False, 'error': 'Phone number is required'}), 400
-
-        # Normalize phone: keep digits only for basic comparison
-        digits_only = ''.join(ch for ch in phone if ch.isdigit())
-        if not digits_only:
-            return jsonify({'success': False, 'error': 'Invalid phone number'}), 400
-
-        # Try to match either exact stored phone or digits-only match
-        user = users_collection.find_one({
-            '$or': [
-                {'phone': phone},
-                {'phone': digits_only}
-            ]
-        })
-
-        if not user:
-            return jsonify({'success': False, 'error': 'Phone number not found'}), 404
-
-        # Optional: block inactive users if schema uses 'active'
-        if user.get('active') is False:
-            return jsonify({'success': False, 'error': 'Account is inactive'}), 403
-
-        token = jwt.encode({
-            'user_id': str(user['_id']),
-            'email': user.get('email', ''),
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        }, app.config['SECRET_KEY'], algorithm='HS256')
-
-        return jsonify({
-            'success': True,
-            'message': 'Login successful',
-            'user': {
-                'id': str(user['_id']),
-                'email': user.get('email', ''),
-                'name': user.get('name', ''),
-                'phone': user.get('phone', ''),
-                'role': user.get('role', 'user')
-            },
-            'token': token
-        }), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
-
-# Phone OTP: request
-@app.route('/api/phone/request-otp', methods=['POST'])
-def request_phone_otp():
-    try:
-        data = request.get_json() or {}
-        phone_raw = (data.get('phone') or '').strip()
-        if not phone_raw:
-            return jsonify({'success': False, 'error': 'Phone number is required'}), 400
-
-        digits_only = ''.join(ch for ch in phone_raw if ch.isdigit())
-        if not digits_only:
-            return jsonify({'success': False, 'error': 'Invalid phone number'}), 400
-
-        # Find existing user by phone
-        user = users_collection.find_one({
-            '$or': [
-                {'phone': phone_raw},
-                {'phone': digits_only}
-            ]
-        })
-        if not user:
-            return jsonify({'success': False, 'error': 'Phone number not found'}), 404
-
-        otp = generate_otp()
-        # Prefer storing normalized digits_only
-        store_phone_otp(digits_only, otp)
-
-        # Send via Twilio (SMS or WhatsApp)
-        if not (TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_FROM_NUMBER and TwilioClient is not None):
-            return jsonify({'success': False, 'error': 'Messaging service not configured'}), 500
-
-        try:
-            twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-            # Ensure E.164 format
-            if phone_raw.startswith('+'):
-                to_number = phone_raw
-            elif DEFAULT_COUNTRY_CODE:
-                # Remove leading zeros when combining with country code
-                to_number = f"+{DEFAULT_COUNTRY_CODE}{digits_only.lstrip('0')}"
-            else:
-                return jsonify({'success': False, 'error': 'Phone must include country code, e.g., +15551234567'}), 400
-
-            message_body = f"Your GreenCart OTP is {otp}. It expires in {OTP_EXPIRY_MINUTES} minutes."
-
-            from_number = TWILIO_FROM_NUMBER
-            to_param = to_number
-            # If using WhatsApp sandbox/number, prefix both with 'whatsapp:'
-            if str(from_number).startswith('whatsapp:'):
-                to_param = f"whatsapp:{to_number}"
-
-            twilio_client.messages.create(
-                body=message_body,
-                from_=from_number,
-                to=to_param
-            )
-        except Exception as sms_err:
-            # Best-effort cleanup: allow client to retry
-            return jsonify({'success': False, 'error': f'Failed to send message: {str(sms_err)}'}), 500
-
-        return jsonify({'success': True, 'message': 'OTP sent via SMS'}), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
-
-# Phone OTP: verify and login
-@app.route('/api/phone/verify-otp', methods=['POST'])
-def verify_phone_otp_endpoint():
-    try:
-        data = request.get_json() or {}
-        phone_raw = (data.get('phone') or '').strip()
-        otp = (data.get('otp') or '').strip()
-        if not phone_raw or not otp:
-            return jsonify({'success': False, 'error': 'Phone and OTP are required'}), 400
-
-        digits_only = ''.join(ch for ch in phone_raw if ch.isdigit())
-        if not digits_only:
-            return jsonify({'success': False, 'error': 'Invalid phone number'}), 400
-
-        if not verify_phone_otp(digits_only, otp):
-            return jsonify({'success': False, 'error': 'Invalid or expired OTP'}), 400
-
-        # Fetch user again and issue token
-        user = users_collection.find_one({
-            '$or': [
-                {'phone': phone_raw},
-                {'phone': digits_only}
-            ]
-        })
-        if not user:
-            return jsonify({'success': False, 'error': 'User not found for this phone'}), 404
-
-        token = jwt.encode({
-            'user_id': str(user['_id']),
-            'email': user.get('email', ''),
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=24)
-        }, app.config['SECRET_KEY'], algorithm='HS256')
-
-        return jsonify({
-            'success': True,
-            'message': 'Phone verified and login successful',
-            'user': {
-                'id': str(user['_id']),
-                'email': user.get('email', ''),
-                'name': user.get('name', ''),
-                'phone': user.get('phone', ''),
-                'role': user.get('role', 'user')
-            },
-            'token': token
-        }), 200
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
 
 @app.route('/api/user/<user_id>', methods=['GET'])
 @login_required
@@ -1049,126 +743,20 @@ def upload_image():
 def serve_uploads(filename):
     return send_from_directory(UPLOAD_DIR, filename)
 
-# Orders: create (Razorpay), verify, list, update delivery status
-
-def _normalize_order(o):
-    return {
-        'id': str(o['_id']),
-        'userId': str(o.get('user_id')) if o.get('user_id') else '',
-        'customerName': o.get('customerName') or '',
-        'totalAmount': float(o.get('total_amount', o.get('total', 0))),
-        'paymentStatus': o.get('payment_status', 'Pending'),
-        'deliveryStatus': o.get('delivery_status', 'Pending'),
-        'razorpayOrderId': o.get('razorpay_order_id', ''),
-        'razorpayPaymentId': o.get('razorpay_payment_id', ''),
-        'createdAt': o.get('created_at', datetime.datetime.utcnow()),
-        'products': o.get('products', []),
-    }
-
-@app.route('/api/orders/create', methods=['POST'])
-def create_order():
-    if not razorpay_client:
-        return jsonify({'error': 'Payment gateway not configured'}), 500
-    try:
-        data = request.get_json() or {}
-        products = data.get('products') or []
-        total_amount = float(data.get('totalAmount') or 0)
-
-        # Basic server-side total computation as fallback
-        if not total_amount and products:
-            total_amount = sum(float(p.get('price', 0)) * int(p.get('quantity', 1)) for p in products)
-
-        if total_amount <= 0:
-            return jsonify({'error': 'Invalid order amount'}), 400
-
-        # Try to associate user if Authorization header is present
-        user = get_current_user()
-        receipt = f"gc_{int(datetime.datetime.utcnow().timestamp())}"
-        rzp_order = razorpay_client.order.create({
-            'amount': int(round(total_amount * 100)),  # INR paise
-            'currency': 'INR',
-            'receipt': receipt,
-            'payment_capture': 1,
-        })
-
-        order_doc = {
-            'user_id': user.get('_id') if user else None,
-            'customerName': user.get('name') if user else '',
-            'products': products,
-            'total_amount': float(total_amount),
-            'payment_status': 'Pending',
-            'delivery_status': 'Pending',
-            'razorpay_order_id': rzp_order.get('id'),
-            'created_at': datetime.datetime.utcnow(),
-        }
-        res = orders_collection.insert_one(order_doc)
-
-        return jsonify({
-            'success': True,
-            'orderId': rzp_order.get('id'),
-            'amount': rzp_order.get('amount'),
-            'currency': rzp_order.get('currency'),
-            'dbOrderId': str(res.inserted_id),
-            'razorpayKeyId': RAZORPAY_KEY_ID,
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
-@app.route('/api/orders/verify', methods=['POST'])
-def verify_payment():
-    if not razorpay_client:
-        return jsonify({'error': 'Payment gateway not configured'}), 500
-    try:
-        data = request.get_json() or {}
-        rzp_order_id = data.get('razorpay_order_id')
-        rzp_payment_id = data.get('razorpay_payment_id')
-        rzp_signature = data.get('razorpay_signature')
-        db_order_id = data.get('dbOrderId')
-
-        if not (rzp_order_id and rzp_payment_id and rzp_signature and db_order_id):
-            return jsonify({'error': 'Missing verification fields'}), 400
-
-        # Verify signature
-        try:
-            params_dict = {
-                'razorpay_order_id': rzp_order_id,
-                'razorpay_payment_id': rzp_payment_id,
-                'razorpay_signature': rzp_signature,
-            }
-            razorpay_client.utility.verify_payment_signature(params_dict)
-            verified = True
-        except Exception as _:
-            verified = False
-
-        update = {
-            'razorpay_order_id': rzp_order_id,
-            'razorpay_payment_id': rzp_payment_id,
-            'payment_status': 'Success' if verified else 'Failed',
-            'updated_at': datetime.datetime.utcnow(),
-        }
-        try:
-            orders_collection.update_one({'_id': ObjectId(db_order_id)}, {'$set': update})
-        except Exception:
-            # fallback on razorpay_order_id lookup
-            orders_collection.update_one({'razorpay_order_id': rzp_order_id}, {'$set': update})
-
-        if verified:
-            return jsonify({'success': True})
-        return jsonify({'success': False, 'error': 'Signature verification failed'}), 400
-    except Exception as e:
-        return jsonify({'error': str(e)}), 400
-
+# Orders endpoints (basic list and status update)
 @app.route('/api/orders', methods=['GET'])
 @admin_required
 def list_orders():
     try:
-        status = request.args.get('paymentStatus')
-        q = {}
-        if status:
-            q['payment_status'] = status
         items = []
-        for o in orders_collection.find(q).sort('created_at', -1):
-            items.append(_normalize_order(o))
+        for o in orders_collection.find():
+            items.append({
+                'id': str(o['_id']),
+                'customerName': o.get('customerName'),
+                'total': float(o.get('total', 0)),
+                'status': o.get('status', 'pending'),
+                'createdAt': o.get('created_at', datetime.datetime.utcnow()),
+            })
         return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1192,10 +780,11 @@ def admin_stats():
 def update_order_status(order_id):
     try:
         data = request.get_json()
-        delivery_status = data.get('status')
-        if delivery_status not in ['Pending', 'Confirmed', 'Shipped', 'Delivered']:
+        status = data.get('status')
+        # Mini project statuses
+        if status not in ['pending', 'confirmed', 'delivered']:
             return jsonify({'error': 'Invalid status'}), 400
-        orders_collection.update_one({'_id': ObjectId(order_id)}, {'$set': {'delivery_status': delivery_status}})
+        orders_collection.update_one({'_id': ObjectId(order_id)}, {'$set': {'status': status}})
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -1256,6 +845,404 @@ def delete_remedy(remedy_id):
         return '', 204
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+# Reviews endpoints
+@app.route('/api/reviews', methods=['GET'])
+def get_reviews():
+    try:
+        product_id = request.args.get('productId')
+        
+        if product_id:
+            # Get reviews for specific product
+            reviews = list(reviews_collection.find({'productId': product_id}))
+        else:
+            # Get all reviews
+            reviews = list(reviews_collection.find({}))
+        
+        # Calculate rating statistics
+        if reviews:
+            ratings = [r.get('rating', 0) for r in reviews]
+            total_reviews = len(reviews)
+            average_rating = sum(ratings) / total_reviews if total_reviews > 0 else 0
+            
+            # Count ratings by star level
+            rating_counts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+            for rating in ratings:
+                if 1 <= rating <= 5:
+                    rating_counts[rating] += 1
+            
+            # Format for frontend
+            bars = [
+                {'stars': 5, 'count': rating_counts[5]},
+                {'stars': 4, 'count': rating_counts[4]},
+                {'stars': 3, 'count': rating_counts[3]},
+                {'stars': 2, 'count': rating_counts[2]},
+                {'stars': 1, 'count': rating_counts[1]},
+            ]
+            
+            # Format review items
+            items = []
+            for review in reviews:
+                items.append({
+                    'id': str(review['_id']),
+                    'name': review.get('userName', 'Anonymous'),
+                    'date': review.get('created_at', datetime.datetime.utcnow()).strftime('%d/%m/%Y'),
+                    'text': review.get('reviewText', ''),
+                    'rating': review.get('rating', 0),
+                    'image': review.get('image', None)
+                })
+            
+            return jsonify({
+                'average': round(average_rating, 1),
+                'total': total_reviews,
+                'bars': bars,
+                'items': items
+            })
+        else:
+            # No reviews found
+            return jsonify({
+                'average': 0,
+                'total': 0,
+                'bars': [
+                    {'stars': 5, 'count': 0},
+                    {'stars': 4, 'count': 0},
+                    {'stars': 3, 'count': 0},
+                    {'stars': 2, 'count': 0},
+                    {'stars': 1, 'count': 0},
+                ],
+                'items': []
+            })
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/reviews', methods=['POST'])
+@login_required
+def create_review():
+    try:
+        user = get_current_user()
+        data = request.get_json()
+        
+        product_id = data.get('productId')
+        rating = data.get('rating')
+        review_text = data.get('reviewText')
+        user_name = data.get('userName') or user.get('name', 'Anonymous')
+        
+        # Validation
+        if not product_id:
+            return jsonify({'error': 'Product ID is required'}), 400
+        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({'error': 'Rating must be between 1 and 5'}), 400
+        if not review_text or len(review_text.strip()) < 10:
+            return jsonify({'error': 'Review text must be at least 10 characters'}), 400
+        
+        # Check if user already reviewed this product
+        existing_review = reviews_collection.find_one({
+            'productId': product_id,
+            'userId': str(user['_id'])
+        })
+        
+        if existing_review:
+            return jsonify({'error': 'You have already reviewed this product'}), 400
+        
+        # Create review document
+        review_doc = {
+            'productId': product_id,
+            'userId': str(user['_id']),
+            'userName': user_name,
+            'rating': rating,
+            'reviewText': review_text.strip(),
+            'created_at': datetime.datetime.utcnow(),
+            'updated_at': datetime.datetime.utcnow()
+        }
+        
+        # Insert review
+        result = reviews_collection.insert_one(review_doc)
+        
+        # Return the created review
+        return jsonify({
+            'id': str(result.inserted_id),
+            'name': user_name,
+            'date': datetime.datetime.utcnow().strftime('%d/%m/%Y'),
+            'text': review_text.strip(),
+            'rating': rating,
+            'image': None
+        }), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/orders/create', methods=['POST'])
+@login_required
+def create_order():
+    try:
+        user = get_current_user()
+        data = request.get_json()
+        
+        print(f"DEBUG: Received order data: {data}")  # Debug log
+        
+        # Handle different payload formats from frontend
+        products = data.get('products', data.get('items', []))
+        total_amount = data.get('totalAmount', data.get('total', 0))
+        address = data.get('address', 'Not provided')
+        
+        print(f"DEBUG: Parsed - products: {products}, total: {total_amount}, address: {address}")  # Debug log
+        
+        if not products:
+            return jsonify({'error': 'Products/items are required'}), 400
+        
+        if not total_amount or total_amount <= 0:
+            return jsonify({'error': 'Valid total amount is required'}), 400
+        
+        # Check stock availability and update stock for each item
+        for item in products:
+            product_id = item.get('id') or item.get('_id')
+            quantity = item.get('quantity', 1)
+            
+            if not check_stock_and_notify(product_id, quantity):
+                product = products_collection.find_one({'_id': ObjectId(product_id)})
+                product_name = product.get('name', 'Unknown') if product else 'Unknown'
+                return jsonify({
+                    'error': f'Insufficient stock for {product_name}. Please update your cart.'
+                }), 400
+        
+        # Create order document
+        order_doc = {
+            'userId': str(user['_id']),
+            'userName': user.get('name', 'Unknown'),
+            'userEmail': user.get('email', ''),
+            'items': products,
+            'total': total_amount,
+            'address': address,
+            'status': 'pending',
+            'paymentStatus': 'pending',
+            'created_at': datetime.datetime.utcnow(),
+            'updated_at': datetime.datetime.utcnow()
+        }
+        
+        # Insert order
+        result = orders_collection.insert_one(order_doc)
+        
+        # Create Razorpay order
+        rzp_order_id = None
+        amount_paise = int(total_amount * 100)
+        if razorpay_client:
+            try:
+                rzp_order = razorpay_client.order.create({
+                    'amount': amount_paise,  # in paise
+                    'currency': 'INR',
+                    'receipt': str(result.inserted_id),
+                    'payment_capture': 1,
+                })
+                rzp_order_id = rzp_order.get('id')
+            except Exception as e:
+                return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
+        else:
+            return jsonify({'error': 'Razorpay is not configured on server'}), 500
+
+        # Save Razorpay order id
+        orders_collection.update_one(
+            {'_id': result.inserted_id},
+            {'$set': {'razorpay_order_id': rzp_order_id}}
+        )
+
+        # Return order for Razorpay payment processing
+        return jsonify({
+            'orderId': str(result.inserted_id),
+            'razorpayKeyId': RAZORPAY_KEY_ID,
+            'razorpayOrderId': rzp_order_id,
+            'amount': amount_paise,
+            'currency': 'INR',
+            'status': 'success',
+            'message': 'Order created successfully'
+        }), 201
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/orders/verify', methods=['POST'])
+@login_required
+def verify_payment():
+    try:
+        data = request.get_json()
+        razorpay_payment_id = data.get('razorpay_payment_id')
+        razorpay_order_id = data.get('razorpay_order_id')
+        razorpay_signature = data.get('razorpay_signature')
+        order_id = data.get('dbOrderId')
+
+        if not all([razorpay_payment_id, razorpay_order_id, razorpay_signature, order_id]):
+            return jsonify({'success': False, 'error': 'Missing payment verification fields'}), 400
+
+        if not razorpay_client:
+            return jsonify({'success': False, 'error': 'Razorpay is not configured on server'}), 500
+
+        # Verify signature
+        try:
+            params_dict = {
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            }
+            razorpay_client.utility.verify_payment_signature(params_dict)
+        except Exception as e:
+            return jsonify({'success': False, 'error': f'Signature verification failed: {str(e)}'}), 400
+
+        # Mark order as paid
+        orders_collection.update_one(
+            {'_id': ObjectId(order_id)},
+            {'$set': {'paymentStatus': 'completed', 'status': 'confirmed', 'razorpay_payment_id': razorpay_payment_id}}
+        )
+
+        return jsonify({'success': True, 'message': 'Payment verified successfully'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Stock Management Functions
+def check_stock_and_notify(product_id, quantity_ordered):
+    """Check stock levels and send admin notification if stock is low/out"""
+    try:
+        product = products_collection.find_one({'_id': ObjectId(product_id)})
+        if not product:
+            return False
+        
+        current_stock = product.get('stock', 0)
+        new_stock = current_stock - quantity_ordered
+        
+        # Update stock
+        products_collection.update_one(
+            {'_id': ObjectId(product_id)},
+            {'$set': {'stock': max(0, new_stock)}}
+        )
+        
+        # Send notification if stock is low or out
+        if new_stock <= 0:
+            send_admin_notification(
+                'OUT_OF_STOCK',
+                f"Product '{product.get('name', 'Unknown')}' is now out of stock!",
+                {'productId': product_id, 'productName': product.get('name')}
+            )
+        elif new_stock <= 5:  # Low stock threshold
+            send_admin_notification(
+                'LOW_STOCK',
+                f"Product '{product.get('name', 'Unknown')}' has only {new_stock} items left in stock!",
+                {'productId': product_id, 'productName': product.get('name'), 'remainingStock': new_stock}
+            )
+        
+        return new_stock >= 0
+    except Exception as e:
+        print(f"Error in stock check: {e}")
+        return False
+
+def send_admin_notification(notification_type, message, data=None):
+    """Send notification to admin"""
+    try:
+        notification = {
+            'type': notification_type,
+            'message': message,
+            'data': data or {},
+            'read': False,
+            'created_at': datetime.datetime.utcnow()
+        }
+        notifications_collection.insert_one(notification)
+        print(f"Admin notification sent: {message}")
+    except Exception as e:
+        print(f"Error sending notification: {e}")
+
+# Stock Management Endpoints
+@app.route('/api/products/<product_id>/stock', methods=['GET'])
+def get_product_stock(product_id):
+    try:
+        product = products_collection.find_one({'_id': ObjectId(product_id)})
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        return jsonify({
+            'productId': product_id,
+            'stock': product.get('stock', 0),
+            'inStock': product.get('stock', 0) > 0
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/products/<product_id>/check-availability', methods=['POST'])
+def check_product_availability(product_id):
+    try:
+        data = request.get_json()
+        requested_quantity = data.get('quantity', 1)
+        
+        product = products_collection.find_one({'_id': ObjectId(product_id)})
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        current_stock = product.get('stock', 0)
+        available = current_stock >= requested_quantity
+        
+        return jsonify({
+            'available': available,
+            'currentStock': current_stock,
+            'requestedQuantity': requested_quantity,
+            'maxAvailable': current_stock
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/low-stock', methods=['GET'])
+@admin_required
+def get_low_stock():
+    try:
+        threshold = int(request.args.get('threshold', 10))
+        
+        # Find products with stock below threshold
+        low_stock_products = list(products_collection.find({
+            'stock': {'$lt': threshold, '$exists': True}
+        }))
+        
+        items = []
+        for product in low_stock_products:
+            items.append({
+                'id': str(product['_id']),
+                'name': product.get('name', 'Unknown'),
+                'stock': product.get('stock', 0),
+                'category': product.get('category', ''),
+                'imageUrl': product.get('imageUrl', product.get('image', ''))
+            })
+        
+        return jsonify({
+            'items': items,
+            'count': len(items),
+            'threshold': threshold
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/notifications', methods=['GET'])
+@admin_required
+def get_admin_notifications():
+    try:
+        notifications = list(notifications_collection.find().sort('created_at', -1).limit(50))
+        
+        # Convert ObjectId to string for JSON serialization
+        for notification in notifications:
+            notification['_id'] = str(notification['_id'])
+            notification['created_at'] = notification['created_at'].isoformat()
+        
+        return jsonify(notifications)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/notifications/<notification_id>/mark-read', methods=['PUT'])
+@admin_required
+def mark_notification_read(notification_id):
+    try:
+        notifications_collection.update_one(
+            {'_id': ObjectId(notification_id)},
+            {'$set': {'read': True}}
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

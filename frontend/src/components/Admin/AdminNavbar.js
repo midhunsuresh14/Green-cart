@@ -24,10 +24,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 
-const links = [
-  { label: 'Home', to: '/' },
-  { label: 'Products', to: '/products' },
-];
+const links = [];
 
 export default function AdminNavbar({ user, onLogout }) {
   const [open, setOpen] = useState(false);
@@ -46,7 +43,7 @@ export default function AdminNavbar({ user, onLogout }) {
   };
 
   const handleGoHome = () => {
-    navigate('/');
+    navigate('/admin');
   };
 
   return (

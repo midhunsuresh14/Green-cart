@@ -35,9 +35,17 @@ const Wishlist = ({ wishlistItems, onRemoveFromWishlist, onAddToCart, onViewDeta
             <div key={product.id} className="wishlist-card">
               <div className="wishlist-image-container">
                 <img
-                  src={product.image || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'}
+                  src={(function(){
+                    const raw = product?.imageUrl || product?.image || product?.image_path || product?.imagePath || product?.thumbnail || product?.photo || product?.photoUrl || product?.url;
+                    if (!raw) return 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+                    if (/^https?:\/\//i.test(raw)) return raw;
+                    const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+                    const host = apiBase.replace(/\/api\/?$/, '');
+                    return raw.startsWith('/') ? host + raw : host + '/' + raw;
+                  })()}
                   alt={product.name}
                   className="wishlist-image"
+                  onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'; }}
                 />
                 <button
                   className="remove-wishlist-btn"
@@ -80,13 +88,6 @@ const Wishlist = ({ wishlistItems, onRemoveFromWishlist, onAddToCart, onViewDeta
                 </div>
 
                 <div className="wishlist-actions">
-                  <button
-                    className="view-details-btn"
-                    onClick={() => onViewDetails(product)}
-                  >
-                    <span className="material-icons">visibility</span>
-                    View Details
-                  </button>
                   <button
                     className="add-to-cart-btn"
                     onClick={() => onAddToCart(product)}

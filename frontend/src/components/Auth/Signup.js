@@ -62,7 +62,7 @@ function Signup({ user, setUser }) {
     const userData = localStorage.getItem('user');
     if (token && userData) {
       setUser(JSON.parse(userData));
-      navigate('/dashboard');
+      navigate('/');
     }
   }, [navigate, setUser]);
 
@@ -198,8 +198,9 @@ function Signup({ user, setUser }) {
           role: 'user',
         };
         localStorage.setItem('user', JSON.stringify(newUser));
+        localStorage.setItem('justSignedUp', '1');
         setUser(newUser);
-        navigate('/dashboard');
+        navigate('/');
       } else {
         setOtpError(data.error || 'OTP verification failed. Please try again.');
       }
@@ -268,17 +269,20 @@ function Signup({ user, setUser }) {
         if (response.ok) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
+          localStorage.setItem('justSignedUp', '1');
           setUser(data.user);
-          navigate('/dashboard');
+          navigate('/');
         } else {
           localStorage.setItem('user', JSON.stringify(userData));
+          localStorage.setItem('justSignedUp', '1');
           setUser(userData);
-          navigate('/dashboard');
+          navigate('/');
         }
       } catch (_) {
         localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('justSignedUp', '1');
         setUser(userData);
-        navigate('/dashboard');
+        navigate('/');
       }
     } catch (error) {
       if (error.code === 'auth/popup-closed-by-user') {

@@ -48,6 +48,11 @@
   --radius-3xl: 2rem;
   
   /* Spacing */
+  
+  /* Stock Badge Colors */
+  --stock-in: #10b981;
+  --stock-out: #ef4444;
+  --stock-low: #f59e0b;
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
   --space-md: 1rem;
@@ -214,6 +219,30 @@ body, html, #root {
 
 .hover-glow:hover {
   box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Stock Badge Styles */
+.stock-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
+  z-index: 2;
+}
+
+.stock-badge.in-stock {
+  background-color: var(--stock-in);
+  color: white;
+}
+
+.stock-badge.out-of-stock {
+  background-color: var(--stock-out);
+  color: white;
 }
 
 /* Professional Navigation */

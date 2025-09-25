@@ -14,9 +14,37 @@ const ProductDetail = ({ product, onAddToCart, onBack, onToggleWishlist, isInWis
     return src.startsWith('/') ? host + src : host + '/' + src;
   };
 
-  const fallbackImages = [
-    resolveImageUrl(product && (product.imageUrl || product.image)) || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80'
-  ];
+  const getPrimaryImageSrc = (p) => {
+    const raw = p?.imageUrl || p?.image || p?.image_path || p?.imagePath || p?.thumbnail || p?.photo || p?.photoUrl || p?.url;
+    return resolveImageUrl(raw);
+  };
+
+  // Get all images from the product, ensuring we use the exact same image as in ProductCard
+  const getAllImages = (p) => {
+    if (!p) return [];
+    
+    // First, try to get all images from the product
+    if (Array.isArray(p.images) && p.images.length > 0) {
+      return p.images.map(img => resolveImageUrl(img)).filter(Boolean);
+    }
+    
+    // If no images array, try to get multiple image fields
+    const imageFields = [
+      p.imageUrl, p.image, p.image_path, p.imagePath, 
+      p.thumbnail, p.photo, p.photoUrl, p.url
+    ].filter(Boolean);
+    
+    if (imageFields.length > 0) {
+      return imageFields.map(img => resolveImageUrl(img)).filter(Boolean);
+    }
+    
+    // Fallback to single image
+    const primaryImage = getPrimaryImageSrc(p);
+    return primaryImage ? [primaryImage] : [];
+  };
+
+  const productImages = getAllImages(product);
+  const fallbackImage = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=500&q=80';
 
   const productData = {
     ...(product || {}),
@@ -29,7 +57,7 @@ const ProductDetail = ({ product, onAddToCart, onBack, onToggleWishlist, isInWis
     price: product?.price ?? 24.99,
     originalPrice: product?.originalPrice ?? 34.99,
     discount: product?.discount ?? 29,
-    images: Array.isArray(product?.images) && product?.images.length > 0 ? product.images.map(resolveImageUrl) : fallbackImages,
+    images: productImages.length > 0 ? productImages : [fallbackImage],
     category: product?.category ?? 'Succulents',
     rating: product?.rating ?? 4.5,
     reviews: product?.reviews ?? 128,
@@ -85,258 +113,309 @@ const ProductDetail = ({ product, onAddToCart, onBack, onToggleWishlist, isInWis
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-100 via-sky-100 to-sky-200 bg-fixed pt-24 pb-12">
-      <div className="mx-auto max-w-7xl px-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">
         {/* Back Button */}
-        <button
-          className="mb-8 flex items-center gap-2 rounded-xl border border-[rgba(72,187,120,0.2)] bg-white/90 px-6 py-3 text-slate-700 shadow-[0_4px_15px_rgba(0,0,0,0.08)] backdrop-blur-md transition-all hover:-translate-y-0.5 hover:bg-green-500 hover:text-white hover:shadow-[0_8px_25px_rgba(72,187,120,0.3)]"
-          onClick={onBack}
-        >
-          <span className="material-icons text-[1.2rem]">arrow_back</span>
-          Back to Products
-        </button>
+        <div className="mb-8">
+          <button
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 hover:text-gray-900 transition-colors duration-200"
+            onClick={onBack}
+          >
+            <span className="material-icons text-lg">arrow_back</span>
+            Back to Products
+          </button>
+        </div>
 
-        <div className="mb-16 grid grid-cols-1 gap-10 rounded-3xl border border-white/20 bg-white/95 p-8 shadow-[0_20px_60px_rgba(0,0,0,0.1)] backdrop-blur-2xl md:grid-cols-2 md:gap-16 md:p-12">
-          {/* Image Gallery */}
-          <div className="flex flex-col gap-6">
-            <div className="relative overflow-hidden rounded-2xl shadow-[0_10px_30px_rgba(0,0,0,0.15)]">
-              <img
-                src={productData.images[selectedImage]}
-                alt={productData.name}
-                className="h-[420px] w-full object-cover transition-transform duration-300 md:h-[500px] hover:scale-[1.02]"
-                onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80'; }}
-              />
-              {productData.discount && (
-                <div className="absolute left-4 top-4 rounded-full bg-gradient-to-br from-rose-500 to-red-600 px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-[0_4px_15px_rgba(245,101,101,0.3)]">
-                  -{productData.discount}%
+        {/* Main Product Container */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
+            {/* Image Section */}
+            <div className="p-6 bg-gray-50">
+              <div className="max-w-md mx-auto">
+                {/* Main Image */}
+                <div className="relative mb-4">
+                  <div className="aspect-square overflow-hidden rounded-lg bg-white shadow-sm border border-gray-200">
+                    <img
+                      src={productData.images[selectedImage]}
+                      alt={productData.name}
+                      className="h-full w-full object-contain p-4"
+                      onError={(e) => { e.currentTarget.src = fallbackImage; }}
+                    />
+                  </div>
+                  
+                  {/* Discount Badge */}
+                  {productData.discount && (
+                    <div className="absolute top-3 left-3 bg-red-500 text-white px-2 py-1 rounded text-xs font-semibold">
+                      -{productData.discount}% OFF
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className="flex gap-3 overflow-x-auto py-2">
-              {productData.images.map((image, index) => {
-                const isActive = selectedImage === index;
-                return (
-                  <button
-                    key={index}
-                    className={
-                      'h-20 w-20 flex-shrink-0 overflow-hidden rounded-xl border-2 bg-white shadow-[0_4px_15px_rgba(0,0,0,0.1)] transition-all duration-200 hover:scale-105 ' +
-                      (isActive
-                        ? 'border-green-500 shadow-[0_4px_20px_rgba(72,187,120,0.3)]'
-                        : 'border-transparent')
-                    }
-                    onClick={() => setSelectedImage(index)}
-                  >
-                    <img src={image} alt={`${productData.name} ${index + 1}`} className="h-full w-full object-cover" onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=200&q=80'; }} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Product Info */}
-          <div className="flex flex-col gap-8">
-            <div className="flex flex-col gap-4">
-              <span className="w-fit rounded-full bg-gradient-to-br from-green-500 to-green-600 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_4px_15px_rgba(72,187,120,0.3)]">
-                {productData.category}
-              </span>
-              <h1 className="m-0 font-inter text-3xl font-extrabold leading-tight tracking-[-0.025em] text-gray-900 md:text-4xl">
-                {productData.name}
-              </h1>
-
-              <div className="flex items-center gap-4">
-                <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={
-                        i < Math.floor(productData.rating)
-                          ? 'text-yellow-400 text-xl'
-                          : 'text-slate-200 text-xl'
-                      }
+                {/* Thumbnail Gallery */}
+                <div className="flex gap-2 justify-center">
+                  {productData.images.slice(0, 4).map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImage(index)}
+                      className={`relative h-12 w-12 overflow-hidden rounded border transition-all duration-200 ${
+                        selectedImage === index
+                          ? 'border-green-500'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
                     >
-                      ★
-                    </span>
+                      <img
+                        src={image}
+                        alt={`${productData.name} view ${index + 1}`}
+                        className="h-full w-full object-cover"
+                        onError={(e) => { e.currentTarget.src = fallbackImage; }}
+                      />
+                    </button>
                   ))}
                 </div>
-                <span className="text-sm font-medium text-slate-500">
-                  {productData.rating} ({productData.reviews} reviews)
-                </span>
               </div>
             </div>
 
-            <div className="text-lg leading-8 text-slate-600">
-              <p>{productData.description}</p>
-            </div>
-
-            {/* Size Selection */}
-            <div>
-              <h3 className="mb-4 font-inter text-lg font-semibold text-slate-800">Size</h3>
-              <div className="flex flex-col gap-3">
-                {productData.sizes.map((size) => {
-                  const selected = selectedSize === size.name;
-                  return (
-                    <button
-                      key={size.name}
-                      className={
-                        'flex items-center justify-between rounded-xl border-2 bg-white px-6 py-4 font-inter transition-all ' +
-                        (selected
-                          ? 'border-green-500 bg-gradient-to-br from-emerald-500/10 to-teal-500/10 shadow-[0_4px_15px_rgba(72,187,120,0.2)]'
-                          : 'border-slate-200 hover:border-green-500 hover:bg-green-500/5')
-                      }
-                      onClick={() => setSelectedSize(size.name)}
-                    >
-                      <span className="font-medium text-slate-800">{size.label}</span>
-                      <span className="text-lg font-semibold text-green-500">
-                        ₹{size.price}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Price */}
-            <div className="my-2 flex items-center gap-4">
-              <span className="font-inter text-4xl font-extrabold tracking-tight text-gray-900">
-                ₹{getCurrentPrice()}
-              </span>
-              {productData.originalPrice && (
-                <span className="text-2xl font-medium text-gray-400 line-through">
-                  ₹{productData.originalPrice}
-                </span>
-              )}
-            </div>
-
-            {/* Quantity and Add to Cart */}
-            <div className="rounded-xl border border-[rgba(72,187,120,0.2)] bg-gradient-to-br from-green-500/5 to-teal-500/5 p-6 md:p-8">
-              <div className="mb-4 flex flex-col gap-3">
-                <label className="text-sm font-semibold text-slate-800">Quantity</label>
-                <div className="flex w-fit items-center gap-4 rounded-lg border-2 border-slate-200 bg-white p-2">
-                  <button
-                    className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-700 transition-colors hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => handleQuantityChange(-1)}
-                    disabled={quantity <= 1}
-                  >
-                    <span className="material-icons">remove</span>
-                  </button>
-                  <span className="min-w-[2rem] text-center text-xl font-semibold text-slate-800">
-                    {quantity}
+            {/* Product Details Section */}
+            <div className="p-6">
+              {/* Header */}
+              <div className="mb-6">
+                <div className="mb-3">
+                  <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+                    {productData.category}
                   </span>
+                </div>
+                
+                <h1 className="mb-3 text-xl font-bold text-gray-900">
+                  {productData.name}
+                </h1>
+
+                {/* Rating */}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center">
+                    {[...Array(5)].map((_, i) => (
+                      <span
+                        key={i}
+                        className={`text-sm ${
+                          i < Math.floor(productData.rating)
+                            ? 'text-yellow-400'
+                            : 'text-gray-300'
+                        }`}
+                      >
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-600">
+                    {productData.rating} ({productData.reviews} reviews)
+                  </span>
+                </div>
+
+                {/* Price */}
+                <div className="mb-6">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold text-gray-900">
+                      ₹{getCurrentPrice()}
+                    </span>
+                    {productData.originalPrice && (
+                      <span className="text-lg text-gray-400 line-through">
+                        ₹{productData.originalPrice}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="mb-6">
+                <h3 className="mb-2 text-sm font-semibold text-gray-900">Description</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {productData.longDescription || productData.description}
+                </p>
+              </div>
+
+              {/* Size Selection */}
+              <div className="mb-6">
+                <h3 className="mb-3 text-sm font-medium text-gray-900">Size</h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {productData.sizes.map((size) => {
+                    const selected = selectedSize === size.name;
+                    return (
+                      <button
+                        key={size.name}
+                        className={`flex items-center justify-between p-2 border rounded transition-colors ${
+                          selected
+                            ? 'border-green-500 bg-green-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedSize(size.name)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-3 h-3 rounded-full border-2 flex items-center justify-center ${
+                            selected ? 'border-green-500 bg-green-500' : 'border-gray-300'
+                          }`}>
+                            {selected && <div className="w-1 h-1 bg-white rounded-full"></div>}
+                          </div>
+                          <span className="text-xs font-medium text-gray-900">{size.label}</span>
+                        </div>
+                        <span className="text-xs font-semibold text-gray-900">
+                          ₹{size.price}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quantity and Add to Cart */}
+              <div className="mb-6">
+                <div className="mb-4">
+                  <label className="mb-2 block text-xs font-medium text-gray-900">Quantity</label>
+                  <div className="flex items-center gap-1 w-fit">
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => handleQuantityChange(-1)}
+                      disabled={quantity <= 1}
+                      aria-label="Decrease quantity"
+                    >
+                      <span className="material-icons text-xs">remove</span>
+                    </button>
+                    <span className="min-w-[2rem] text-center text-xs font-medium text-gray-900 px-2">
+                      {quantity}
+                    </span>
+                    <button
+                      className="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      onClick={() => handleQuantityChange(1)}
+                      disabled={quantity >= 10}
+                      aria-label="Increase quantity"
+                    >
+                      <span className="material-icons text-xs">add</span>
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  className="w-full flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleAddToCart}
+                  disabled={!productData.inStock}
+                >
+                  <span className="material-icons text-sm">shopping_cart</span>
+                  <span>Add to Cart - ₹{(getCurrentPrice() * quantity).toFixed(2)}</span>
+                </button>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="mb-4">
+                <div className="flex gap-2">
                   <button
-                    className="flex h-10 w-10 items-center justify-center rounded-md bg-slate-100 text-slate-700 transition-colors hover:bg-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                    onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= 10}
+                    className={`flex items-center gap-1 px-3 py-1.5 border rounded text-xs font-medium transition-colors ${
+                      isInWishlist
+                        ? 'border-red-300 bg-red-50 text-red-600'
+                        : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                    }`}
+                    onClick={() => onToggleWishlist && onToggleWishlist(productData)}
                   >
-                    <span className="material-icons">add</span>
+                    <span className="material-icons text-sm">
+                      {isInWishlist ? 'favorite' : 'favorite_border'}
+                    </span>
+                    <span>{isInWishlist ? 'In Wishlist' : 'Wishlist'}</span>
+                  </button>
+                  <button className="flex items-center gap-1 px-3 py-1.5 border border-gray-300 bg-white text-gray-700 rounded text-xs font-medium hover:bg-gray-50">
+                    <span className="material-icons text-sm">share</span>
+                    <span>Share</span>
                   </button>
                 </div>
               </div>
 
-              <button
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-0 bg-gradient-to-br from-green-500 to-green-600 px-6 py-4 text-base font-semibold text-white shadow-[0_8px_25px_rgba(72,187,120,0.3)] transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_35px_rgba(72,187,120,0.4)] disabled:translate-y-0 disabled:opacity-60"
-                onClick={handleAddToCart}
-                disabled={!productData.inStock}
-              >
-                <span className="material-icons text-[1.2rem]">shopping_cart</span>
-                Add to Cart - ₹{(getCurrentPrice() * quantity).toFixed(2)}
-              </button>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="flex gap-4">
-              <button
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-4 text-slate-700 transition-colors hover:border-green-500 hover:bg-green-500/5 hover:text-green-500"
-                onClick={() => onToggleWishlist && onToggleWishlist(productData)}
-              >
-                <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
-                {isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}
-              </button>
-              <button className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-6 py-4 text-slate-700 transition-colors hover:border-green-500 hover:bg-green-500/5 hover:text-green-500">
-                <span className="material-icons">share</span>
-                Share
-              </button>
-            </div>
-
-            {/* Stock Status */}
-            <div>
-              {productData.inStock ? (
-                <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-                  <span className="material-icons">check_circle</span>
-                  In Stock - Ready to Ship
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-2 rounded-full bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700">
-                  <span className="material-icons">cancel</span>
-                  Out of Stock
-                </span>
-              )}
+              {/* Stock Status */}
+              <div className="mb-4">
+                {productData.inStock ? (
+                  <div className="flex items-center gap-1 text-xs text-green-600">
+                    <span className="material-icons text-sm">check_circle</span>
+                    <span className="font-medium">In Stock - Ready to Ship</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 text-xs text-red-600">
+                    <span className="material-icons text-sm">cancel</span>
+                    <span className="font-medium">Out of Stock</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
         {/* Product Tabs */}
-        <div className="rounded-2xl border border-white/30 bg-white/90 p-6 shadow-[0_10px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl md:p-8">
-          <div className="mb-6 flex flex-wrap gap-3">
-            {[
-              { key: 'description', label: 'Description' },
-              { key: 'care', label: 'Care Instructions' },
-              { key: 'benefits', label: 'Benefits' },
-              { key: 'specs', label: 'Specifications' },
-            ].map((tab) => (
-              <button
-                key={tab.key}
-                className={
-                  'rounded-full px-4 py-2 text-sm font-medium transition-all ' +
-                  (activeTab === tab.key
-                    ? 'bg-green-500 text-white shadow-[0_4px_15px_rgba(72,187,120,0.3)]'
-                    : 'border border-slate-200 bg-white text-slate-700 hover:border-green-500 hover:bg-green-500/5 hover:text-green-500')
-                }
-                onClick={() => setActiveTab(tab.key)}
-              >
-                {tab.label}
-              </button>
-            ))}
+        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="border-b border-gray-200">
+            <nav className="flex space-x-8 px-6">
+              {[
+                { key: 'description', label: 'Description', icon: 'description' },
+                { key: 'care', label: 'Care Instructions', icon: 'eco' },
+                { key: 'benefits', label: 'Benefits', icon: 'star' },
+                { key: 'specs', label: 'Specifications', icon: 'info' },
+              ].map((tab) => (
+                <button
+                  key={tab.key}
+                  className={`flex items-center gap-2 py-4 text-sm font-medium border-b-2 transition-colors ${
+                    activeTab === tab.key
+                      ? 'border-green-500 text-green-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                  onClick={() => setActiveTab(tab.key)}
+                >
+                  <span className="material-icons text-lg">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </nav>
           </div>
-
-          <div>
+          
+          <div className="p-6">
             {activeTab === 'description' && (
               <div>
-                <h3 className="mb-3 text-xl font-semibold text-slate-800">About This Plant</h3>
-                <p className="leading-7 text-slate-600">{productData.longDescription}</p>
+                <h3 className="mb-4 text-xl font-semibold text-gray-900">About This Plant</h3>
+                <p className="text-gray-600 leading-relaxed">{productData.longDescription}</p>
               </div>
             )}
 
             {activeTab === 'care' && (
               <div>
-                <h3 className="mb-3 text-xl font-semibold text-slate-800">Care Instructions</h3>
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">Care Instructions</h3>
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                    <span className="material-icons text-green-500">wb_sunny</span>
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-500 text-white">
+                      <span className="material-icons">wb_sunny</span>
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-slate-800">Light</h4>
-                      <p className="text-slate-600">{productData.careInstructions.light}</p>
+                      <h4 className="mb-1 text-sm font-semibold text-gray-900">Light Requirements</h4>
+                      <p className="text-sm text-gray-600">{productData.careInstructions.light}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                    <span className="material-icons text-green-500">water_drop</span>
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-500 text-white">
+                      <span className="material-icons">water_drop</span>
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-slate-800">Watering</h4>
-                      <p className="text-slate-600">{productData.careInstructions.water}</p>
+                      <h4 className="mb-1 text-sm font-semibold text-gray-900">Watering Schedule</h4>
+                      <p className="text-sm text-gray-600">{productData.careInstructions.water}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                    <span className="material-icons text-green-500">grass</span>
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500 text-white">
+                      <span className="material-icons">grass</span>
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-slate-800">Soil</h4>
-                      <p className="text-slate-600">{productData.careInstructions.soil}</p>
+                      <h4 className="mb-1 text-sm font-semibold text-gray-900">Soil Type</h4>
+                      <p className="text-sm text-gray-600">{productData.careInstructions.soil}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white p-4">
-                    <span className="material-icons text-green-500">thermostat</span>
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-500 text-white">
+                      <span className="material-icons">thermostat</span>
+                    </div>
                     <div>
-                      <h4 className="font-semibold text-slate-800">Temperature</h4>
-                      <p className="text-slate-600">{productData.careInstructions.temperature}</p>
+                      <h4 className="mb-1 text-sm font-semibold text-gray-900">Temperature Range</h4>
+                      <p className="text-sm text-gray-600">{productData.careInstructions.temperature}</p>
                     </div>
                   </div>
                 </div>
@@ -345,30 +424,32 @@ const ProductDetail = ({ product, onAddToCart, onBack, onToggleWishlist, isInWis
 
             {activeTab === 'benefits' && (
               <div>
-                <h3 className="mb-3 text-xl font-semibold text-slate-800">Plant Benefits</h3>
-                <ul className="list-none space-y-2">
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">Plant Benefits</h3>
+                <div className="grid gap-3 md:grid-cols-2">
                   {productData.benefits.map((benefit, index) => (
-                    <li key={index} className="flex items-center gap-2 text-slate-700">
-                      <span className="material-icons text-green-500">check_circle</span>
-                      {benefit}
-                    </li>
+                    <div key={index} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white">
+                        <span className="material-icons text-sm">check_circle</span>
+                      </div>
+                      <span className="text-sm text-gray-700 font-medium">{benefit}</span>
+                    </div>
                   ))}
-                </ul>
+                </div>
               </div>
             )}
 
             {activeTab === 'specs' && (
               <div>
-                <h3 className="mb-3 text-xl font-semibold text-slate-800">Specifications</h3>
+                <h3 className="mb-6 text-xl font-semibold text-gray-900">Specifications</h3>
                 <div className="grid gap-3 md:grid-cols-2">
                   {Object.entries(productData.specifications).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4">
-                      <span className="text-slate-500">
+                    <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-600 font-medium">
                         {key
                           .replace(/([A-Z])/g, ' $1')
                           .replace(/^./, (str) => str.toUpperCase())}
                       </span>
-                      <span className="font-medium text-slate-800">{value}</span>
+                      <span className="text-sm font-semibold text-gray-900">{value}</span>
                     </div>
                   ))}
                 </div>

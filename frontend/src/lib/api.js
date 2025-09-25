@@ -52,6 +52,9 @@ export const api = {
   createOrder: (payload) => request('/orders/create', { method: 'POST', body: JSON.stringify(payload) }),
   verifyPayment: (payload) => request('/orders/verify', { method: 'POST', body: JSON.stringify(payload) }),
 
+  // Inventory alerts
+  lowStock: (threshold) => request(`/admin/low-stock${threshold ? `?threshold=${encodeURIComponent(threshold)}` : ''}`),
+
   // Users
   listUsers: () => request('/users'),
   updateUserRole: (id, role) => request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
@@ -60,9 +63,14 @@ export const api = {
 
   // Remedies
   listRemedies: () => request('/remedies'),
+  listRemediesPublic: () => request('/remedies/public'),
   createRemedy: (data) => request('/remedies', { method: 'POST', body: JSON.stringify(data) }),
   updateRemedy: (id, data) => request(`/remedies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRemedy: (id) => request(`/remedies/${id}`, { method: 'DELETE' }),
+
+  // Admin Notifications
+  adminNotifications: () => request('/admin/notifications'),
+  markNotificationRead: (id) => request(`/admin/notifications/${id}/mark-read`, { method: 'PUT' }),
 };
 
 
