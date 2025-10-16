@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-export default function ProductSection({ product, onAddToCart }) {
+export default function ProductSection({ product, onAddToCart, user }) {
   const [qty, setQty] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [stockInfo, setStockInfo] = useState({ stock: 0, inStock: true });
@@ -84,6 +84,13 @@ export default function ProductSection({ product, onAddToCart }) {
   const dec = () => setQty((q) => Math.max(1, q - 1));
 
   const handleAddToCart = async () => {
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page
+      window.location.href = '/login';
+      return;
+    }
+    
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;

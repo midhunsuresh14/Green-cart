@@ -1,88 +1,73 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, User, Menu, Leaf, Droplet, Shield, Zap } from 'lucide-react';
+import { api } from '../../lib/api'; // Corrected the import path
 
 const HerbalRemedies = () => {
   const [activeCategory, setActiveCategory] = useState('All Remedies');
   const [searchQuery, setSearchQuery] = useState('');
+  const [products, setProducts] = useState([]); // Will now hold remedies data
+  const [categories, setCategories] = useState([
+    { name: 'All Remedies', icon: Leaf }
+  ]); // Will be populated from API
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const categories = [
-    { name: 'All Remedies', icon: Leaf },
-    { name: 'Stress Relief', icon: null },
-    { name: 'Skin Health', icon: Droplet },
-    { name: 'Immunity', icon: Shield },
-    { name: 'Energy', icon: Zap }
-  ];
+  // Fetch remedies and categories from API
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch remedies
+        const remediesData = await api.listRemedies();
+        
+        // Transform remedies data to match existing product structure
+        const transformedRemedies = remediesData.map(remedy => ({
+          id: remedy.id,
+          name: remedy.name,
+          category: remedy.category,
+          description: remedy.description,
+          image: remedy.imageUrl,
+          // Additional remedy-specific fields can be added here if needed
+        }));
+        
+        setProducts(transformedRemedies);
+        
+        // Fetch remedy categories
+        const categoriesData = await api.listRemedyCategories();
+        
+        // Transform categories to match existing structure
+        const transformedCategories = [
+          { name: 'All Remedies', icon: Leaf },
+          ...categoriesData.map(cat => ({
+            name: cat.name,
+            // icon could be added based on category data if needed
+          }))
+        ];
+        
+        setCategories(transformedCategories);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load remedies. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const herbalProducts = [
-    {
-      id: 1,
-      name: 'Ginger Tea',
-      description: 'Supports Digestion & Warmth',
-      category: 'All Remedies',
-      image: 'https://images.unsplash.com/photo-1597318181409-cf64d0b34816?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 2,
-      name: 'Turmeric Capsules',
-      description: 'Potent Anti-Inflammatory',
-      category: 'Immunity',
-      image: 'https://images.unsplash.com/photo-1609501676725-7186f734b2b0?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 3,
-      name: 'Chamomile Sleep Tincture',
-      description: 'Calms Nerves & Promotes Rest',
-      category: 'Stress Relief',
-      image: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 4,
-      name: 'Eucalyptus Steam Blend',
-      description: 'Clear Airways & Invigorate',
-      category: 'Energy',
-      image: 'https://images.unsplash.com/photo-1596755389378-c31d21fd1273?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 5,
-      name: 'Aloe Vera Gel',
-      description: 'Soothes Skin & Hydrates',
-      category: 'Skin Health',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 6,
-      name: 'Lavender',
-      description: 'Relaxation & Calm',
-      category: 'Stress Relief',
-      image: 'https://images.unsplash.com/photo-1611909023032-2d6b3134ecba?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 7,
-      name: 'Aloe Vera Gel',
-      description: 'Soothes Skin & Hydrates',
-      category: 'Skin Health',
-      image: 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=400&q=80'
-    },
-    {
-      id: 8,
-      name: 'Ashwagandha Powder',
-      description: '& Stress Relief',
-      category: 'Stress Relief',
-      image: 'https://images.unsplash.com/photo-1609501676725-7186f734b2b0?auto=format&fit=crop&w=400&q=80'
-    }
-  ];
+    fetchData();
+  }, []);
 
-  const filteredProducts = herbalProducts.filter(product => {
+  const filteredProducts = products.filter(product => {
+    if (!product || !product.name) return false;
     const matchesCategory = activeCategory === 'All Remedies' || product.category === activeCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchQuery.toLowerCase());
+                         (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f5f3f0' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#f8fdf8' }}>
       {/* Header */}
-      <header className="px-6 py-4" style={{ backgroundColor: '#8b9a7a' }}>
+      <header className="px-6 py-4" style={{ backgroundColor: '#7fb069' }}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2 text-white">
             <Leaf className="w-6 h-6" />
@@ -98,7 +83,7 @@ const HerbalRemedies = () => {
       </header>
 
       {/* Hero Section */}
-      <section className="px-6 py-16" style={{ backgroundColor: '#8b9a7a' }}>
+      <section className="px-6 py-16" style={{ backgroundColor: '#7fb069' }}>
         <div className="max-w-4xl mx-auto text-center text-white">
           <h1 className="text-5xl font-light mb-4" style={{ fontFamily: 'serif' }}>
             Herbal Remedies
@@ -124,7 +109,7 @@ const HerbalRemedies = () => {
       </section>
 
       {/* Category Filters */}
-      <section className="px-6 py-6" style={{ backgroundColor: '#f5f3f0' }}>
+      <section className="px-6 py-6" style={{ backgroundColor: '#f8fdf8' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-wrap gap-3 justify-center">
             {categories.map((category) => {
@@ -136,10 +121,10 @@ const HerbalRemedies = () => {
                   onClick={() => setActiveCategory(category.name)}
                   className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-200 ${
                     isActive
-                      ? 'text-white shadow-md'
-                      : 'bg-white text-gray-700 hover:shadow-md border border-gray-200'
+                      ? 'text-white shadow-lg'
+                      : 'bg-white text-gray-700 hover:shadow-md border border-green-200 hover:border-green-300'
                   }`}
-                  style={isActive ? { backgroundColor: '#8b9a7a' } : {}}
+                  style={isActive ? { backgroundColor: '#7fb069' } : {}}
                 >
                   {Icon && <Icon className="w-4 h-4" />}
                   {category.name}
@@ -153,36 +138,59 @@ const HerbalRemedies = () => {
       {/* Products Grid */}
       <section className="px-6 py-8">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300"
+          {loading ? (
+            <div className="text-center py-12">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600 mb-4"></div>
+              <p className="text-gray-600">Loading remedies...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-12">
+              <p className="text-red-500 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700 transition-colors"
               >
-                <div className="aspect-square overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                  />
+                Retry
+              </button>
+            </div>
+          ) : filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">No remedies found. {searchQuery ? 'Try a different search term.' : 'Check back later for new remedies.'}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300"
+                >
+                  <div className="aspect-square overflow-hidden">
+                    <img
+                      src={product.image || 'https://via.placeholder.com/400x400?text=No+Image'}
+                      alt={product.name}
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-gray-900 mb-1">
+                      {product.name}
+                    </h3>
+                    {product.description && (
+                      <p className="text-sm text-gray-600 mb-4">
+                        {product.description}
+                      </p>
+                    )}
+                    <button
+                      className="w-full py-2 px-4 rounded-full font-medium text-white transition-colors duration-200 hover:opacity-90 shadow-md hover:shadow-lg"
+                      style={{ backgroundColor: '#7fb069' }}
+                    >
+                      View Remedy
+                    </button>
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {product.description}
-                  </p>
-                  <button
-                    className="w-full py-2 px-4 rounded-full font-medium text-white transition-colors duration-200 hover:opacity-90"
-                    style={{ backgroundColor: '#8b9a7a' }}
-                  >
-                    View Remedy
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

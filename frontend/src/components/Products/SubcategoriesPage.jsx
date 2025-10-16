@@ -1,12 +1,61 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { CATEGORY_TREE, findCategoryByKey } from './categoriesData';
+import { fetchCategories } from './categoriesData';
 
 // Page that shows subcategory cards for a selected top-level category
 export default function SubcategoriesPage() {
   const { categoryKey } = useParams();
   const decoded = decodeURIComponent(categoryKey || '');
-  const category = findCategoryByKey(decoded);
+  
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [category, setCategory] = useState(null);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchCategories();
+        setCategories(data);
+        
+        // Find the selected category
+        const selectedCategory = data.find(cat => cat.key === decoded);
+        setCategory(selectedCategory);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, [decoded]);
+
+  if (loading) {
+    return (
+      <div className="px-4 md:px-8 lg:px-10 mt-[70px]">
+        <div className="max-w-7xl mx-auto">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Loading category...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 md:px-8 lg:px-10 mt-[70px]">
+        <div className="max-w-7xl mx-auto">
+          <div className="error-container">
+            <p>Error loading category: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!category) {
     return <Navigate to="/categories" replace />;

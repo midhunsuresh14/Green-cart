@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import ProductSection from './ProductSection.jsx';
 import Recommendations from './Recommendations.jsx';
 import Reviews from './Reviews.jsx';
@@ -12,6 +13,7 @@ const sampleProduct = {
   discount: 25,
   rating: 4.8,
   reviews: 48,
+  description: 'Feed your plants with our premium plant food sticks. Rich in essential nutrients for healthy growth and vibrant blooms.',
   images: [
     'https://images.unsplash.com/photo-1621650489646-462b6f2208b5?auto=format&fit=crop&w=800&q=60',
     'https://images.unsplash.com/photo-1618477388954-7852f540219f?auto=format&fit=crop&w=800&q=60',
@@ -19,53 +21,49 @@ const sampleProduct = {
   ],
 };
 
-export default function PDPPage({ product, onAddToCart, onOpenCart, user }) {
-  // Use the passed product or fall back to sample data
-  const displayProduct = product || sampleProduct;
+// Function to manage recently viewed products in localStorage
+const getRecentlyViewed = () => {
+  try {
+    const recentlyViewed = localStorage.getItem('recentlyViewedProducts');
+    return recentlyViewed ? JSON.parse(recentlyViewed) : [];
+  } catch (e) {
+    console.error('Error reading recently viewed products from localStorage:', e);
+    return [];
+  }
+};
+
+const addRecentlyViewed = (product) => {
+  try {
+    const recentlyViewed = getRecentlyViewed();
+    // Remove the product if it already exists in the list
+    const filtered = recentlyViewed.filter(p => p.id !== product.id);
+    // Add the product to the beginning of the list
+    const updated = [product, ...filtered].slice(0, 10); // Keep only the last 10 products
+    localStorage.setItem('recentlyViewedProducts', JSON.stringify(updated));
+    return updated;
+  } catch (e) {
+    console.error('Error saving recently viewed product to localStorage:', e);
+    return [];
+  }
+};
+
+export default function PDPPage({ onAddToCart, onOpenCart, user }) {
+  const { productId } = useParams();
+  const [displayProduct, setDisplayProduct] = useState(sampleProduct);
+  const [loading, setLoading] = useState(true);
   const [recentProducts, setRecentProducts] = useState([]);
   const [loadingRecent, setLoadingRecent] = useState(true);
-  const [productRating, setProductRating] = useState(displayProduct.rating || 0);
-  const [reviewCount, setReviewCount] = useState(displayProduct.reviews || 0);
-  
-  // Ensure the product has the required images array for the ProductSection component
-  const productWithImages = {
-    ...displayProduct,
-    rating: productRating,
-    reviews: reviewCount,
-    images: displayProduct.images || [
-      displayProduct.imageUrl || displayProduct.image || displayProduct.image_path || displayProduct.imagePath || displayProduct.thumbnail || displayProduct.photo || displayProduct.photoUrl || displayProduct.url || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=60'
-    ]
-  };
+  const [productRating, setProductRating] = useState(0);
+  const [reviewCount, setReviewCount] = useState(0);
 
-  // Function to update product rating when reviews change
-  const handleRatingUpdate = (newRating, newReviewCount) => {
-    console.log('Updating product rating:', newRating, 'reviews:', newReviewCount);
-    setProductRating(newRating);
-    setReviewCount(newReviewCount);
-  };
-
-  // Initialize rating from reviews when component mounts
-  useEffect(() => {
-    if (displayProduct.rating !== undefined) {
-      setProductRating(displayProduct.rating);
-    }
-    if (displayProduct.reviews !== undefined) {
-      setReviewCount(displayProduct.reviews);
-    }
-  }, [displayProduct.id]);
-
-  // Fetch recent products from API
+  // Fetch recent products (actually recently viewed products)
   useEffect(() => {
     const fetchRecentProducts = async () => {
       try {
-        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-        const response = await fetch(`${apiBase}/products`);
-        if (!response.ok) throw new Error('Failed to fetch products');
-        
-        const data = await response.json();
-        // Get random 4 products for recently viewed
-        const shuffled = data.sort(() => 0.5 - Math.random());
-        setRecentProducts(shuffled.slice(0, 4));
+        setLoadingRecent(true);
+        // Get recently viewed products from localStorage
+        const recentlyViewed = getRecentlyViewed();
+        setRecentProducts(recentlyViewed);
       } catch (error) {
         console.error('Error fetching recent products:', error);
         setRecentProducts([]);
@@ -77,6 +75,90 @@ export default function PDPPage({ product, onAddToCart, onOpenCart, user }) {
     fetchRecentProducts();
   }, []);
 
+  // Fetch product data when component mounts or productId changes
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!productId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        const response = await fetch(`${apiBase}/products/${productId}`);
+        
+        if (response.ok) {
+          const productData = await response.json();
+          setDisplayProduct(productData);
+          setProductRating(productData.rating || 0);
+          setReviewCount(productData.reviews || 0);
+          
+          // Add this product to recently viewed
+          addRecentlyViewed(productData);
+          
+          // Update the recently viewed display
+          const updatedRecentlyViewed = getRecentlyViewed();
+          setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== productData.id)); // Exclude current product
+        } else {
+          // Fallback to sample data if product not found
+          const fallbackProduct = {
+            ...sampleProduct,
+            id: productId,
+            name: `Product ${productId}`,
+            description: 'Product details could not be loaded. This is a sample product description.'
+          };
+          setDisplayProduct(fallbackProduct);
+          
+          // Add fallback product to recently viewed
+          addRecentlyViewed(fallbackProduct);
+          
+          // Update the recently viewed display
+          const updatedRecentlyViewed = getRecentlyViewed();
+          setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== fallbackProduct.id)); // Exclude current product
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error);
+        // Fallback to sample data on error
+        const fallbackProduct = {
+          ...sampleProduct,
+          id: productId,
+          name: `Product ${productId}`,
+          description: 'Product details could not be loaded. This is a sample product description.'
+        };
+        setDisplayProduct(fallbackProduct);
+        
+        // Add fallback product to recently viewed
+        addRecentlyViewed(fallbackProduct);
+        
+        // Update the recently viewed display
+        const updatedRecentlyViewed = getRecentlyViewed();
+        setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== fallbackProduct.id)); // Exclude current product
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [productId]);
+  
+  // Initialize rating from reviews when component mounts
+  useEffect(() => {
+    if (displayProduct.rating !== undefined) {
+      setProductRating(displayProduct.rating);
+    }
+    if (displayProduct.reviews !== undefined) {
+      setReviewCount(displayProduct.reviews);
+    }
+  }, [displayProduct.id, displayProduct.rating, displayProduct.reviews]);
+
+  // Function to update product rating when reviews change
+  const handleRatingUpdate = (newRating, newReviewCount) => {
+    console.log('Updating product rating:', newRating, 'reviews:', newReviewCount);
+    setProductRating(newRating);
+    setReviewCount(newReviewCount);
+  };
+
   // Helper function to resolve image URLs
   const resolveImageUrl = (src) => {
     if (!src) return 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=60';
@@ -87,12 +169,44 @@ export default function PDPPage({ product, onAddToCart, onOpenCart, user }) {
   };
 
   const getPrimaryImageUrl = (product) => {
+    // Check for all possible image fields
     const raw = product?.imageUrl || product?.image || product?.image_path || product?.imagePath || product?.thumbnail || product?.photo || product?.photoUrl || product?.url;
     return resolveImageUrl(raw);
   };
+
+  // Return loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading product details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Ensure the product has the required images array for the ProductSection component
+  const productWithImages = {
+    ...displayProduct,
+    rating: productRating,
+    reviews: reviewCount,
+    images: displayProduct.images && displayProduct.images.length > 0 
+      ? displayProduct.images 
+      : [
+          displayProduct.imageUrl || displayProduct.image || displayProduct.image_path || 
+          displayProduct.imagePath || displayProduct.thumbnail || displayProduct.photo || 
+          displayProduct.photoUrl || displayProduct.url || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=60'
+        ]
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <ProductSection product={productWithImages} onAddToCart={(p) => { onAddToCart && onAddToCart(p); onOpenCart && onOpenCart(); }} />
+      <ProductSection 
+        product={productWithImages} 
+        user={user}
+        onAddToCart={(p) => { onAddToCart && onAddToCart(p); onOpenCart && onOpenCart(); }} 
+      />
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h3 className="text-base font-semibold mb-2">About the Product</h3>
@@ -137,7 +251,7 @@ export default function PDPPage({ product, onAddToCart, onOpenCart, user }) {
             ))
           ) : (
             <div className="col-span-full text-center py-8 text-gray-500">
-              No recent products available
+              No recently viewed products yet
             </div>
           )}
         </div>

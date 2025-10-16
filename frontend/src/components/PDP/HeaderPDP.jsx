@@ -37,3 +37,11 @@ export default function HeaderPDP({ onOpenCart }) {
     </header>
   );
 }
+
+
+
+
+
+
+
+

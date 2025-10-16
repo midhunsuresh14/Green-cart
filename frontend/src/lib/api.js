@@ -15,13 +15,24 @@ async function request(path, options = {}) {
     ...getAuthHeaders(),
     ...(options.headers || {}),
   };
+  
+  console.log(`Making request to: ${BASE_URL}${path}`); // Debug log
+  
   const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+  
+  console.log(`Response status: ${res.status}`); // Debug log
+  
   if (!res.ok) {
     const text = await res.text();
+    console.error(`Request failed: ${res.status}`, text); // Debug log
     throw new Error(text || `Request failed: ${res.status}`);
   }
+  
   if (res.status === 204) return null;
-  return res.json();
+  
+  const data = await res.json();
+  console.log(`Response data:`, data); // Debug log
+  return data;
 }
 
 export const api = {
@@ -61,32 +72,44 @@ export const api = {
   toggleUserActive: (id, active) => request(`/users/${id}/active`, { method: 'PUT', body: JSON.stringify({ active }) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
 
+  // Categories
+  listCategories: () => request('/categories'),
+  createCategory: (data) => request('/categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateCategory: (id, data) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
+  
+  // Subcategories
+  createSubCategory: (data) => request('/subcategories', { method: 'POST', body: JSON.stringify(data) }),
+  updateSubCategory: (id, data) => request(`/subcategories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteSubCategory: (id) => request(`/subcategories/${id}`, { method: 'DELETE' }),
+
   // Remedies
   listRemedies: () => request('/remedies'),
-  listRemediesPublic: () => request('/remedies/public'),
   createRemedy: (data) => request('/remedies', { method: 'POST', body: JSON.stringify(data) }),
   updateRemedy: (id, data) => request(`/remedies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRemedy: (id) => request(`/remedies/${id}`, { method: 'DELETE' }),
+  bulkUploadRemedies: async (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`${BASE_URL}/remedies/bulk-upload`, {
+      method: 'POST',
+      headers: { ...getAuthHeaders() },
+      body: form,
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+
+  // Remedy Categories
+  listRemedyCategories: () => request('/remedy-categories'),
+  createRemedyCategory: (data) => request('/remedy-categories', { method: 'POST', body: JSON.stringify(data) }),
+  updateRemedyCategory: (id, data) => request(`/remedy-categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRemedyCategory: (id) => request(`/remedy-categories/${id}`, { method: 'DELETE' }),
 
   // Admin Notifications
   adminNotifications: () => request('/admin/notifications'),
   markNotificationRead: (id) => request(`/admin/notifications/${id}/mark-read`, { method: 'PUT' }),
+
+  // Chatbot
+  chatbot: (messages) => request('/chatbot', { method: 'POST', body: JSON.stringify({ messages }) }),
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

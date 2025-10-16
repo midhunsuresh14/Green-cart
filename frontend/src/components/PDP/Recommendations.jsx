@@ -1,6 +1,17 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-export default function Recommendations({ title = 'Plant Parents Also Picked', onAdd, currentProductId }) {
+// Function to get recently viewed products from localStorage
+const getRecentlyViewed = () => {
+  try {
+    const recentlyViewed = localStorage.getItem('recentlyViewedProducts');
+    return recentlyViewed ? JSON.parse(recentlyViewed) : [];
+  } catch (e) {
+    console.error('Error reading recently viewed products from localStorage:', e);
+    return [];
+  }
+};
+
+export default function Recommendations({ title = 'Plant Parents Also Picked', onAdd, currentProductId, user }) {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const scroller = useRef(null);
@@ -15,9 +26,22 @@ export default function Recommendations({ title = 'Plant Parents Also Picked', o
         if (!response.ok) throw new Error('Failed to fetch products');
         
         const data = await response.json();
-        // Filter out current product and get random 10 products
-        const filtered = data.filter(p => p.id !== currentProductId);
-        const shuffled = filtered.sort(() => 0.5 - Math.random());
+        
+        // Get recently viewed product IDs to exclude them from recommendations
+        const recentlyViewedIds = new Set(getRecentlyViewed().map(p => p.id));
+        
+        // Filter out current product and recently viewed products
+        const filtered = data.filter(p => p.id !== currentProductId && !recentlyViewedIds.has(p.id));
+        
+        // If we don't have enough products after filtering, add some recently viewed ones
+        let finalProducts = [...filtered];
+        if (finalProducts.length < 10) {
+          const recentlyViewed = getRecentlyViewed().filter(p => p.id !== currentProductId);
+          finalProducts = [...finalProducts, ...recentlyViewed].slice(0, 10);
+        }
+        
+        // Shuffle and get random 10 products
+        const shuffled = finalProducts.sort(() => 0.5 - Math.random());
         setProducts(shuffled.slice(0, 10));
       } catch (error) {
         console.error('Error fetching recommendations:', error);
@@ -30,6 +54,18 @@ export default function Recommendations({ title = 'Plant Parents Also Picked', o
 
     fetchProducts();
   }, [currentProductId]);
+
+  // Handle add to cart with authentication check
+  const handleAddToCart = (product) => {
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page
+      window.location.href = '/login';
+      return;
+    }
+    
+    onAdd && onAdd(product);
+  };
 
   // Helper function to resolve image URLs
   const resolveImageUrl = (src) => {
@@ -95,7 +131,7 @@ export default function Recommendations({ title = 'Plant Parents Also Picked', o
                   )}
                 </div>
                 <div className="mt-3 flex gap-2">
-                  <button className="flex-1 bg-green-600 text-white rounded py-1.5 text-sm hover:bg-green-700" onClick={() => onAdd && onAdd(p)}>Add</button>
+                  <button className="flex-1 bg-green-600 text-white rounded py-1.5 text-sm hover:bg-green-700" onClick={() => handleAddToCart(p)}>Add</button>
                   <button className="flex-1 border rounded py-1.5 text-sm hover:bg-gray-50">View</button>
                 </div>
               </div>

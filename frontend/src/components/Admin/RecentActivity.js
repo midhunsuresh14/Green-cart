@@ -12,7 +12,6 @@ const items = [
   { icon: <CheckCircleOutlineIcon color="success" />, text: 'New user registration: sarah.johnson@email.com', time: '2 minutes ago', status: 'Success', color: 'success' },
   { icon: <InfoOutlinedIcon color="info" />, text: 'Order #ORD-1234 placed by Michael Chen', time: '15 minutes ago', status: 'Info', color: 'info' },
   { icon: <WarningAmberOutlinedIcon color="warning" />, text: 'Snake Plant stock running low (5 remaining)', time: '1 hour ago', status: 'Warning', color: 'warning' },
-  { icon: <CheckCircleOutlineIcon color="success" />, text: 'New remedy added: Aphid Treatment Spray', time: '2 hours ago', status: 'Success', color: 'success' },
 ];
 
 export default function RecentActivity() {

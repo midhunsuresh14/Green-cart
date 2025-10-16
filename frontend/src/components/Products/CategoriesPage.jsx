@@ -1,9 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CATEGORY_TREE } from './categoriesData';
+import { fetchCategories } from './categoriesData';
 
 // Landing page for top-level categories (cards)
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchCategories();
+        setCategories(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="px-4 md:px-8 lg:px-10 mt-[70px]">
+        <div className="max-w-7xl mx-auto">
+          <div className="loading-container">
+            <div className="loading-spinner"></div>
+            <p>Loading categories...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="px-4 md:px-8 lg:px-10 mt-[70px]">
+        <div className="max-w-7xl mx-auto">
+          <div className="error-container">
+            <p>Error loading categories: {error}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="px-4 md:px-8 lg:px-10 mt-[70px]">
       <div className="max-w-7xl mx-auto">
@@ -13,7 +58,7 @@ export default function CategoriesPage() {
         </header>
 
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {CATEGORY_TREE.map((cat) => (
+          {categories.map((cat) => (
             <Link
               key={cat.key}
               to={`/categories/${encodeURIComponent(cat.key)}`}

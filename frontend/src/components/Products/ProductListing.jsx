@@ -1,16 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import './ProductListing.css';
-import ProductCard from './ProductCard';
-import { CATEGORY_TREE } from './categoriesData';
-import { SAMPLE_PRODUCTS } from './productsData';
+import ProductCard from './OptimizedProductCard';
+import { fetchCategories } from './categoriesData';
 import { Link } from 'react-router-dom';
-
-// Helper: flatten categories for quick sidebar rendering
-const flatCategories = CATEGORY_TREE.map((cat) => ({
-  key: cat.key,
-  name: cat.name,
-  children: cat.children || [],
-}));
 
 const SORT_OPTIONS = [
   { value: 'price-asc', label: 'Price: Low → High' },
@@ -19,148 +11,136 @@ const SORT_OPTIONS = [
   { value: 'new', label: 'New Arrivals' },
 ];
 
-export default function ProductListing({ onAddToCart, onViewDetails, onToggleWishlist, wishlistItems = [] }) {
+export default function ProductListing({ onAddToCart, onViewDetails, onToggleWishlist, wishlistItems = [], user }) {
   // UI state
   const [selectedCategory, setSelectedCategory] = useState(null); // e.g., "Plants"
   const [selectedSubcategory, setSelectedSubcategory] = useState(null); // e.g., "Indoor"
   const [sortBy, setSortBy] = useState('popularity');
-  const [priceMax, setPriceMax] = useState(600); // current selected upper bound
-  const [priceUpperBound, setPriceUpperBound] = useState(1000); // dynamic slider max
+  const [priceMax, setPriceMax] = useState(600); // INR slider default 600 (₹)
   const [filters, setFilters] = useState({ inStock: false, discount: false });
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 12;
 
-  // Modal preview state for in-page "View" popup
-  const [previewProduct, setPreviewProduct] = useState(null);
-
   // Derived sets for wishlist check
   const wishlistIds = useMemo(() => new Set((wishlistItems || []).map((w) => String(w.id))), [wishlistItems]);
 
-  // Filtering
-  const [remoteProducts, setRemoteProducts] = useState(null);
+  // Category data
+  const [categories, setCategories] = useState([]);
 
-  // Load products from backend
-  React.useEffect(() => {
+  // Product data
+  const [remoteProducts, setRemoteProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load categories and products from backend
+  useEffect(() => {
     let isMounted = true;
-    let fetchTimeout = null;
-    const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-
-    const applyPriceBounds = (list) => {
+    
+    const loadData = async () => {
       try {
-        const max = Math.max(1000, ...list.map((p) => Number(p.price) || 0));
-        setPriceUpperBound(max);
-        // Only update priceMax if it's still at default
-        setPriceMax(prev => prev === 600 ? max : prev);
-      } catch (_) {
-        setPriceUpperBound(1000);
-      }
-    };
-
-    const fetchProducts = async () => {
-      try {
+        setLoading(true);
+        setError(null);
+        
+        // Fetch categories
+        const categoryData = await fetchCategories();
+        if (isMounted) {
+          setCategories(categoryData);
+        }
+        
+        // Fetch products with better error handling
+        const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        console.log('Fetching products from:', base + '/products');
+        
         const res = await fetch(base + '/products');
-        if (!res.ok) throw new Error('Failed to fetch products');
+        console.log('Products API response status:', res.status);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          console.error('Products API error response:', errorText);
+          throw new Error(`Failed to fetch products: ${res.status} ${res.statusText} - ${errorText}`);
+        }
+        
         const data = await res.json();
+        console.log('Products data received:', data);
+        
         if (isMounted) {
           setRemoteProducts(data);
-          applyPriceBounds(Array.isArray(data) ? data : []);
         }
       } catch (e) {
-        console.error('Falling back to local SAMPLE_PRODUCTS:', e.message);
+        console.error('Error fetching data:', e);
         if (isMounted) {
-          setRemoteProducts(null);
-          applyPriceBounds(SAMPLE_PRODUCTS);
+          setError(e.message || 'Failed to fetch products');
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
     };
 
-    // Debounced fetch to prevent rapid API calls
-    const debouncedFetch = () => {
-      if (fetchTimeout) clearTimeout(fetchTimeout);
-      fetchTimeout = setTimeout(fetchProducts, 300);
-    };
+    loadData();
 
-    fetchProducts();
-
-    // Re-fetch on tab focus (debounced)
-    const onFocus = () => debouncedFetch();
+    // Re-fetch on tab focus (no aggressive polling)
+    const onFocus = () => loadData();
     window.addEventListener('focus', onFocus);
 
-    // Listen to storage events from Admin panel (debounced)
-    const onStorage = (e) => {
-      if (e.key === 'products:updated') {
-        debouncedFetch();
-      }
-    };
-    window.addEventListener('storage', onStorage);
-
-    // Reduced polling - only every 60 seconds for background updates
-    const iv = setInterval(fetchProducts, 60000);
-
-    return () => {
-      isMounted = false;
-      if (fetchTimeout) clearTimeout(fetchTimeout);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('storage', onStorage);
-      clearInterval(iv);
+    return () => { 
+      isMounted = false; 
+      window.removeEventListener('focus', onFocus); 
     };
   }, []);
 
   const filtered = useMemo(() => {
-    const items = Array.isArray(remoteProducts) ? remoteProducts : SAMPLE_PRODUCTS;
-    
-    // Early return if no items
-    if (!items.length) return [];
+    let items = Array.isArray(remoteProducts) ? [...remoteProducts] : [];
 
-    let filtered = items;
-
-    // Apply filters in sequence (most selective first for performance)
+    // Category/subcategory filter
     if (selectedCategory) {
-      filtered = filtered.filter((p) => p.category === selectedCategory);
+      items = items.filter((p) => p.category === selectedCategory);
     }
     if (selectedSubcategory) {
-      filtered = filtered.filter((p) => p.subcategory === selectedSubcategory);
+      items = items.filter((p) => p.subcategory === selectedSubcategory);
     }
-    
+
     // Price filter
-    filtered = filtered.filter((p) => Number(p.price || 0) <= Number(priceMax));
+    items = items.filter((p) => Number(p.price) <= Number(priceMax));
 
     // Checkbox filters
-    if (filters.inStock) {
-      filtered = filtered.filter((p) => p.inStock);
-    }
-    if (filters.discount) {
-      filtered = filtered.filter((p) => Number(p.discount || 0) > 0 || p.originalPrice);
-    }
+    if (filters.inStock) items = items.filter((p) => (p.stock || 0) > 0);
+    if (filters.discount) items = items.filter((p) => Number(p.discount || 0) > 0 || p.originalPrice);
 
-    // Sorting
-    const sortedItems = [...filtered];
-    switch (sortBy) {
-      case 'price-asc':
-        sortedItems.sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0));
-        break;
-      case 'price-desc':
-        sortedItems.sort((a, b) => (Number(b.price) || 0) - (Number(a.price) || 0));
-        break;
-      case 'new':
-        sortedItems.sort((a, b) => (b.isNew === true ? 1 : 0) - (a.isNew === true ? 1 : 0));
-        break;
-      case 'popularity':
-      default:
-        sortedItems.sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0));
-        break;
-    }
+    // Sorting helper + group Plants first when no category is selected
+    const applySort = (arr) => {
+      const copy = [...arr];
+      switch (sortBy) {
+        case 'price-asc':
+          copy.sort((a, b) => a.price - b.price);
+          break;
+        case 'price-desc':
+          copy.sort((a, b) => b.price - a.price);
+          break;
+        case 'new':
+          copy.sort((a, b) => (b.isNew === true) - (a.isNew === true));
+          break;
+        case 'popularity':
+        default:
+          copy.sort((a, b) => (b.popularity || 0) - (a.popularity || 0));
+          break;
+      }
+      return copy;
+    };
 
-    // Group Plants first only when no category is selected
     if (!selectedCategory) {
-      const plants = sortedItems.filter((p) => p.category === 'Plants');
-      const others = sortedItems.filter((p) => p.category !== 'Plants');
-      return [...plants, ...others];
+      const plants = items.filter((p) => p.category === 'Plants');
+      const others = items.filter((p) => p.category !== 'Plants');
+      items = [...applySort(plants), ...applySort(others)];
+    } else {
+      items = applySort(items);
     }
 
-    return sortedItems;
+    return items;
   }, [remoteProducts, selectedCategory, selectedSubcategory, priceMax, filters, sortBy]);
 
   // Pagination slice
@@ -183,14 +163,14 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
 
   const toggleFilter = (key) => setFilters((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  const resetFilters = React.useCallback(() => {
+  const resetFilters = () => {
     setSelectedCategory(null);
     setSelectedSubcategory(null);
     setSortBy('popularity');
-    setPriceMax(priceUpperBound); // Reset to current max instead of hardcoded 600
+    setPriceMax(600);
     setFilters({ inStock: false, discount: false });
     setPage(1);
-  }, [priceUpperBound]);
+  };
 
   // Breadcrumb labels
   const breadcrumbTrail = [
@@ -199,6 +179,31 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   ];
   if (selectedCategory) breadcrumbTrail.push({ label: selectedCategory });
   if (selectedSubcategory) breadcrumbTrail.push({ label: selectedSubcategory });
+
+  // Get all subcategories for the selected category
+  const currentSubcategories = categories.find(cat => cat.key === selectedCategory)?.children || [];
+
+  if (loading) {
+    return (
+      <div className="products-page">
+        <div className="loading-container">
+          <div className="loading-spinner"></div>
+          <p>Loading products...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="products-page">
+        <div className="error-container">
+          <p>Error loading products: {error}</p>
+          <button onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="products-page">
@@ -216,93 +221,196 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
         ))}
       </div>
 
-      {/* Sidebar */}
-      <aside className="sidebar">
-        <h3>Categories</h3>
-        <ul className="category-list">
-          {flatCategories.map((cat) => {
-            const expanded = selectedCategory === cat.key;
-            return (
-              <li className="category-item" key={cat.key}>
-                <button
-                  className="category-title"
-                  onClick={() => handleCategoryClick(cat.key)}
-                  aria-expanded={expanded}
-                >
-                  <span>{cat.name}</span>
-                  <span>{expanded ? '−' : '+'}</span>
-                </button>
-                {expanded && (
-                  <ul className="subcategory-list">
-                    {cat.children.map((sub) => (
-                      <li key={sub.key} className="subcategory-item">
-                        <button
-                          className={
-                            'subcategory-btn ' + (selectedSubcategory === sub.key ? 'active' : '')
-                          }
-                          onClick={() => handleSubcategoryClick(sub.key)}
-                        >
-                          {sub.name}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </aside>
+      {/* Mobile Category Menu Button */}
+      <div className="mobile-category-toggle">
+        <button 
+          className="category-toggle-btn"
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          <span className="material-icons">menu</span>
+          Categories
+          <span className="material-icons">{isMobileMenuOpen ? 'expand_less' : 'expand_more'}</span>
+        </button>
+      </div>
+
+      {/* Horizontal Category Navigation */}
+      <div className="category-navigation">
+        <div className="category-nav-container">
+          <button
+            className={`category-nav-item ${!selectedCategory ? 'active' : ''}`}
+            onClick={() => {
+              setSelectedCategory(null);
+              setSelectedSubcategory(null);
+              setPage(1);
+            }}
+          >
+            All Products
+          </button>
+          {categories.map((cat) => (
+            <div key={cat.key} className="category-dropdown">
+              <button
+                className={`category-nav-item ${selectedCategory === cat.key ? 'active' : ''}`}
+                onClick={() => handleCategoryClick(cat.key)}
+              >
+                {cat.name}
+                {cat.children.length > 0 && <span className="material-icons">arrow_drop_down</span>}
+              </button>
+              {cat.children.length > 0 && selectedCategory === cat.key && (
+                <div className="subcategory-dropdown">
+                  {cat.children.map((sub) => (
+                    <button
+                      key={sub.key}
+                      className={`subcategory-item ${selectedSubcategory === sub.key ? 'active' : ''}`}
+                      onClick={() => handleSubcategoryClick(sub.key)}
+                    >
+                      {sub.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Mobile Sidebar */}
+      {isMobileMenuOpen && (
+        <aside className="mobile-sidebar">
+          <div className="mobile-sidebar-header">
+            <h3>Categories</h3>
+            <button 
+              className="close-btn"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              <span className="material-icons">close</span>
+            </button>
+          </div>
+          <ul className="category-list">
+            <li className="category-item">
+              <button
+                className={`category-title ${!selectedCategory ? 'active' : ''}`}
+                onClick={() => {
+                  setSelectedCategory(null);
+                  setSelectedSubcategory(null);
+                  setPage(1);
+                  setIsMobileMenuOpen(false);
+                }}
+              >
+                All Products
+              </button>
+            </li>
+            {categories.map((cat) => {
+              const expanded = selectedCategory === cat.key;
+              return (
+                <li className="category-item" key={cat.key}>
+                  <button
+                    className={`category-title ${expanded ? 'active' : ''}`}
+                    onClick={() => {
+                      handleCategoryClick(cat.key);
+                      setIsMobileMenuOpen(false);
+                    }}
+                  >
+                    <span>{cat.name}</span>
+                  </button>
+                  {expanded && cat.children.length > 0 && (
+                    <ul className="subcategory-list">
+                      {cat.children.map((sub) => (
+                        <li key={sub.key} className="subcategory-item">
+                          <button
+                            className={`subcategory-btn ${selectedSubcategory === sub.key ? 'active' : ''}`}
+                            onClick={() => {
+                              handleSubcategoryClick(sub.key);
+                              setIsMobileMenuOpen(false);
+                            }}
+                          >
+                            {sub.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+      )}
 
       {/* Main content */}
       <section className="products-area">
         <div className="topbar">
-          <div className="row">
-            <label htmlFor="sort">Sort by</label>
-            <select id="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
+          <div className="topbar-controls">
+            <div className="topbar-row">
+              <label htmlFor="sort">Sort by</label>
+              <select id="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="row price-range">
-            <label htmlFor="price">Price up to</label>
-            <input
-              id="price"
-              type="range"
-              min="0"
-              max={priceUpperBound}
-              step="50"
-              value={priceMax}
-              onChange={(e) => setPriceMax(Number(e.target.value))}
-            />
-            <span className="value">₹{priceMax}</span>
-          </div>
-
-          <div className="row checkbox-group">
-            <label>
+            <div className="topbar-row price-range">
+              <label htmlFor="price">Price up to</label>
               <input
-                type="checkbox"
-                checked={filters.inStock}
-                onChange={() => toggleFilter('inStock')}
+                id="price"
+                type="range"
+                min="0"
+                max="1000"
+                step="50"
+                value={priceMax}
+                onChange={(e) => setPriceMax(Number(e.target.value))}
               />
-              In Stock
-            </label>
-            <label>
-              <input
-                type="checkbox"
-                checked={filters.discount}
-                onChange={() => toggleFilter('discount')}
-              />
-              Discount
-            </label>
-          </div>
+              <span className="value">₹{priceMax}</span>
+            </div>
 
-          <div className="row">
-            <button className="page-btn" onClick={resetFilters}>Reset</button>
+            <div className="topbar-row checkbox-group">
+              <label>
+                <input
+                  type="checkbox"
+                  checked={filters.inStock}
+                  onChange={() => toggleFilter('inStock')}
+                />
+                In Stock
+              </label>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={filters.discount}
+                  onChange={() => toggleFilter('discount')}
+                />
+                Discount
+              </label>
+            </div>
+
+            <div className="topbar-row">
+              <button className="page-btn" onClick={resetFilters}>Reset</button>
+            </div>
           </div>
         </div>
+
+        {/* Subcategory Filter Bar (only shown when a category is selected) */}
+        {selectedCategory && currentSubcategories.length > 0 && (
+          <div className="subcategory-filter">
+            <button
+              className={`subcategory-filter-item ${!selectedSubcategory ? 'active' : ''}`}
+              onClick={() => {
+                setSelectedSubcategory(null);
+                setPage(1);
+              }}
+            >
+              All
+            </button>
+            {currentSubcategories.map((sub) => (
+              <button
+                key={sub.key}
+                className={`subcategory-filter-item ${selectedSubcategory === sub.key ? 'active' : ''}`}
+                onClick={() => handleSubcategoryClick(sub.key)}
+              >
+                {sub.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="count-breadcrumb">
           <div>
@@ -315,48 +423,19 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
             <ProductCard
               key={product.id}
               product={product}
+              user={user}
               onAddToCart={onAddToCart}
-              onViewDetails={onViewDetails ? onViewDetails : (p) => setPreviewProduct(p)}
+              onViewDetails={onViewDetails}
               onToggleWishlist={onToggleWishlist}
               isInWishlist={wishlistIds.has(String(product.id))}
             />
           ))}
         </div>
 
-        {/* Simple modal popup for product preview */}
-        {(!onViewDetails) && previewProduct && (
-          <div className="modal-backdrop" role="dialog" aria-modal="true" onClick={() => setPreviewProduct(null)}>
-            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-              <button className="modal-close" aria-label="Close" onClick={() => setPreviewProduct(null)}>×</button>
-              <div className="modal-body">
-                <div className="modal-image">
-                  <img
-                    src={(function(){
-                      const raw = previewProduct?.imageUrl || previewProduct?.image || previewProduct?.image_path || previewProduct?.imagePath || previewProduct?.thumbnail || previewProduct?.photo || previewProduct?.photoUrl || previewProduct?.url;
-                      if (!raw) return 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
-                      if (/^https?:\/\//i.test(raw)) return raw;
-                      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-                      const host = apiBase.replace(/\/api\/?$/, '');
-                      return raw.startsWith('/') ? host + raw : host + '/' + raw;
-                    })()}
-                    alt={previewProduct.name}
-                    onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80'; }}
-                  />
-                </div>
-                <div className="modal-details">
-                  <h3>{previewProduct.name}</h3>
-                  <p>{previewProduct.description}</p>
-                  <div className="price">₹{previewProduct.price}</div>
-                  <div className="actions">
-                    <button className="primary" onClick={() => { onAddToCart && onAddToCart(previewProduct); setPreviewProduct(null);} }>
-                      <span className="material-icons">shopping_cart</span>
-                      Add to Cart
-                    </button>
-                    <button onClick={() => setPreviewProduct(null)}>Close</button>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {total === 0 && (
+          <div className="no-products-message">
+            <p>No products found matching your criteria.</p>
+            <button onClick={resetFilters}>Reset filters</button>
           </div>
         )}
 

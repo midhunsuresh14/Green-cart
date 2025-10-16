@@ -5,6 +5,28 @@
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.error-banner {
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.error-banner p {
+  color: #c33;
+  margin: 0;
+  font-weight: 500;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
 .remedies-header {
   text-align: center;
   margin-bottom: 3rem;

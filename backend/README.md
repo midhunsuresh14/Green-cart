@@ -33,6 +33,7 @@ The backend will run on `http://localhost:5000`
 - `POST /api/signup` - Create a new user account with name, email, phone, and password
 - `POST /api/login` - Authenticate user and return JWT token
 - `GET /api/user/<user_id>` - Get user data by user ID
+- `POST /api/chatbot` - AI-powered chatbot endpoint
 
 ## Database Schema
 
@@ -55,6 +56,36 @@ The backend will run on `http://localhost:5000`
 - JWT token authentication
 - Email validation
 - Phone number validation 
+
+## AI Chatbot Integration
+
+GreenCart now includes an enhanced AI-powered chatbot that provides intelligent assistance for customer inquiries about herbal remedies and products.
+
+### Features:
+- Real-time data integration with current inventory
+- Context-aware responses about health conditions and products
+- Fallback system for when AI is not configured
+- Specialized knowledge about herbal remedies
+
+### Setup:
+1. Sign up for an OpenAI API key at [platform.openai.com](https://platform.openai.com/)
+2. Add your API key to the `.env` file:
+   ```env
+   OPENAI_API_KEY=sk-your_openai_api_key_here
+   ```
+3. Restart the backend server
+
+The chatbot is accessible through the floating chat icon on the frontend and provides intelligent assistance for:
+- Herbal remedies for specific health conditions
+- Product information and availability
+- Ordering and delivery process
+- General customer support
+
+### Without API Key:
+The chatbot works perfectly without an API key, using a comprehensive rule-based system that:
+- Recognizes common health conditions and suggests relevant remedies
+- Provides detailed product information
+- Handles general customer service inquiries
 
 ## SMS (Twilio) Configuration
 

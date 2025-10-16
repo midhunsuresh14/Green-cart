@@ -13,6 +13,8 @@ db = client[DB_NAME]
 users = db.users
 products = db.products
 orders = db.orders
+categories = db.categories
+remedy_categories = db.remedy_categories
 
 
 def ensure_admin_user():
@@ -47,13 +49,110 @@ def ensure_admin_user():
     return str(existing["_id"]) if existing else None
 
 
+def seed_categories():
+    sample_categories = [
+        {
+            "name": "Plants",
+            "description": "Indoor and outdoor plants",
+            "subcategories": [
+                {"id": "650000000000000000000001", "name": "Indoor", "description": "Indoor plants for home decoration"},
+                {"id": "650000000000000000000002", "name": "Outdoor", "description": "Outdoor plants for gardens"},
+                {"id": "650000000000000000000003", "name": "Flowering", "description": "Beautiful flowering plants"},
+                {"id": "650000000000000000000004", "name": "Air-Purifying", "description": "Plants that purify air"},
+                {"id": "650000000000000000000005", "name": "Medicinal/Herbal", "description": "Plants with medicinal properties"},
+                {"id": "650000000000000000000006", "name": "Succulent", "description": "Low-maintenance succulent plants"},
+            ]
+        },
+        {
+            "name": "Crops & Seeds",
+            "description": "Seeds and crops for cultivation",
+            "subcategories": [
+                {"id": "650000000000000000000007", "name": "Vegetables", "description": "Vegetable seeds and plants"},
+                {"id": "650000000000000000000008", "name": "Fruits", "description": "Fruit seeds and saplings"},
+                {"id": "650000000000000000000009", "name": "Grains/Pulses", "description": "Grain and pulse seeds"},
+                {"id": "650000000000000000000010", "name": "Spices/Herbs", "description": "Spice and herb seeds"},
+            ]
+        },
+        {
+            "name": "Pots & Planters",
+            "description": "Containers for planting",
+            "subcategories": [
+                {"id": "650000000000000000000011", "name": "Ceramic", "description": "Ceramic pots and planters"},
+                {"id": "650000000000000000000012", "name": "Plastic", "description": "Plastic containers"},
+                {"id": "650000000000000000000013", "name": "Terracotta", "description": "Traditional terracotta pots"},
+                {"id": "650000000000000000000014", "name": "Hanging", "description": "Hanging planters"},
+            ]
+        },
+        {
+            "name": "Tools & Equipment",
+            "description": "Gardening tools and equipment",
+            "subcategories": [
+                {"id": "650000000000000000000015", "name": "Hand Tools", "description": "Basic gardening hand tools"},
+                {"id": "650000000000000000000016", "name": "Watering", "description": "Watering cans and equipment"},
+                {"id": "650000000000000000000017", "name": "Soil Preparation", "description": "Tools for soil preparation"},
+            ]
+        },
+        {
+            "name": "Fertilizers & Soil",
+            "description": "Plant nutrition and growing media",
+            "subcategories": [
+                {"id": "650000000000000000000018", "name": "Organic", "description": "Organic fertilizers and compost"},
+                {"id": "650000000000000000000019", "name": "Chemical", "description": "Chemical fertilizers"},
+                {"id": "650000000000000000000020", "name": "Potting Mix", "description": "Ready-to-use potting mixes"},
+            ]
+        },
+    ]
+
+    created = 0
+    for cat in sample_categories:
+        existing = categories.find_one({"name": cat["name"]}, {"_id": 1})
+        if not existing:
+            doc = {
+                **cat,
+                "created_at": datetime.datetime.utcnow(),
+            }
+            categories.insert_one(doc)
+            created += 1
+    print(f"✓ Categories seeded (added {created}, total now {categories.count_documents({})})")
+
+
+def seed_remedy_categories():
+    sample_remedy_categories = [
+        {"name": "Digestive Health", "description": "Remedies for stomach and digestion issues", "icon": "healing", "color": "#4CAF50"},
+        {"name": "Respiratory Health", "description": "Remedies for cough, cold, and breathing issues", "icon": "lung", "color": "#2196F3"},
+        {"name": "Immune System", "description": "Remedies to boost immunity and fight infections", "icon": "shield", "color": "#FFC107"},
+        {"name": "Skin Care", "description": "Remedies for skin conditions, wounds, and irritation", "icon": "spa", "color": "#9C27B0"},
+        {"name": "Stress & Sleep", "description": "Remedies for anxiety, stress, and sleep disorders", "icon": "self_improvement", "color": "#673AB7"},
+        {"name": "Pain Relief", "description": "Remedies for muscle pain, headaches, and general discomfort", "icon": "medication", "color": "#F44336"},
+    ]
+
+    created = 0
+    for rc in sample_remedy_categories:
+        existing = remedy_categories.find_one({"name": rc["name"]}, {"_id": 1})
+        if not existing:
+            doc = {
+                **rc,
+                "created_at": datetime.datetime.utcnow(),
+            }
+            remedy_categories.insert_one(doc)
+            created += 1
+    print(f"✓ Remedy Categories seeded (added {created}, total now {remedy_categories.count_documents({})})")
+
+
 def seed_products():
     sample_products = [
-        {"name": "Reusable Water Bottle", "category": "Accessories", "price": 14.99, "stock": 120},
-        {"name": "Organic Cotton Tote", "category": "Bags", "price": 9.5, "stock": 200},
-        {"name": "Bamboo Toothbrush", "category": "Personal Care", "price": 3.99, "stock": 500},
-        {"name": "Compostable Plates (50ct)", "category": "Kitchen", "price": 12.49, "stock": 80},
-        {"name": "Solar Garden Lights", "category": "Outdoor", "price": 24.99, "stock": 45},
+        {"name": "Reusable Water Bottle", "category": "Accessories", "price": 14.99, "stock": 120, "imageUrl": "/uploads/20250915083905742088.webp"},
+        {"name": "Organic Cotton Tote", "category": "Bags", "price": 9.5, "stock": 200, "imageUrl": "/uploads/20250915111729742270.webp"},
+        {"name": "Bamboo Toothbrush", "category": "Personal Care", "price": 3.99, "stock": 500, "imageUrl": "/uploads/istockphoto-1263328016-612x612.jpg"},
+        {"name": "Compostable Plates (50ct)", "category": "Kitchen", "price": 12.49, "stock": 80, "imageUrl": "/uploads/compostable-plates.jpg"},
+        {"name": "Solar Garden Lights", "category": "Outdoor", "price": 24.99, "stock": 45, "imageUrl": "/uploads/solar-garden-lights.jpg"},
+        {"name": "Snake Plant", "category": "Plants", "subcategory": "Indoor", "price": 29.99, "stock": 25, "imageUrl": "/uploads/snake-plant.jpg"},
+        {"name": "Peace Lily", "category": "Plants", "subcategory": "Indoor", "price": 34.99, "stock": 20, "imageUrl": "/uploads/peace-lily.jpg"},
+        {"name": "Aloe Vera", "category": "Plants", "subcategory": "Succulent", "price": 19.99, "stock": 30, "imageUrl": "/uploads/aloe-vera.jpg"},
+        {"name": "Lavender Seeds", "category": "Crops & Seeds", "subcategory": "Spices/Herbs", "price": 4.99, "stock": 100, "imageUrl": "/uploads/lavender-seeds.jpg"},
+        {"name": "Ceramic Planter", "category": "Pots & Planters", "subcategory": "Ceramic", "price": 22.99, "stock": 35, "imageUrl": "/uploads/ceramic-planter.jpg"},
+        {"name": "Gardening Gloves", "category": "Tools & Equipment", "subcategory": "Hand Tools", "price": 12.99, "stock": 60, "imageUrl": "/uploads/gardening-gloves.jpg"},
+        {"name": "Organic Fertilizer", "category": "Fertilizers & Soil", "subcategory": "Organic", "price": 18.99, "stock": 50, "imageUrl": "/uploads/organic-fertilizer.jpg"},
     ]
 
     created = 0
@@ -76,10 +175,10 @@ def seed_remedies():
         # Digestive Health
         {
             "name": "Ginger Tea",
-            "category": "digestive",
+            "category": "Digestive Health", # Updated to match new remedy categories
             "illness": "Nausea & Indigestion",
             "keywords": ["nausea", "indigestion", "stomach upset", "morning sickness", "motion sickness"],
-            "image": "/uploads/20250918164353826388.jpg",
+            "imageUrl": "/uploads/20250918164353826388.jpg",
             "description": "Fresh ginger root tea to soothe stomach discomfort and reduce nausea.",
             "benefits": ["Reduces nausea", "Aids digestion", "Anti-inflammatory", "Relieves motion sickness"],
             "preparation": "Boil 1 inch fresh ginger in 2 cups water for 10 minutes. Strain and drink warm.",
@@ -91,10 +190,10 @@ def seed_remedies():
         },
         {
             "name": "Peppermint Oil",
-            "category": "digestive",
+            "category": "Digestive Health", # Updated to match new remedy categories
             "illness": "IBS & Bloating",
             "keywords": ["ibs", "irritable bowel", "bloating", "stomach cramps", "digestive issues"],
-            "image": "/uploads/20250918164539716225.jpg",
+            "imageUrl": "/uploads/20250918164539716225.jpg",
             "description": "Pure peppermint oil for irritable bowel syndrome relief and digestive comfort.",
             "benefits": ["Relieves IBS symptoms", "Reduces bloating", "Calms stomach muscles", "Reduces gas"],
             "preparation": "Take 1-2 peppermint oil capsules 30 minutes before meals with water.",
@@ -106,10 +205,10 @@ def seed_remedies():
         },
         {
             "name": "Chamomile Tea",
-            "category": "digestive",
+            "category": "Digestive Health", # Updated to match new remedy categories
             "illness": "Stomach Cramps",
             "keywords": ["stomach cramps", "abdominal pain", "digestive spasms", "stomach ache"],
-            "image": "/uploads/20250918164742265732.jpg",
+            "imageUrl": "/uploads/20250918164742265732.jpg",
             "description": "Gentle chamomile tea to calm stomach cramps and promote relaxation.",
             "benefits": ["Soothes stomach cramps", "Promotes relaxation", "Anti-spasmodic", "Reduces inflammation"],
             "preparation": "Steep 1 tea bag in hot water for 5-7 minutes. Drink warm.",
@@ -123,10 +222,10 @@ def seed_remedies():
         # Respiratory Health
         {
             "name": "Eucalyptus Steam Treatment",
-            "category": "respiratory",
+            "category": "Respiratory Health", # Updated to match new remedy categories
             "illness": "Cough & Congestion",
             "keywords": ["cough", "congestion", "cold", "respiratory", "steam", "breathing"],
-            "image": "/uploads/20250918164852756162.jpg",
+            "imageUrl": "/uploads/20250918164852756162.jpg",
             "description": "Eucalyptus essential oil for steam inhalation to clear respiratory passages.",
             "benefits": ["Clears congestion", "Relieves cough", "Opens airways", "Reduces inflammation"],
             "preparation": "Add 5-10 drops to hot water, cover head with towel, and inhale steam for 10 minutes.",
@@ -138,10 +237,10 @@ def seed_remedies():
         },
         {
             "name": "Thyme & Honey Syrup",
-            "category": "respiratory",
+            "category": "Respiratory Health", # Updated to match new remedy categories
             "illness": "Sore Throat",
             "keywords": ["sore throat", "throat pain", "cough", "thyme", "honey", "antibacterial"],
-            "image": "/uploads/20250918165107091330.jpg",
+            "imageUrl": "/uploads/20250918165107091330.jpg",
             "description": "Natural throat syrup with thyme and raw honey for sore throat relief.",
             "benefits": ["Soothes sore throat", "Antibacterial", "Natural cough suppressant", "Reduces inflammation"],
             "preparation": "Take 1-2 teaspoons every 2-3 hours as needed.",
@@ -153,10 +252,10 @@ def seed_remedies():
         },
         {
             "name": "Mullein Leaf Tea",
-            "category": "respiratory",
+            "category": "Respiratory Health", # Updated to match new remedy categories
             "illness": "Bronchitis",
             "keywords": ["bronchitis", "cough", "respiratory infection", "lung", "mullein"],
-            "image": "/uploads/20250918165418219540.jpg",
+            "imageUrl": "/uploads/20250918165418219540.jpg",
             "description": "Mullein leaf tea to help with bronchitis and respiratory inflammation.",
             "benefits": ["Reduces inflammation", "Expectorant", "Soothes bronchial tubes", "Natural cough relief"],
             "preparation": "Steep 1-2 teaspoons dried mullein in hot water for 10 minutes. Strain well.",
@@ -170,10 +269,10 @@ def seed_remedies():
         # Immune System
         {
             "name": "Elderberry Syrup",
-            "category": "immune",
+            "category": "Immune System", # Updated to match new remedy categories
             "illness": "Cold & Flu Prevention",
             "keywords": ["cold", "flu", "immunity", "elderberry", "antiviral", "prevention"],
-            "image": "/uploads/20250918165611801624.jpg",
+            "imageUrl": "/uploads/20250918165611801624.jpg",
             "description": "Powerful elderberry syrup to boost immunity and fight cold and flu viruses.",
             "benefits": ["Boosts immunity", "Antiviral properties", "Reduces flu duration", "Prevents infections"],
             "preparation": "Take 1 tablespoon daily during cold season or at first sign of illness.",
@@ -185,10 +284,10 @@ def seed_remedies():
         },
         {
             "name": "Astragalus Root Powder",
-            "category": "immune",
+            "category": "Immune System", # Updated to match new remedy categories
             "illness": "Low Immunity",
             "keywords": ["immunity", "energy", "astragalus", "immune system", "weakness", "fatigue"],
-            "image": "/uploads/20250918165743099761.jpg",
+            "imageUrl": "/uploads/20250918165743099761.jpg",
             "description": "Traditional Chinese herb to strengthen immune system and increase energy.",
             "benefits": ["Strengthens immunity", "Increases energy", "Adaptogenic", "Reduces fatigue"],
             "preparation": "Mix 1 teaspoon in warm water or smoothie daily.",
@@ -200,10 +299,10 @@ def seed_remedies():
         },
         {
             "name": "Turmeric & Black Pepper",
-            "category": "immune",
+            "category": "Immune System", # Updated to match new remedy categories
             "illness": "Inflammation",
             "keywords": ["inflammation", "turmeric", "curcumin", "joint pain", "swelling", "antioxidant"],
-            "image": "/uploads/20250918165849056483.jpg",
+            "imageUrl": "/uploads/20250918165849056483.jpg",
             "description": "Curcumin with black pepper for enhanced absorption and anti-inflammatory benefits.",
             "benefits": ["Anti-inflammatory", "Antioxidant", "Immune support", "Reduces joint pain"],
             "preparation": "Take 2 capsules daily with meals for best absorption.",
@@ -217,10 +316,10 @@ def seed_remedies():
         # Skin Care
         {
             "name": "Aloe Vera Gel",
-            "category": "skin",
+            "category": "Skin Care", # Updated to match new remedy categories
             "illness": "Sunburn & Skin Irritation",
             "keywords": ["sunburn", "skin irritation", "aloe vera", "healing", "moisturizer", "burns"],
-            "image": "/uploads/20250918171009190631.jpg",
+            "imageUrl": "/uploads/20250918171009190631.jpg",
             "description": "Pure aloe vera gel for sunburn relief and skin healing.",
             "benefits": ["Soothes sunburn", "Heals skin", "Moisturizes", "Reduces inflammation"],
             "preparation": "Apply directly to affected area 2-3 times daily.",
@@ -232,10 +331,10 @@ def seed_remedies():
         },
         {
             "name": "Tea Tree Oil Cream",
-            "category": "skin",
+            "category": "Skin Care", # Updated to match new remedy categories
             "illness": "Acne & Skin Infections",
             "keywords": ["acne", "skin infection", "tea tree oil", "antibacterial", "pimples", "bacteria"],
-            "image": "/uploads/20250918171259327143.jpg",
+            "imageUrl": "/uploads/20250918171259327143.jpg",
             "description": "Tea tree oil cream for acne treatment and skin infection prevention.",
             "benefits": ["Treats acne", "Antibacterial", "Prevents infections", "Reduces inflammation"],
             "preparation": "Apply thin layer to affected area 1-2 times daily.",
@@ -247,10 +346,10 @@ def seed_remedies():
         },
         {
             "name": "Calendula Salve",
-            "category": "skin",
+            "category": "Skin Care", # Updated to match new remedy categories
             "illness": "Eczema & Dry Skin",
             "keywords": ["eczema", "dry skin", "calendula", "skin irritation", "moisturizer", "dermatitis"],
-            "image": "/uploads/20250918171516431940.jpg",
+            "imageUrl": "/uploads/20250918171516431940.jpg",
             "description": "Calendula salve for eczema relief and dry skin treatment.",
             "benefits": ["Soothes eczema", "Moisturizes dry skin", "Anti-inflammatory", "Heals cracked skin"],
             "preparation": "Apply to affected areas 2-3 times daily.",
@@ -264,10 +363,10 @@ def seed_remedies():
         # Stress & Sleep
         {
             "name": "Lavender Essential Oil",
-            "category": "stress",
+            "category": "Stress & Sleep", # Updated to match new remedy categories
             "illness": "Anxiety & Insomnia",
             "keywords": ["anxiety", "insomnia", "sleep", "lavender", "relaxation", "stress"],
-            "image": "/uploads/20250918171735648095.jpg",
+            "imageUrl": "/uploads/20250918171735648095.jpg",
             "description": "Pure lavender essential oil for relaxation and better sleep.",
             "benefits": ["Reduces anxiety", "Promotes sleep", "Calming", "Reduces stress"],
             "preparation": "Diffuse 3-5 drops or apply diluted to temples and wrists.",
@@ -279,10 +378,10 @@ def seed_remedies():
         },
         {
             "name": "Valerian Root Capsules",
-            "category": "stress",
+            "category": "Stress & Sleep", # Updated to match new remedy categories
             "illness": "Sleep Disorders",
             "keywords": ["sleep disorders", "insomnia", "valerian", "sleep aid", "restlessness", "sleep quality"],
-            "image": "/uploads/20250918171935245477.jpg",
+            "imageUrl": "/uploads/20250918171935245477.jpg",
             "description": "Valerian root capsules for natural sleep support and relaxation.",
             "benefits": ["Improves sleep quality", "Reduces sleep latency", "Natural sedative", "Reduces restlessness"],
             "preparation": "Take 1-2 capsules 30 minutes before bedtime.",
@@ -294,10 +393,10 @@ def seed_remedies():
         },
         {
             "name": "Ashwagandha Powder",
-            "category": "stress",
+            "category": "Stress & Sleep", # Updated to match new remedy categories
             "illness": "Chronic Stress",
             "keywords": ["chronic stress", "anxiety", "ashwagandha", "adaptogen", "stress management", "cortisol"],
-            "image": "/uploads/20250918172345126148.jpg",
+            "imageUrl": "/uploads/20250918172345126148.jpg",
             "description": "Adaptogenic ashwagandha powder to combat stress and improve resilience.",
             "benefits": ["Reduces stress", "Adaptogenic", "Improves resilience", "Lowers cortisol"],
             "preparation": "Mix 1 teaspoon in warm milk or water before bed.",
@@ -311,10 +410,10 @@ def seed_remedies():
         # Pain Relief
         {
             "name": "Arnica Gel",
-            "category": "pain",
+            "category": "Pain Relief", # Updated to match new remedy categories
             "illness": "Muscle Pain & Bruises",
             "keywords": ["muscle pain", "bruises", "arnica", "pain relief", "swelling", "inflammation"],
-            "image": "/uploads/20250918172533843891.jpg",
+            "imageUrl": "/uploads/20250918172533843891.jpg",
             "description": "Arnica gel for muscle pain relief and bruise healing.",
             "benefits": ["Relieves muscle pain", "Heals bruises", "Anti-inflammatory", "Reduces swelling"],
             "preparation": "Apply to affected area 2-3 times daily, avoiding broken skin.",
@@ -373,6 +472,8 @@ def seed_order():
 def main():
     print("Seeding GreenCart database...")
     admin_id = ensure_admin_user()
+    seed_categories()
+    seed_remedy_categories()
     seed_products()
     seed_remedies()
     seed_order()

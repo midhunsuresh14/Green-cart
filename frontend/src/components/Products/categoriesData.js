@@ -1,82 +1,54 @@
-// Centralized category data for category pages and product listing
-export const CATEGORY_TREE = [
-  {
-    name: 'Plants',
-    key: 'Plants',
-    cover:
-      'https://images.unsplash.com/photo-1446071103084-c257b5f70672?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Indoor', key: 'Indoor' },
-      { name: 'Outdoor', key: 'Outdoor' },
-      { name: 'Medicinal/Herbal', key: 'Medicinal/Herbal' },
-      { name: 'Fruit', key: 'Fruit' },
-      { name: 'Flowering', key: 'Flowering' },
-      { name: 'Air-Purifying', key: 'Air-Purifying' },
-    ],
-  },
-  {
-    name: 'Crops & Seeds',
-    key: 'Crops & Seeds',
-    cover:
-      'https://images.unsplash.com/photo-1464226184884-fa280b87c399?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Vegetables', key: 'Vegetables' },
-      { name: 'Fruits', key: 'Fruits' },
-      { name: 'Grains/Pulses', key: 'Grains/Pulses' },
-      { name: 'Spices/Herbs', key: 'Spices/Herbs' },
-    ],
-  },
-  {
-    name: 'Pots & Planters',
-    key: 'Pots & Planters',
-    cover:
-      'https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Plastic', key: 'Plastic' },
-      { name: 'Ceramic', key: 'Ceramic' },
-      { name: 'Clay/Terracotta', key: 'Clay/Terracotta' },
-      { name: 'Hanging', key: 'Hanging' },
-      { name: 'Self-Watering', key: 'Self-Watering' },
-      { name: 'Decorative', key: 'Decorative' },
-    ],
-  },
-  {
-    name: 'Soil & Fertilizers',
-    key: 'Soil & Fertilizers',
-    cover:
-      'https://images.unsplash.com/photo-1520763185298-1b434c919102?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Potting Mix', key: 'Potting Mix' },
-      { name: 'Compost/Manure', key: 'Compost/Manure' },
-      { name: 'Organic Fertilizers', key: 'Organic Fertilizers' },
-      { name: 'Chemical Fertilizers', key: 'Chemical Fertilizers' },
-      { name: 'Soil Conditioners', key: 'Soil Conditioners' },
-    ],
-  },
-  {
-    name: 'Gardening Tools',
-    key: 'Gardening Tools',
-    cover:
-      'https://images.unsplash.com/photo-1457530378978-8bac673b8062?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Hand Tools', key: 'Hand Tools' },
-      { name: 'Watering Tools', key: 'Watering Tools' },
-      { name: 'Supports', key: 'Supports' },
-      { name: 'Kits', key: 'Kits' },
-    ],
-  },
-  {
-    name: 'Herbal & Eco Products',
-    key: 'Herbal & Eco Products',
-    cover:
-      'https://images.unsplash.com/photo-1519681394781-01f782a7b4c3?q=80&w=1600&auto=format&fit=crop',
-    children: [
-      { name: 'Herbal Remedies', key: 'Herbal Remedies' },
-      { name: 'Eco-Friendly Packs', key: 'Eco-Friendly Packs' },
-    ],
-  },
-];
+import { api } from '../../lib/api';
+
+// This file exports an async function to fetch categories from the backend
+// instead of using static data
+
+let cachedCategories = null;
+let isFetching = false;
+let fetchPromise = null;
+
+export async function fetchCategories() {
+  // If we have cached categories, return them immediately
+  if (cachedCategories) {
+    return cachedCategories;
+  }
+  
+  // If we're already fetching, return the existing promise
+  if (isFetching) {
+    return fetchPromise;
+  }
+  
+  // Set fetching flag and create promise
+  isFetching = true;
+  fetchPromise = api.listCategories()
+    .then(categories => {
+      // Transform the API response to match the expected format
+      const transformed = categories.map(cat => ({
+        name: cat.name,
+        key: cat.name,
+        // Use a default cover image if none provided
+        cover: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
+        children: (cat.subcategories || []).map(sub => ({
+          name: sub.name,
+          key: sub.name
+        }))
+      }));
+      
+      cachedCategories = transformed;
+      isFetching = false;
+      return transformed;
+    })
+    .catch(error => {
+      console.error('Error fetching categories:', error);
+      isFetching = false;
+      // Return empty array if fetch fails
+      return [];
+    });
+  
+  return fetchPromise;
+}
 
 export function findCategoryByKey(key) {
-  return CATEGORY_TREE.find((c) => c.key === key);
+  if (!cachedCategories) return null;
+  return cachedCategories.find((c) => c.key === key);
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const formatINR = (value) => {
   if (value == null) return '';
@@ -6,27 +6,113 @@ const formatINR = (value) => {
   return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 };
 
-const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist }) => {
+const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist, user }) => {
+  const [stockInfo, setStockInfo] = useState({ stock: product.stock || 0, inStock: (product.stock || 0) > 0 });
+  const [loadingStock, setLoadingStock] = useState(false);
+
   const categoryClass = `category-${(product.category || '')
     .toString()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')}`;
 
+  // Fetch real-time stock information when component mounts
+  useEffect(() => {
+    const fetchStockInfo = async () => {
+      if (!product.id && !product._id) return;
+      
+      setLoadingStock(true);
+      try {
+        const productId = product.id || product._id;
+        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        const response = await fetch(`${apiBase}/products/${productId}/stock`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          setStockInfo({
+            stock: data.stock,
+            inStock: data.inStock
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching stock info:', error);
+      } finally {
+        setLoadingStock(false);
+      }
+    };
+
+    fetchStockInfo();
+  }, [product.id, product._id]);
+
   const resolveImageUrl = (src) => {
     if (!src) return null;
+    // If it's already a full URL, return as is
     if (/^https?:\/\//i.test(src)) return src;
+    // If it's a local path, prepend the API base URL
     const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
     const host = apiBase.replace(/\/api\/?$/, '');
     return src.startsWith('/') ? host + src : host + '/' + src;
   };
 
-  const getPrimaryImageSrc = (p) => {
-    const raw = p?.imageUrl || p?.image || p?.image_path || p?.imagePath || p?.thumbnail || p?.photo || p?.photoUrl || p?.url;
-    return resolveImageUrl(raw);
+  // Use the correct image field from the product data
+  const primarySrc = resolveImageUrl(product.imageUrl || product.image) ||
+    'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+
+  // Handle add to cart with authentication check
+  const handleAddToCart = async () => {
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page
+      window.location.href = '/login';
+      return;
+    }
+    
+    if (!stockInfo.inStock) {
+      alert('This product is currently out of stock');
+      return;
+    }
+
+    // Check availability before adding to cart
+    try {
+      const productId = product.id || product._id;
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const response = await fetch(`${apiBase}/products/${productId}/check-availability`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quantity: 1 })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (!data.available) {
+          alert(`Only ${data.maxAvailable} items available in stock`);
+          return;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking availability:', error);
+    }
+
+    onAddToCart && onAddToCart(product);
   };
 
-  const primarySrc = getPrimaryImageSrc(product) ||
-    'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+  // Handle wishlist toggle with authentication check
+  const handleToggleWishlist = (e) => {
+    e.stopPropagation();
+    
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page
+      window.location.href = '/login';
+      return;
+    }
+    
+    const btn = e.currentTarget;
+    btn.classList.remove('wishlist-anim');
+    // Force reflow to restart animation
+    void btn.offsetWidth;
+    btn.classList.add('wishlist-anim');
+    onToggleWishlist && onToggleWishlist(product);
+  };
 
   return (
     <div className={"product-card " + categoryClass}>
@@ -37,6 +123,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           className="product-image"
           loading="lazy"
           onError={(e) => {
+            // Fallback to a default image if the product image fails to load
             e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
           }}
         />
@@ -45,10 +132,14 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           {product.subcategory || product.category}
         </div>
 
-        {/* Stock Status Badge */}
-        {product.stock !== undefined && (
-          <div className={`stock-badge ${product.stock > 0 ? 'in-stock' : 'out-of-stock'}`}>
-            {product.stock > 0 ? `${product.stock} left` : 'Out of Stock'}
+        {/* Stock status indicator */}
+        {!loadingStock && (
+          <div className={`stock-badge ${stockInfo.inStock ? 'in-stock' : 'out-of-stock'}`}>
+            {stockInfo.inStock ? (
+              <span>{stockInfo.stock} in stock</span>
+            ) : (
+              <span>Out of Stock</span>
+            )}
           </div>
         )}
 
@@ -56,15 +147,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           <button
             className={`action-btn ${isInWishlist ? 'wishlist-active' : ''}`}
             title={isInWishlist ? "Remove from Wishlist" : "Add to Wishlist"}
-            onClick={(e) => { 
-              e.stopPropagation(); 
-              const btn = e.currentTarget;
-              btn.classList.remove('wishlist-anim');
-              // Force reflow to restart animation
-              void btn.offsetWidth;
-              btn.classList.add('wishlist-anim');
-              onToggleWishlist && onToggleWishlist(product); 
-            }}
+            onClick={handleToggleWishlist}
           >
             <span className="material-icons">
               {isInWishlist ? 'favorite' : 'favorite_border'}
@@ -83,8 +166,12 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
               <span>View</span>
             </button>
             <button
-              className="overlay-btn primary"
-              onClick={() => onAddToCart && onAddToCart(product)}
+              className={`overlay-btn primary ${!stockInfo.inStock ? 'disabled' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToCart();
+              }}
+              disabled={!stockInfo.inStock}
             >
               <span className="material-icons">shopping_cart</span>
               <span>Add</span>
@@ -109,7 +196,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
               </span>
             ))}
           </div>
-          <span className="rating-count">({product.reviews})</span>
+          <span className="rating-count">({product.reviews || 0})</span>
         </div>
 
         <div className="product-price">
@@ -122,17 +209,26 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           )}
         </div>
 
+        {/* Out of stock message */}
+        {!stockInfo.inStock && (
+          <div className="out-of-stock-message">
+            <span className="material-icons">error_outline</span>
+            <span>This product is currently unavailable</span>
+          </div>
+        )}
+
         <div className="product-actions-row">
           <button
-            className="add-to-cart-btn"
-            onClick={() => onAddToCart && onAddToCart(product)}
+            className={`add-to-cart-btn ${!stockInfo.inStock ? 'disabled' : ''}`}
+            onClick={handleAddToCart}
+            disabled={!stockInfo.inStock}
           >
             <span className="material-icons">shopping_cart</span>
-            <span>Add to Cart</span>
+            <span>{stockInfo.inStock ? 'Add to Cart' : 'Out of Stock'}</span>
           </button>
           <button
             className={"add-to-wishlist-btn " + (isInWishlist ? 'active' : '')}
-            onClick={() => onToggleWishlist && onToggleWishlist(product)}
+            onClick={handleToggleWishlist}
           >
             <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
             <span>{isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}</span>
@@ -144,4 +240,3 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
 };
 
 export default ProductCard;
-

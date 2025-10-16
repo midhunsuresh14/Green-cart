@@ -4,7 +4,9 @@ import './AdminDashboard.css';
 import AdminProducts from './AdminProducts';
 import AdminOrders from './AdminOrders';
 import AdminUsers from './AdminUsers';
+import AdminCategories from './AdminCategories';
 import AdminRemedies from './AdminRemedies';
+import AdminRemedyCategories from './AdminRemedyCategories';
 import StatsCards from './StatsCards';
 import RecentActivity from './RecentActivity';
 import TopProducts from './TopProducts';
@@ -32,6 +34,7 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import ShoppingBagIcon from '@mui/icons-material/ShoppingBag';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
+import CategoryIcon from '@mui/icons-material/Category';
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import SearchIcon from '@mui/icons-material/Search';
@@ -45,9 +48,11 @@ const drawerWidth = 260;
 const sections = [
   { key: 'overview', label: 'Overview', icon: <DashboardIcon /> },
   { key: 'products', label: 'Products', icon: <Inventory2Icon /> },
+  { key: 'categories', label: 'Categories', icon: <CategoryIcon /> },
+  { key: 'remedies', label: 'Herbal Remedies', icon: <LocalPharmacyIcon /> },
+  { key: 'remedy-categories', label: 'Remedy Categories', icon: <LocalPharmacyIcon /> },
   { key: 'orders', label: 'Orders', icon: <ShoppingBagIcon /> },
   { key: 'users', label: 'Users', icon: <PeopleAltIcon /> },
-  { key: 'remedies', label: 'Remedies', icon: <LocalPharmacyIcon /> },
 ];
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -226,15 +231,16 @@ export default function AdminDashboard({ user, onLogout }) {
             <QuickActions
               onAddUser={() => setActive('users')}
               onAddProduct={() => setActive('products')}
-              onAddRemedy={() => setActive('remedies')}
               onViewOrders={() => setActive('orders')}
             />
           </>
         )}
         {active === 'products' && (<AdminProducts />)}
+        {active === 'categories' && (<AdminCategories />)}
+        {active === 'remedies' && (<AdminRemedies />)}
+        {active === 'remedy-categories' && (<AdminRemedyCategories />)}
         {active === 'orders' && (<AdminOrders />)}
         {active === 'users' && (<AdminUsers />)}
-        {active === 'remedies' && (<AdminRemedies />)}
       </Box>
     </Box>
   );

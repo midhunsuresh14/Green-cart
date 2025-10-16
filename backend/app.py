@@ -12,14 +12,26 @@ import string
 from bson import ObjectId
 from functools import wraps
 from dotenv import load_dotenv
+import redis
+import json
+import openai  # Add OpenAI import
 
 # Load environment variables
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=["http://localhost:3000", "http://127.0.0.1:3000"], 
-     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-     allow_headers=["Content-Type", "Authorization"])
+CORS(
+    app,
+    origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
+    supports_credentials=True,
+)
 
 # Email configuration
 app.config['MAIL_SERVER'] = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
@@ -37,8 +49,8 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.tif', '.tiff', '.svg', '.jfif', '.pjpeg', '.pjp', '.heic', '.heif'}
 
 # MongoDB Configuration (env override supported)
-MONGO_URI = os.getenv('MONGO_URI', "mongodb://localhost:27017/")
-DB_NAME = os.getenv('DB_NAME', "greencart")
+MONGO_URI = "mongodb://localhost:27017/"
+DB_NAME = "greencart"
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
 users_collection = db.users
@@ -48,6 +60,8 @@ remedies_collection = db.remedies
 reviews_collection = db.reviews
 notifications_collection = db.notifications
 otp_collection = db.otp_verifications
+categories_collection = db.categories
+remedy_categories_collection = db.remedy_categories
 
 # JWT Configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'greencart-secret-key-2024-secure-jwt-token')
@@ -65,6 +79,27 @@ except Exception:
 # OTP Configuration
 OTP_LENGTH = int(os.getenv('OTP_LENGTH', 6))
 OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', 10))
+
+# Redis Configuration
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
+
+try:
+    redis_client = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+    # Test Redis connection
+    redis_client.ping()
+    print("Redis connection successful")
+except Exception as e:
+    redis_client = None
+    print(f"Redis connection failed: {e}")
 
 # OTP Helper Functions
 def generate_otp():
@@ -544,6 +579,7 @@ def login():
         }), 200
         
     except Exception as e:
+        print(f"Login error: {e}") # Add more detailed logging
         return jsonify({
             'success': False,
             'error': str(e)
@@ -604,18 +640,36 @@ def admin_list_products():
         q = request.args.get('q', '').strip().lower()
         items = []
         for p in products_collection.find():
-            doc = {
-                'id': str(p['_id']),
-                'name': p.get('name'),
-                'category': p.get('category'),
-                'subcategory': p.get('subcategory', ''),
-                'price': float(p.get('price', 0)),
-                'description': p.get('description', ''),
-                'stock': int(p.get('stock', 0)),
-                'imageUrl': p.get('imageUrl', ''),
-            }
-            if not q or q in (doc['name'] or '').lower() or q in (doc['category'] or '').lower() or q in (doc['subcategory'] or '').lower():
-                items.append(doc)
+            try:
+                # Handle image URLs properly - check all possible fields
+                image_url = (p.get('image') or 
+                            p.get('imageUrl') or 
+                            p.get('imagePath') or 
+                            p.get('image_path') or 
+                            p.get('photo') or 
+                            p.get('thumbnail') or 
+                            '')
+                
+                # Ensure image_url starts with /uploads/ if it's a local path
+                if image_url and not image_url.startswith('http') and not image_url.startswith('/uploads/'):
+                    image_url = '/uploads/' + image_url.lstrip('/')
+                
+                doc = {
+                    'id': str(p['_id']),
+                    'name': p.get('name'),
+                    'category': p.get('category'),
+                    'subcategory': p.get('subcategory', ''),
+                    'price': float(p.get('price', 0)),
+                    'description': p.get('description', ''),
+                    'stock': int(p.get('stock', 0)),
+                    'imageUrl': image_url,
+                    'image': image_url,
+                }
+                print(f"DEBUG: Admin Product {doc['id']} image_url: {image_url}") # Debug log
+                if not q or q in (doc['name'] or '').lower() or q in (doc['category'] or '').lower() or q in (doc['subcategory'] or '').lower():
+                    items.append(doc)
+            except Exception as item_e:
+                print(f"Error processing admin product {p.get('_id')}: {item_e}")
         return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -625,6 +679,15 @@ def admin_list_products():
 def admin_create_product():
     try:
         data = request.get_json()
+        # Handle image URL properly
+        image_url = data.get('image') or data.get('imageUrl', '')
+        
+        # If image_url is a relative path, make it absolute
+        if image_url and not image_url.startswith('http') and not image_url.startswith('/uploads/'):
+            # If it's a relative path, make it absolute
+            if not image_url.startswith('/'):
+                image_url = '/uploads/' + image_url.lstrip('/')
+        
         doc = {
             'name': data.get('name'),
             'category': data.get('category'),
@@ -632,7 +695,8 @@ def admin_create_product():
             'price': float(data.get('price', 0)),
             'description': data.get('description', ''),
             'stock': int(data.get('stock', 0)),
-            'imageUrl': data.get('imageUrl', ''),
+            'imageUrl': image_url,
+            'image': image_url,
             'created_at': datetime.datetime.utcnow(),
         }
         # validations
@@ -648,6 +712,15 @@ def admin_create_product():
 def admin_update_product(product_id):
     try:
         data = request.get_json()
+        # Handle image URL properly
+        image_url = data.get('image') or data.get('imageUrl', '')
+        
+        # If image_url is a relative path, make it absolute
+        if image_url and not image_url.startswith('http') and not image_url.startswith('/uploads/'):
+            # If it's a relative path, make it absolute
+            if not image_url.startswith('/'):
+                image_url = '/uploads/' + image_url.lstrip('/')
+        
         update = {
             'name': data.get('name'),
             'category': data.get('category'),
@@ -655,7 +728,8 @@ def admin_update_product(product_id):
             'price': float(data.get('price', 0)),
             'description': data.get('description', ''),
             'stock': int(data.get('stock', 0)),
-            'imageUrl': data.get('imageUrl', ''),
+            'imageUrl': image_url,
+            'image': image_url,
         }
         if not update['name'] or not update['category'] or update['price'] <= 0 or update['stock'] < 0:
             return jsonify({'error': 'Validation failed'}), 400
@@ -673,25 +747,280 @@ def admin_delete_product(product_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-# Public catalog (no auth)
+# Public catalog (no auth) - WITH REDIS CACHING
 @app.route('/api/products', methods=['GET'])
 def public_list_products():
     try:
+        # Try to get data from Redis cache first (if Redis is available)
+        cache_key = "products_list"
+        if redis_client:
+            try:
+                cached_data = redis_client.get(cache_key)
+                if cached_data:
+                    print("Returning products from Redis cache")
+                    return jsonify(json.loads(cached_data))
+            except Exception as e:
+                print(f"Error accessing Redis cache: {e}")
+        
+        # If not in cache or Redis not available, fetch from database
         items = []
         for p in products_collection.find({}):
+            try:
+                # Handle image URLs properly - check all possible fields
+                image_url = (p.get('image') or 
+                            p.get('imageUrl') or 
+                            p.get('imagePath') or 
+                            p.get('image_path') or 
+                            p.get('photo') or 
+                            p.get('thumbnail') or 
+                            '')
+                
+                # Ensure image_url starts with /uploads/ if it's a local path
+                if image_url and not image_url.startswith('http') and not image_url.startswith('/uploads/'):
+                    image_url = '/uploads/' + image_url.lstrip('/')
+                
+                items.append({
+                    'id': str(p['_id']),
+                    'name': p.get('name'),
+                    'category': p.get('category'),
+                    'subcategory': p.get('subcategory', ''),
+                    'price': float(p.get('price', 0)),
+                    'description': p.get('description', ''),
+                    'stock': int(p.get('stock', 0)),
+                    'imageUrl': image_url,
+                    'image': image_url,
+                })
+            except Exception as item_e:
+                print(f"Error processing product {p.get('_id')}: {item_e}")
+        
+        # Cache the result in Redis for 5 minutes (if Redis is available)
+        if redis_client:
+            try:
+                redis_client.setex(cache_key, 300, json.dumps(items))
+                print("Products cached in Redis for 5 minutes")
+            except Exception as e:
+                print(f"Error caching products in Redis: {e}")
+        
+        print(f"DEBUG: Public Product image_urls: {[item['imageUrl'] for item in items]}")
+        return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Add the missing endpoint for getting a single product by ID
+@app.route('/api/products/<product_id>', methods=['GET'])
+def get_product_by_id(product_id):
+    try:
+        # Find product by ID
+        product = products_collection.find_one({'_id': ObjectId(product_id)})
+        if not product:
+            return jsonify({'error': 'Product not found'}), 404
+        
+        # Handle image URLs properly - check all possible fields
+        image_url = (product.get('image') or 
+                    product.get('imageUrl') or 
+                    product.get('imagePath') or 
+                    product.get('image_path') or 
+                    product.get('photo') or 
+                    product.get('thumbnail') or 
+                    '')
+        
+        # Ensure image_url starts with /uploads/ if it's a local path
+        if image_url and not image_url.startswith('http') and not image_url.startswith('/uploads/'):
+            image_url = '/uploads/' + image_url.lstrip('/')
+        
+        # Prepare the response
+        product_data = {
+            'id': str(product['_id']),
+            'name': product.get('name'),
+            'category': product.get('category'),
+            'subcategory': product.get('subcategory', ''),
+            'price': float(product.get('price', 0)),
+            'originalPrice': float(product.get('originalPrice', product.get('price', 0))),
+            'discount': product.get('discount', 0),
+            'description': product.get('description', ''),
+            'stock': int(product.get('stock', 0)),
+            'imageUrl': image_url,
+            'image': image_url,
+            'rating': product.get('rating', 0),
+            'reviews': product.get('reviews', 0),
+            'images': product.get('images', [image_url])  # Ensure we have an images array
+        }
+        
+        return jsonify(product_data)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Categories Management
+@app.route('/api/categories', methods=['GET'])
+def list_categories():
+    try:
+        items = []
+        for cat in categories_collection.find({}):
+            # Get subcategories for this category
+            subcategories = []
+            if 'subcategories' in cat:
+                subcategories = cat['subcategories']
+            
             items.append({
-                'id': str(p['_id']),
-                'name': p.get('name'),
-                'category': p.get('category'),
-                'subcategory': p.get('subcategory', ''),
-                'price': float(p.get('price', 0)),
-                'description': p.get('description', ''),
-                'stock': int(p.get('stock', 0)),
-                'imageUrl': p.get('imageUrl', ''),
+                'id': str(cat['_id']),
+                'name': cat.get('name'),
+                'description': cat.get('description', ''),
+                'subcategories': subcategories
             })
         return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/categories', methods=['POST'])
+@admin_required
+def create_category():
+    try:
+        data = request.get_json()
+        doc = {
+            'name': data.get('name'),
+            'description': data.get('description', ''),
+            'subcategories': []
+        }
+        if not doc['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        result = categories_collection.insert_one(doc)
+        return jsonify({'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/categories/<category_id>', methods=['PUT'])
+@admin_required
+def update_category(category_id):
+    try:
+        data = request.get_json()
+        update = {
+            'name': data.get('name'),
+            'description': data.get('description', '')
+        }
+        if not update['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        categories_collection.update_one({'_id': ObjectId(category_id)}, {'$set': update})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/categories/<category_id>', methods=['DELETE'])
+@admin_required
+def delete_category(category_id):
+    try:
+        # Check if any products use this category
+        products_using_category = products_collection.find_one({'category': {'$regex': f'^{category_id}$', '$options': 'i'}})
+        if products_using_category:
+            return jsonify({'error': 'Cannot delete category that is being used by products'}), 400
+        
+        categories_collection.delete_one({'_id': ObjectId(category_id)})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# Subcategories Management
+@app.route('/api/subcategories', methods=['POST'])
+@admin_required
+def create_subcategory():
+    try:
+        data = request.get_json()
+        category_id = data.get('categoryId')
+        subcategory = {
+            'id': str(ObjectId()),  # Generate a unique ID for the subcategory
+            'name': data.get('name'),
+            'description': data.get('description', '')
+        }
+        
+        if not subcategory['name'] or not category_id:
+            return jsonify({'error': 'Name and categoryId are required'}), 400
+        
+        # Update the category to add the new subcategory
+        result = categories_collection.update_one(
+            {'_id': ObjectId(category_id)},
+            {'$push': {'subcategories': subcategory}}
+        )
+        
+        if result.matched_count == 0:
+            return jsonify({'error': 'Category not found'}), 404
+            
+        return jsonify({'id': subcategory['id']}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/subcategories/<subcategory_id>', methods=['PUT'])
+@admin_required
+def update_subcategory(subcategory_id):
+    try:
+        data = request.get_json()
+        category_id = data.get('categoryId')
+        
+        if not data.get('name'):
+            return jsonify({'error': 'Name is required'}), 400
+        
+        # If categoryId is provided, we might need to move the subcategory
+        if category_id:
+            # First, remove the subcategory from its current category
+            categories_collection.update_many(
+                {'subcategories.id': subcategory_id},
+                {'$pull': {'subcategories': {'id': subcategory_id}}}
+            )
+            
+            # Then add it to the new category
+            subcategory = {
+                'id': subcategory_id,
+                'name': data.get('name'),
+                'description': data.get('description', '')
+            }
+            
+            result = categories_collection.update_one(
+                {'_id': ObjectId(category_id)},
+                {'$push': {'subcategories': subcategory}}
+            )
+            
+            if result.matched_count == 0:
+                return jsonify({'error': 'Category not found'}), 404
+        else:
+            # Update the subcategory in its current category
+            category = categories_collection.find_one({'subcategories.id': subcategory_id})
+            if not category:
+                return jsonify({'error': 'Subcategory not found'}), 404
+            
+            categories_collection.update_one(
+                {'_id': category['_id'], 'subcategories.id': subcategory_id},
+                {'$set': {
+                    'subcategories.$.name': data.get('name'),
+                    'subcategories.$.description': data.get('description', '')
+                }}
+            )
+        
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/subcategories/<subcategory_id>', methods=['DELETE'])
+@admin_required
+def delete_subcategory(subcategory_id):
+    try:
+        # Find the category containing this subcategory
+        category = categories_collection.find_one({'subcategories.id': subcategory_id})
+        if not category:
+            return jsonify({'error': 'Subcategory not found'}), 404
+        
+        # Check if any products use this subcategory
+        products_using_subcategory = products_collection.find_one({'subcategory': {'$regex': f'^{subcategory_id}$', '$options': 'i'}})
+        if products_using_subcategory:
+            return jsonify({'error': 'Cannot delete subcategory that is being used by products'}), 400
+        
+        # Remove the subcategory
+        categories_collection.update_one(
+            {'_id': category['_id']},
+            {'$pull': {'subcategories': {'id': subcategory_id}}}
+        )
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 # Image upload (admin)
 @app.route('/api/admin/upload', methods=['POST'])
@@ -791,16 +1120,26 @@ def update_order_status(order_id):
 
 # Remedies CRUD
 @app.route('/api/remedies', methods=['GET'])
-@admin_required
 def list_remedies():
     try:
         items = []
         for r in remedies_collection.find():
             items.append({
                 'id': str(r['_id']),
-                'illness': r.get('illness'),
-                'plant': r.get('plant'),
+                'name': r.get('name', ''),
+                'illness': r.get('illness', ''),
+                'category': r.get('category', ''),
+                'keywords': r.get('keywords', []),
                 'description': r.get('description', ''),
+                'benefits': r.get('benefits', []),
+                'preparation': r.get('preparation', ''),
+                'dosage': r.get('dosage', ''),
+                'duration': r.get('duration', ''),
+                'precautions': r.get('precautions', ''),
+                'effectiveness': r.get('effectiveness', ''),
+                'imageUrl': r.get('imageUrl', ''),
+                'tags': r.get('tags', []),
+                'created_at': r.get('created_at')
             })
         return jsonify(items)
     except Exception as e:
@@ -812,11 +1151,24 @@ def create_remedy():
     try:
         data = request.get_json()
         doc = {
-            'illness': data.get('illness'),
-            'plant': data.get('plant'),
+            'name': data.get('name', ''),
+            'illness': data.get('illness', ''),
+            'category': data.get('category', ''),
+            'keywords': data.get('keywords', []),
             'description': data.get('description', ''),
+            'benefits': data.get('benefits', []),
+            'preparation': data.get('preparation', ''),
+            'dosage': data.get('dosage', ''),
+            'duration': data.get('duration', ''),
+            'precautions': data.get('precautions', ''),
+            'effectiveness': data.get('effectiveness', ''),
+            'imageUrl': data.get('imageUrl', ''),
+            'tags': data.get('tags', []),
             'created_at': datetime.datetime.utcnow(),
         }
+        if not doc['name'] or not doc['illness']:
+            return jsonify({'error': 'Name and illness are required'}), 400
+        
         res = remedies_collection.insert_one(doc)
         return jsonify({'id': str(res.inserted_id)}), 201
     except Exception as e:
@@ -828,10 +1180,23 @@ def update_remedy(remedy_id):
     try:
         data = request.get_json()
         update = {
-            'illness': data.get('illness'),
-            'plant': data.get('plant'),
+            'name': data.get('name', ''),
+            'illness': data.get('illness', ''),
+            'category': data.get('category', ''),
+            'keywords': data.get('keywords', []),
             'description': data.get('description', ''),
+            'benefits': data.get('benefits', []),
+            'preparation': data.get('preparation', ''),
+            'dosage': data.get('dosage', ''),
+            'duration': data.get('duration', ''),
+            'precautions': data.get('precautions', ''),
+            'effectiveness': data.get('effectiveness', ''),
+            'imageUrl': data.get('imageUrl', ''),
+            'tags': data.get('tags', []),
         }
+        if not update['name'] or not update['illness']:
+            return jsonify({'error': 'Name and illness are required'}), 400
+        
         remedies_collection.update_one({'_id': ObjectId(remedy_id)}, {'$set': update})
         return jsonify({'success': True})
     except Exception as e:
@@ -842,6 +1207,151 @@ def update_remedy(remedy_id):
 def delete_remedy(remedy_id):
     try:
         remedies_collection.delete_one({'_id': ObjectId(remedy_id)})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/remedies/bulk-upload', methods=['POST'])
+@admin_required
+def bulk_upload_remedies():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Empty filename'}), 400
+        
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'error': 'File must be a CSV'}), 400
+        
+        # Read CSV content
+        import csv
+        import io
+        
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.DictReader(stream)
+        
+        remedies_to_insert = []
+        errors = []
+        
+        for row_num, row in enumerate(csv_input, start=2):  # Start from 2 because row 1 is header
+            try:
+                # Parse keywords, benefits, and tags from comma-separated strings
+                keywords = [k.strip() for k in row.get('keywords', '').split(',') if k.strip()]
+                benefits = [b.strip() for b in row.get('benefits', '').split(',') if b.strip()]
+                tags = [t.strip() for t in row.get('tags', '').split(',') if t.strip()]
+                
+                remedy = {
+                    'name': row.get('name', '').strip(),
+                    'illness': row.get('illness', '').strip(),
+                    'category': row.get('category', '').strip(),
+                    'keywords': keywords,
+                    'description': row.get('description', '').strip(),
+                    'benefits': benefits,
+                    'preparation': row.get('preparation', '').strip(),
+                    'dosage': row.get('dosage', '').strip(),
+                    'duration': row.get('duration', '').strip(),
+                    'precautions': row.get('precautions', '').strip(),
+                    'effectiveness': row.get('effectiveness', '').strip(),
+                    'imageUrl': row.get('imageUrl', '').strip(),
+                    'tags': tags,
+                    'created_at': datetime.datetime.utcnow(),
+                }
+                
+                # Validate required fields
+                if not remedy['name'] or not remedy['illness']:
+                    errors.append(f"Row {row_num}: Name and illness are required")
+                    continue
+                
+                remedies_to_insert.append(remedy)
+                
+            except Exception as e:
+                errors.append(f"Row {row_num}: {str(e)}")
+        
+        # Insert valid remedies
+        inserted_count = 0
+        if remedies_to_insert:
+            result = remedies_collection.insert_many(remedies_to_insert)
+            inserted_count = len(result.inserted_ids)
+        
+        return jsonify({
+            'success': True,
+            'inserted': inserted_count,
+            'errors': errors,
+            'total_rows': len(remedies_to_insert) + len(errors)
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# Remedy Categories Management
+@app.route('/api/remedy-categories', methods=['GET'])
+def list_remedy_categories():
+    try:
+        items = []
+        for cat in remedy_categories_collection.find():
+            items.append({
+                'id': str(cat['_id']),
+                'name': cat.get('name'),
+                'description': cat.get('description', ''),
+                'icon': cat.get('icon', '🌿'),
+                'color': cat.get('color', '#4a7c59'),
+                'created_at': cat.get('created_at')
+            })
+        return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/remedy-categories', methods=['POST'])
+@admin_required
+def create_remedy_category():
+    try:
+        data = request.get_json()
+        doc = {
+            'name': data.get('name'),
+            'description': data.get('description', ''),
+            'icon': data.get('icon', '🌿'),
+            'color': data.get('color', '#4a7c59'),
+            'created_at': datetime.datetime.utcnow(),
+        }
+        if not doc['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        result = remedy_categories_collection.insert_one(doc)
+        return jsonify({'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/remedy-categories/<category_id>', methods=['PUT'])
+@admin_required
+def update_remedy_category(category_id):
+    try:
+        data = request.get_json()
+        update = {
+            'name': data.get('name'),
+            'description': data.get('description', ''),
+            'icon': data.get('icon', '🌿'),
+            'color': data.get('color', '#4a7c59'),
+        }
+        if not update['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        remedy_categories_collection.update_one({'_id': ObjectId(category_id)}, {'$set': update})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/remedy-categories/<category_id>', methods=['DELETE'])
+@admin_required
+def delete_remedy_category(category_id):
+    try:
+        # Check if any remedies use this category
+        remedies_using_category = remedies_collection.find_one({'category': {'$regex': f'^{category_id}$', '$options': 'i'}})
+        if remedies_using_category:
+            return jsonify({'error': 'Cannot delete category that is being used by remedies'}), 400
+        
+        remedy_categories_collection.delete_one({'_id': ObjectId(category_id)})
         return '', 204
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -1093,6 +1603,11 @@ def verify_payment():
             {'$set': {'paymentStatus': 'completed', 'status': 'confirmed', 'razorpay_payment_id': razorpay_payment_id}}
         )
 
+        # Reduce stock after payment is confirmed
+        order = orders_collection.find_one({'_id': ObjectId(order_id)})
+        if order and 'items' in order:
+            reduce_stock_after_order(order['items'])
+
         return jsonify({'success': True, 'message': 'Payment verified successfully'})
 
     except Exception as e:
@@ -1100,38 +1615,72 @@ def verify_payment():
 
 # Stock Management Functions
 def check_stock_and_notify(product_id, quantity_ordered):
-    """Check stock levels and send admin notification if stock is low/out"""
+    """Check stock levels without reducing them"""
     try:
         product = products_collection.find_one({'_id': ObjectId(product_id)})
         if not product:
             return False
         
         current_stock = product.get('stock', 0)
-        new_stock = current_stock - quantity_ordered
+        # Check if enough stock is available WITHOUT reducing it
+        available = current_stock >= quantity_ordered
         
-        # Update stock
-        products_collection.update_one(
-            {'_id': ObjectId(product_id)},
-            {'$set': {'stock': max(0, new_stock)}}
-        )
-        
-        # Send notification if stock is low or out
-        if new_stock <= 0:
+        # Send notification if stock is low (but don't reduce stock yet)
+        if available and current_stock - quantity_ordered <= 0:
             send_admin_notification(
                 'OUT_OF_STOCK',
-                f"Product '{product.get('name', 'Unknown')}' is now out of stock!",
+                f"Product '{product.get('name', 'Unknown')}' will be out of stock after this order!",
                 {'productId': product_id, 'productName': product.get('name')}
             )
-        elif new_stock <= 5:  # Low stock threshold
+        elif available and current_stock - quantity_ordered <= 5:  # Low stock threshold
             send_admin_notification(
                 'LOW_STOCK',
-                f"Product '{product.get('name', 'Unknown')}' has only {new_stock} items left in stock!",
-                {'productId': product_id, 'productName': product.get('name'), 'remainingStock': new_stock}
+                f"Product '{product.get('name', 'Unknown')}' will have only {current_stock - quantity_ordered} items left after this order!",
+                {'productId': product_id, 'productName': product.get('name'), 'remainingStock': current_stock - quantity_ordered}
             )
         
-        return new_stock >= 0
+        return available
     except Exception as e:
         print(f"Error in stock check: {e}")
+        return False
+
+def reduce_stock_after_order(products):
+    """Reduce stock after order is confirmed"""
+    try:
+        for item in products:
+            product_id = item.get('id') or item.get('_id')
+            quantity = item.get('quantity', 1)
+            
+            product = products_collection.find_one({'_id': ObjectId(product_id)})
+            if not product:
+                continue
+            
+            current_stock = product.get('stock', 0)
+            new_stock = current_stock - quantity
+            
+            # Update stock
+            products_collection.update_one(
+                {'_id': ObjectId(product_id)},
+                {'$set': {'stock': max(0, new_stock)}}
+            )
+            
+            # Send notification if stock is low or out
+            if new_stock <= 0:
+                send_admin_notification(
+                    'OUT_OF_STOCK',
+                    f"Product '{product.get('name', 'Unknown')}' is now out of stock!",
+                    {'productId': product_id, 'productName': product.get('name')}
+                )
+            elif new_stock <= 5:  # Low stock threshold
+                send_admin_notification(
+                    'LOW_STOCK',
+                    f"Product '{product.get('name', 'Unknown')}' has only {new_stock} items left in stock!",
+                    {'productId': product_id, 'productName': product.get('name'), 'remainingStock': new_stock}
+                )
+        
+        return True
+    except Exception as e:
+        print(f"Error reducing stock: {e}")
         return False
 
 def send_admin_notification(notification_type, message, data=None):
@@ -1243,6 +1792,96 @@ def mark_notification_read(notification_id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Add Redis cache clearing endpoint
+@app.route('/api/clear-product-cache', methods=['POST'])
+@admin_required
+def clear_product_cache():
+    try:
+        if redis_client:
+            cache_key = "products_list"
+            redis_client.delete(cache_key)
+            return jsonify({'success': True, 'message': 'Product cache cleared'})
+        else:
+            return jsonify({'success': False, 'message': 'Redis not configured'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Chatbot Endpoint with Mistral/OpenAI support
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot():
+    try:
+        data = request.get_json()
+        messages = data.get('messages', [])
+        
+        if not messages:
+            return jsonify({'error': 'Messages are required'}), 400
+        
+        # Check for Mistral API key first, fallback to OpenAI
+        mistral_api_key = os.getenv('MISTRAL_API_KEY')
+        openai_api_key = os.getenv('OPENAI_API_KEY')
+        
+        if mistral_api_key:
+            # Use Mistral API
+            import requests
+            headers = {
+                'Authorization': f'Bearer {mistral_api_key}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Format messages for Mistral (remove 'system' role if present)
+            mistral_messages = []
+            for msg in messages:
+                if msg['role'] != 'system':
+                    mistral_messages.append(msg)
+                else:
+                    # Add system message as first user message
+                    if not mistral_messages:
+                        mistral_messages.append({'role': 'user', 'content': msg['content']})
+                    else:
+                        mistral_messages[0]['content'] = msg['content'] + '\n\n' + mistral_messages[0]['content']
+            
+            payload = {
+                'model': 'mistral-small-latest',
+                'messages': mistral_messages,
+                'max_tokens': 300,
+                'temperature': 0.7
+            }
+            
+            response = requests.post(
+                'https://api.mistral.ai/v1/chat/completions',
+                headers=headers,
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                bot_response = response.json()['choices'][0]['message']['content']
+                return jsonify({'response': bot_response})
+            else:
+                return jsonify({'error': f'Mistral API error: {response.status_code} - {response.text}'}), 500
+                
+        elif openai_api_key:
+            # Fallback to OpenAI API
+            client = openai.OpenAI(api_key=openai_api_key)
+            
+            # Call OpenAI API
+            response = client.chat.completions.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                max_tokens=300,
+                temperature=0.7
+            )
+            
+            # Extract the response
+            bot_response = response.choices[0].message.content
+            
+            return jsonify({'response': bot_response})
+        else:
+            # Fallback to rule-based responses if no API keys configured
+            return jsonify({'error': 'No API keys configured. Please set MISTRAL_API_KEY or OPENAI_API_KEY in environment variables.'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -1,200 +1,266 @@
 import React from 'react';
-import { Box, Container, Typography, Stack, Grid, Paper, Button, Divider } from '@mui/material';
+import { Box, Container, Typography, Stack, Grid, Paper, Button, Divider, Card, CardContent, CardMedia } from '@mui/material';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import WbSunnyOutlined from '@mui/icons-material/WbSunnyOutlined';
 import LocalPharmacyOutlined from '@mui/icons-material/LocalPharmacyOutlined';
 import ShoppingBasketOutlined from '@mui/icons-material/ShoppingBasketOutlined';
 import ArrowForwardIosRounded from '@mui/icons-material/ArrowForwardIosRounded';
 import { Link as RouterLink } from 'react-router-dom';
-import { motion } from 'framer-motion';
-
-// Framer Motion variants
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.6, ease: 'easeOut' } },
-};
-
-const stagger = {
-  show: { transition: { staggerChildren: 0.12 } },
-};
+import { api } from '../lib/api';
 
 export default function HomeMUI() {
-  return (
-    <Box sx={{ bgcolor: 'background.default', color: 'text.primary' }}>
-      {/* Hero (static, no floating elements) */}
-      <Box
-        sx={{
-          position: 'relative',
-          minHeight: { xs: 420, sm: 520, md: 640 },
-          display: 'grid',
-          alignItems: 'center',
-          backgroundImage:
-            'linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url(https://images.unsplash.com/photo-1463554050456-f2ed7d3fec09?q=80&w=2000&auto=format&fit=crop)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          color: 'common.white',
-        }}
-        aria-label="Hero"
-      >
-        <Container maxWidth="lg">
-          <Stack spacing={2} component={motion.div} initial="hidden" animate="show" variants={stagger}>
-            <Typography
-              component={motion.h1}
-              variants={fadeUp}
-              variant="h2"
-              fontWeight={800}
-              sx={{ fontSize: { xs: 32, sm: 42, md: 56 } }}
+    const [categories, setCategories] = React.useState([]);
+    const [products, setProducts] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState(null);
+
+    React.useEffect(() => {
+        async function fetchData() {
+            try {
+                setLoading(true);
+                // Fetch categories
+                const categoryData = await api.listCategories();
+                setCategories(categoryData);
+                
+                // Fetch products
+                const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+                const response = await fetch(`${apiBase}/products`);
+                if (!response.ok) throw new Error('Failed to fetch products');
+                const productData = await response.json();
+                setProducts(productData);
+            } catch (err) {
+                setError(err);
+                console.error("Failed to fetch data:", err);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
+
+    // Get top rated products (sort by rating and take top 8)
+    const topRatedProducts = React.useMemo(() => {
+        if (!products || products.length === 0) return [];
+        return [...products]
+            .filter(p => p.rating && p.rating > 0) // Only products with ratings
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0)) // Sort by rating descending
+            .slice(0, 8); // Take top 8
+    }, [products]);
+
+    // Helper function to resolve image URLs
+    const resolveImageUrl = (src) => {
+        if (!src) return 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=300&q=60';
+        if (/^https?:\/\//i.test(src)) return src;
+        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        const host = apiBase.replace(/\/api\/?$/, '');
+        return src.startsWith('/') ? host + src : host + '/' + src;
+    };
+
+    // Get primary image URL for a product
+    const getPrimaryImageUrl = (product) => {
+        const raw = product?.imageUrl || product?.image || product?.image_path || product?.imagePath || product?.thumbnail || product?.photo || product?.photoUrl || product?.url;
+        return resolveImageUrl(raw);
+    };
+
+    return (
+        <Box sx={{ bgcolor: 'background.default', color: 'text.primary' }}>
+            {/* Hero */}
+            <Box
+                sx={{
+                    position: 'relative',
+                    minHeight: { xs: 420, sm: 520, md: 640 },
+                    display: 'grid',
+                    alignItems: 'center',
+                    backgroundImage:
+                        'linear-gradient(rgba(0,0,0,0.35), rgba(0,0,0,0.35)), url(https://images.unsplash.com/photo-1463554050456-f2ed7d3fec09?q=80&w=2000&auto=format&fit=crop)',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    color: 'common.white',
+                }}
+                aria-label="Hero"
             >
-              AI‑Enhanced Plant E‑Commerce
-            </Typography>
-            <Typography component={motion.p} variants={fadeUp} variant="h6" sx={{ color: 'grey.100', maxWidth: 800 }}>
-              Discover, identify, and plan your garden with eco‑friendly guidance.
-            </Typography>
-            <Stack direction="row" spacing={1.5} sx={{ pt: 1 }} component={motion.div} variants={fadeUp}>
-              <Button
-                component={RouterLink}
-                to="/products"
-                variant="contained"
-                color="primary"
-                size="large"
-                endIcon={<ArrowForwardIosRounded />}
-              >
-                Explore Plants
-              </Button>
-              <Button component={RouterLink} to="/about" variant="outlined" color="inherit" size="large">
-                Learn More
-              </Button>
-            </Stack>
-          </Stack>
-        </Container>
-      </Box>
+                <Container maxWidth="lg">
+                    <Stack spacing={2}>
+                        <Typography variant="h2" fontWeight={800} sx={{ fontSize: { xs: 32, sm: 42, md: 56 } }}>
+                            AI‑Enhanced Plant E‑Commerce
+                        </Typography>
+                        <Typography variant="h6" sx={{ color: 'grey.100', maxWidth: 800 }}>
+                            Discover, identify, and plan your garden with eco‑friendly guidance.
+                        </Typography>
+                        <Stack direction="row" spacing={1.5} sx={{ pt: 1 }}>
+                            <Button
+                                component={RouterLink}
+                                to="/products"
+                                variant="contained"
+                                color="primary"
+                                size="large"
+                                endIcon={<ArrowForwardIosRounded />}
+                            >
+                                Explore Plants
+                            </Button>
+                            <Button component={RouterLink} to="/about" variant="outlined" color="inherit" size="large">
+                                Learn More
+                            </Button>
+                        </Stack>
+                    </Stack>
+                </Container>
+            </Box>
 
-      {/* Subtle Leaf Particle Band (below hero, no product movement) */}
-      <Box sx={{ position: 'relative', height: 72, bgcolor: theme => theme.palette.background.paper, borderBottom: theme => `1px solid ${theme.palette.divider}` }}>
-        {/* Optional soft gradient background */}
-        <Box sx={{ position: 'absolute', inset: 0, background: theme => `linear-gradient(180deg, ${theme.palette.background.paper} 0%, ${theme.palette.grey[50]} 100%)` }} />
-        <Box sx={{ position: 'absolute', inset: 0, opacity: 0.45 }}>
-          {[...Array(10)].map((_, i) => {
-            const delay = i * 1.2;
-            const duration = 12 + (i % 5);
-            const size = 10 + (i % 4) * 4; // 10-22px
-            const startY = (i % 2 === 0) ? 8 : 28;
-            return (
-              <motion.div
-                key={i}
-                initial={{ x: '105%', y: startY, rotate: 0 }}
-                animate={{ x: '-10%', rotate: [0, 8, -6, 0] }}
-                transition={{ delay, duration, ease: 'linear', repeat: Infinity }}
-                style={{ position: 'absolute' }}
-              >
-                {/* Simple leaf-like SVG path with currentColor; low-contrast green */}
-                <Box component="svg" width={size} height={size} viewBox="0 0 24 24" sx={{ color: 'success.light' }}>
-                  <path fill="currentColor" d="M12 2c5 4 7 8 7 11a7 7 0 1 1-14 0c0-3 2-7 7-11Z"/>
-                </Box>
-              </motion.div>
-            );
-          })}
-        </Box>
-      </Box>
+            {/* Features */}
+            <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+                <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 2 }}>
+                    <Typography variant="h4" fontWeight={800}>Why Choose GreenCart?</Typography>
+                    <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
+                        Powerful tools to help you grow smarter and live greener.
+                    </Typography>
+                </Stack>
+                <Grid container spacing={3}>
+                    {[{
+                        icon: <CameraAltOutlined color="success" />,
+                        title: 'AI Plant Identification',
+                        desc: 'Upload a photo and instantly identify plants with details on medicinal properties and care.'
+                    }, {
+                        icon: <WbSunnyOutlined color="warning" />,
+                        title: 'Weather‑Based Suggestions',
+                        desc: 'Personalized crop recommendations using your location\'s weather patterns.'
+                    }, {
+                        icon: <LocalPharmacyOutlined color="error" />,
+                        title: 'Herbal Remedies',
+                        desc: 'Discover natural treatments for common ailments with verified benefits.'
+                    }, {
+                        icon: <ShoppingBasketOutlined color="primary" />,
+                        title: 'Verified Products',
+                        desc: 'Shop curated organic plants and herbal products, verified for quality.'
+                    }].map((f) => (
+                        <Grid key={f.title} item xs={12} sm={6} md={3}>
+                            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
+                                <Stack spacing={1.5} alignItems="flex-start">
+                                    <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'grey.100' }}>{f.icon}</Box>
+                                    <Typography variant="h6" fontWeight={700}>{f.title}</Typography>
+                                    <Typography color="text.secondary">{f.desc}</Typography>
+                                </Stack>
+                            </Paper>
+                        </Grid>
+                    ))}
+                </Grid>
+            </Container>
 
-      {/* Features */}
-      <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-        <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 2 }}
-          component={motion.div}
-          initial="hidden"
-          whileInView="show"
-          viewport={{ once: true, amount: 0.25 }}
-          variants={stagger}
-        >
-          <Typography variant="h4" fontWeight={800} variants={fadeUp} component={motion.h2}>Why Choose GreenCart?</Typography>
-          <Typography color="text.secondary" sx={{ maxWidth: 720 }} component={motion.p} variants={fadeUp}>
-            Powerful tools to help you grow smarter and live greener.
-          </Typography>
-        </Stack>
-        <Grid container spacing={3} component={motion.div} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={stagger}>
-          {[{
-            icon: <CameraAltOutlined color="success" />,
-            title: 'AI Plant Identification',
-            desc: 'Upload a photo and instantly identify plants with details on medicinal properties and care.'
-          }, {
-            icon: <WbSunnyOutlined color="warning" />,
-            title: 'Weather‑Based Suggestions',
-            desc: 'Personalized crop recommendations using your location’s weather patterns.'
-          }, {
-            icon: <LocalPharmacyOutlined color="error" />,
-            title: 'Herbal Remedies',
-            desc: 'Discover natural treatments for common ailments with verified benefits.'
-          }, {
-            icon: <ShoppingBasketOutlined color="primary" />,
-            title: 'Verified Products',
-            desc: 'Shop curated organic plants and herbal products, verified for quality.'
-          }].map((f) => (
-            <Grid key={f.title} size={{ xs: 12, sm: 6, md: 3 }}>
-              <motion.div variants={fadeUp}>
-                <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-                  <Stack spacing={1.5} alignItems="flex-start">
-                    <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'grey.100' }}>{f.icon}</Box>
-                    <Typography variant="h6" fontWeight={700}>{f.title}</Typography>
-                    <Typography color="text.secondary">{f.desc}</Typography>
-                  </Stack>
+            {/* Best Rated Products */}
+            <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
+                <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 4 }}>
+                    <Typography variant="h4" fontWeight={800}>Best Rated Products</Typography>
+                    <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
+                        Discover our top-rated products loved by our customers
+                    </Typography>
+                </Stack>
+                
+                {loading ? (
+                    <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 2 }}>
+                        {Array.from({ length: 6 }).map((_, i) => (
+                            <Box key={i} sx={{ minWidth: 220, height: 300, bgcolor: 'grey.200', borderRadius: 2, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                        ))}
+                    </Stack>
+                ) : error ? (
+                    <Typography color="error" textAlign="center">Failed to load products</Typography>
+                ) : topRatedProducts.length > 0 ? (
+                    <Stack direction="row" spacing={3} sx={{ overflowX: 'auto', pb: 2, '&::-webkit-scrollbar': { height: 8 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: 4 } }}>
+                        {topRatedProducts.map((product) => (
+                            <Card key={product.id} sx={{ minWidth: 220, borderRadius: 3, boxShadow: 3, flexShrink: 0 }}>
+                                <CardMedia
+                                    component="img"
+                                    height="160"
+                                    image={getPrimaryImageUrl(product)}
+                                    alt={product.name}
+                                    sx={{ objectFit: 'cover' }}
+                                    onError={(e) => {
+                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=300&q=60';
+                                    }}
+                                />
+                                <CardContent>
+                                    <Typography variant="subtitle1" fontWeight={600} noWrap>
+                                        {product.name}
+                                    </Typography>
+                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ my: 1 }}>
+                                        <Typography variant="body2" color="warning.main">
+                                            ★ {product.rating}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">
+                                            ({product.reviews || 0} reviews)
+                                        </Typography>
+                                    </Stack>
+                                    <Typography variant="h6" color="primary.main">
+                                        ₹{product.price}
+                                    </Typography>
+                                    <Button 
+                                        component={RouterLink} 
+                                        to={`/pdp/${product.id}`}
+                                        variant="contained" 
+                                        color="primary" 
+                                        fullWidth 
+                                        sx={{ mt: 1 }}
+                                    >
+                                        View Details
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </Stack>
+                ) : (
+                    <Typography textAlign="center" color="text.secondary">
+                        No rated products available yet
+                    </Typography>
+                )}
+            </Container>
+
+            {/* Stats */}
+            <Box sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 8 } }}>
+                <Container maxWidth="lg">
+                    <Grid container spacing={3}>
+                        {[
+                            { k: 'Plants Identified', v: '10,000+' },
+                            { k: 'Happy Users', v: '5,000+' },
+                            { k: 'Verified Products', v: '500+' },
+                            { k: 'Accuracy Rate', v: '95%' },
+                        ].map((stat) => (
+                            <Grid key={stat.k} item xs={6} md={3}>
+                                <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
+                                    <Typography variant="h4" fontWeight={800}>{stat.v}</Typography>
+                                    <Typography color="text.secondary">{stat.k}</Typography>
+                                </Paper>
+                            </Grid>
+                        ))}
+                    </Grid>
+                </Container>
+            </Box>
+
+            {/* Footer */}
+            <Container maxWidth="lg" sx={{ py: 6 }}>
+                <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
+                    <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                            <Typography variant="h6" fontWeight={800}>GreenCart</Typography>
+                            <Typography color="text.secondary" sx={{ mt: 1 }}>
+                                Your smart agriculture and herbal health platform. Grow smart, live green.
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Typography variant="subtitle1" fontWeight={700}>Quick Links</Typography>
+                            <Stack spacing={1} sx={{ mt: 1 }}>
+                                <Button component={RouterLink} to="/about" size="small">About</Button>
+                                <Button component={RouterLink} to="/contact" size="small">Contact</Button>
+                                <Button component={RouterLink} to="/products" size="small">Products</Button>
+                            </Stack>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Typography variant="subtitle1" fontWeight={700}>Contact</Typography>
+                            <Typography color="text.secondary" sx={{ mt: 1 }}>info@greencart.com</Typography>
+                            <Typography color="text.secondary">+91 98765 43210</Typography>
+                        </Grid>
+                    </Grid>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="body2" color="text.secondary">© 2024 GreenCart. All rights reserved.</Typography>
                 </Paper>
-              </motion.div>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
-
-      {/* Stats */}
-      <Box sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 8 } }}>
-        <Container maxWidth="lg">
-          <Grid container spacing={3} component={motion.div} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }} variants={stagger}>
-            {[
-              { k: 'Plants Identified', v: '10,000+' },
-              { k: 'Happy Users', v: '5,000+' },
-              { k: 'Verified Products', v: '500+' },
-              { k: 'Accuracy Rate', v: '95%' },
-            ].map((stat) => (
-              <Grid key={stat.k} item xs={6} md={3}>
-                <motion.div variants={fadeUp}>
-                  <Paper variant="outlined" sx={{ p: 3, textAlign: 'center', borderRadius: 3 }}>
-                    <Typography variant="h4" fontWeight={800}>{stat.v}</Typography>
-                    <Typography color="text.secondary">{stat.k}</Typography>
-                  </Paper>
-                </motion.div>
-              </Grid>
-            ))}
-          </Grid>
-        </Container>
-      </Box>
-
-      {/* Footer */}
-      <Container maxWidth="lg" sx={{ py: 6 }}>
-        <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" fontWeight={800}>GreenCart</Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>
-                Your smart agriculture and herbal health platform. Grow smart, live green.
-              </Typography>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="subtitle1" fontWeight={700}>Quick Links</Typography>
-              <Stack spacing={1} sx={{ mt: 1 }}>
-                <Button component={RouterLink} to="/about" size="small">About</Button>
-                <Button component={RouterLink} to="/contact" size="small">Contact</Button>
-                <Button component={RouterLink} to="/products" size="small">Products</Button>
-              </Stack>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Typography variant="subtitle1" fontWeight={700}>Contact</Typography>
-              <Typography color="text.secondary" sx={{ mt: 1 }}>info@greencart.com</Typography>
-              <Typography color="text.secondary">+91 98765 43210</Typography>
-            </Grid>
-          </Grid>
-          <Divider sx={{ my: 2 }} />
-          <Typography variant="body2" color="text.secondary">© 2024 GreenCart. All rights reserved.</Typography>
-        </Paper>
-      </Container>
-    </Box>
-  );
+            </Container>
+        </Box>
+    );
 }

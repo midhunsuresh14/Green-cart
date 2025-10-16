@@ -21,6 +21,7 @@ import AdminNavbar from './components/Admin/AdminNavbar';
 import Wishlist from './components/Wishlist';
 import HerbalRemedies from './components/HerbalRemedies/HerbalRemedies';
 import PDPPage from './components/PDP/PDPPage.jsx';
+import ChatBot from './components/ChatBot'; // Import the ChatBot component
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -201,8 +202,6 @@ function Dashboard({ user }) {
     </div>
   );
 }
-
-
 
 function App() {
   const [user, setUser] = useState(null);
@@ -538,6 +537,20 @@ function App() {
     });
   };
 
+  const handleBuyNow = (product) => {
+    // Add product to cart first
+    handleAddToCart(product);
+    // Then navigate directly to checkout
+    setTimeout(() => {
+      navigate('/checkout');
+    }, 100);
+    setToast({
+      open: true,
+      type: 'success',
+      message: 'Proceeding to checkout...'
+    });
+  };
+
   const handleRemoveFromWishlist = (productId) => {
     const idStr = String(productId);
     setWishlistItems((prev) => {
@@ -561,11 +574,28 @@ function App() {
         <Routes>
           <Route path="/" element={<HomeMUI />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-          <Route path="/products" element={<ProductListing onAddToCart={handleAddToCart} onViewDetails={(p)=>{ setSelectedProduct(p); navigate('/pdp'); }} onToggleWishlist={handleToggleWishlist} wishlistItems={wishlistItems} />} />
+          <Route path="/products" element={
+            <ProductListing 
+              user={user}
+              onAddToCart={handleAddToCart} 
+              onViewDetails={(product) => {
+                setSelectedProduct(product);
+                navigate(`/pdp/${product.id}`);
+              }} 
+              onToggleWishlist={handleToggleWishlist} 
+              wishlistItems={wishlistItems} 
+            />
+          } />
           <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
           <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
           <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w)=> String(w.id)===String(selectedProduct?.id))} />} />
-          <Route path="/pdp" element={<PDPPage product={selectedProduct} user={user} onAddToCart={handleAddToCart} onOpenCart={()=>setIsCartOpen(true)} />} />
+          <Route path="/pdp/:productId" element={
+            <PDPPage 
+              user={user} 
+              onAddToCart={handleAddToCart} 
+              onOpenCart={() => setIsCartOpen(true)} 
+            />
+          } />
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
           <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
@@ -607,6 +637,9 @@ function App() {
         onRemoveItem={handleRemoveItem}
         onCheckout={()=>{ setIsCartOpen(false); navigate('/checkout'); }}
       />
+      
+      {/* ChatBot Component */}
+      <ChatBot />
     </>
   );
 }
