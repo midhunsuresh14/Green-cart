@@ -16,23 +16,38 @@ async function request(path, options = {}) {
     ...(options.headers || {}),
   };
   
-  console.log(`Making request to: ${BASE_URL}${path}`); // Debug log
+  const url = `${BASE_URL}${path}`;
+  console.log('[API] Making request:', {
+    method: options.method || 'GET',
+    url,
+    headers,
+    body: options.body
+  });
   
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
-  
-  console.log(`Response status: ${res.status}`); // Debug log
-  
-  if (!res.ok) {
-    const text = await res.text();
-    console.error(`Request failed: ${res.status}`, text); // Debug log
-    throw new Error(text || `Request failed: ${res.status}`);
+  try {
+    const res = await fetch(url, { 
+      ...options, 
+      headers,
+      credentials: 'include' // Important for cookies if using sessions
+    });
+    
+    console.log(`[API] Response status: ${res.status} for ${path}`);
+    
+    if (!res.ok) {
+      const text = await res.text();
+      console.error(`[API] Request failed: ${res.status}`, text);
+      throw new Error(text || `Request failed: ${res.status}`);
+    }
+    
+    if (res.status === 204) return null;
+    
+    const data = await res.json();
+    console.log('[API] Response data:', data);
+    return data;
+  } catch (error) {
+    console.error('[API] Request error:', error);
+    throw error;
   }
-  
-  if (res.status === 204) return null;
-  
-  const data = await res.json();
-  console.log(`Response data:`, data); // Debug log
-  return data;
 }
 
 export const api = {
@@ -40,7 +55,7 @@ export const api = {
   adminStats: () => request('/admin/stats'),
 
   // Products (Admin + Public)
-  listProductsPublic: () => request('/products'),
+  listProductsPublic: (path = '') => request(`/products${path}`),
   listProducts: (q = '') => request(`/admin/products${q ? `?q=${encodeURIComponent(q)}` : ''}`),
   createProduct: (data) => request('/admin/products', { method: 'POST', body: JSON.stringify(data) }),
   updateProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

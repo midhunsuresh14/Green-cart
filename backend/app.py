@@ -660,10 +660,10 @@ def admin_list_products():
                     'category': p.get('category'),
                     'subcategory': p.get('subcategory', ''),
                     'price': float(p.get('price', 0)),
-                    'description': p.get('description', ''),
+                    'description': p.get('description', 'No description available'),
                     'stock': int(p.get('stock', 0)),
                     'imageUrl': image_url,
-                    'image': image_url,
+                    'image': image_url,  # Ensure both fields are present
                 }
                 print(f"DEBUG: Admin Product {doc['id']} image_url: {image_url}") # Debug log
                 if not q or q in (doc['name'] or '').lower() or q in (doc['category'] or '').lower() or q in (doc['subcategory'] or '').lower():
@@ -785,10 +785,10 @@ def public_list_products():
                     'category': p.get('category'),
                     'subcategory': p.get('subcategory', ''),
                     'price': float(p.get('price', 0)),
-                    'description': p.get('description', ''),
+                    'description': p.get('description', 'No description available'),
                     'stock': int(p.get('stock', 0)),
                     'imageUrl': image_url,
-                    'image': image_url,
+                    'image': image_url,  # Ensure both fields are present
                 })
             except Exception as item_e:
                 print(f"Error processing product {p.get('_id')}: {item_e}")
@@ -837,10 +837,10 @@ def get_product_by_id(product_id):
             'price': float(product.get('price', 0)),
             'originalPrice': float(product.get('originalPrice', product.get('price', 0))),
             'discount': product.get('discount', 0),
-            'description': product.get('description', ''),
+            'description': product.get('description', 'No description available'),
             'stock': int(product.get('stock', 0)),
             'imageUrl': image_url,
-            'image': image_url,
+            'image': image_url,  # Ensure both fields are present
             'rating': product.get('rating', 0),
             'reviews': product.get('reviews', 0),
             'images': product.get('images', [image_url])  # Ensure we have an images array

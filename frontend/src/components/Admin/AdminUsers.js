@@ -10,9 +10,8 @@ export default function AdminUsers() {
     try {
       setLoading(true);
       const data = await api.listUsers();
-      // Additional safety filter to exclude admin users from display
-      const filteredUsers = (data || []).filter(user => user.role !== 'admin');
-      setUsers(filteredUsers);
+      // Show all users including admins
+      setUsers(data || []);
     } catch (e) {
       setError(e.message);
     } finally {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, memo } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 
 const formatINR = (value) => {
   if (value == null) return '';
@@ -14,7 +14,7 @@ const LazyImage = memo(({ src, alt, className, onError }) => {
   const imgRef = React.useRef();
 
   // Intersection Observer for lazy loading
-  useEffect(() => {
+  React.useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -99,8 +99,11 @@ const ImageStyles = `
 `;
 
 const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist, user }) => {
-  const [stockInfo, setStockInfo] = useState({ stock: product.stock || 0, inStock: (product.stock || 0) > 0 });
-  const [loadingStock, setLoadingStock] = useState(false);
+  // Use stock information directly from the product data
+  const stockInfo = {
+    stock: product.stock || 0,
+    inStock: (product.stock || 0) > 0
+  };
 
   // Memoized category class to prevent recalculation
   const categoryClass = React.useMemo(() => {
@@ -110,40 +113,14 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
       .replace(/[^a-z0-9]+/g, '-')}`;
   }, [product.category]);
 
-  // Fetch real-time stock information when component mounts
-  useEffect(() => {
-    const fetchStockInfo = async () => {
-      if (!product.id && !product._id) return;
-      
-      setLoadingStock(true);
-      try {
-        const productId = product.id || product._id;
-        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-        const response = await fetch(`${apiBase}/products/${productId}/stock`);
-        
-        if (response.ok) {
-          const data = await response.json();
-          setStockInfo({
-            stock: data.stock,
-            inStock: data.inStock
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching stock info:', error);
-      } finally {
-        setLoadingStock(false);
-      }
-    };
-
-    fetchStockInfo();
-  }, [product.id, product._id]);
-
   // Memoized image URL resolution
   const primarySrc = React.useMemo(() => {
     const resolveImageUrl = (src) => {
       if (!src) return null;
       // If it's already a full URL, return as is
       if (/^https?:\/\//i.test(src)) return src;
+      // If it's a local path that already starts with /uploads/, return as is
+      if (src.startsWith('/uploads/')) return src;
       // If it's a local path, prepend the API base URL
       const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
       const host = apiBase.replace(/\/api\/?$/, '');
@@ -151,8 +128,16 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
     };
 
     // Use the correct image field from the product data
-    return resolveImageUrl(product.imageUrl || product.image) ||
-      'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
+    const imageUrl = resolveImageUrl(product.imageUrl || product.image);
+    console.log('Product image URL resolution:', { 
+      productId: product.id, 
+      productName: product.name,
+      originalImageUrl: product.imageUrl, 
+      originalImage: product.image, 
+      resolvedUrl: imageUrl 
+    });
+    
+    return imageUrl || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
   }, [product.imageUrl, product.image]);
 
   // Memoized event handlers to prevent recreation on every render
@@ -169,27 +154,6 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;
-    }
-
-    // Check availability before adding to cart
-    try {
-      const productId = product.id || product._id;
-      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-      const response = await fetch(`${apiBase}/products/${productId}/check-availability`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quantity: 1 })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (!data.available) {
-          alert(`Only ${data.maxAvailable} items available in stock`);
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Error checking availability:', error);
     }
 
     onAddToCart && onAddToCart(product);
@@ -225,7 +189,7 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
   }, []);
 
   // Add CSS styles to head
-  useEffect(() => {
+  React.useEffect(() => {
     const style = document.createElement('style');
     style.textContent = ImageStyles;
     document.head.appendChild(style);
@@ -250,15 +214,13 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
         </div>
 
         {/* Stock status indicator */}
-        {!loadingStock && (
-          <div className={`stock-badge ${stockInfo.inStock ? 'in-stock' : 'out-of-stock'}`}>
-            {stockInfo.inStock ? (
-              <span>{stockInfo.stock} in stock</span>
-            ) : (
-              <span>Out of Stock</span>
-            )}
-          </div>
-        )}
+        <div className={`stock-badge ${stockInfo.inStock ? 'in-stock' : 'out-of-stock'}`}>
+          {stockInfo.inStock ? (
+            <span>{stockInfo.stock} in stock</span>
+          ) : (
+            <span>Out of Stock</span>
+          )}
+        </div>
 
         <div className="action-buttons">
           <button

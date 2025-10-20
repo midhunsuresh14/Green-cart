@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, ShoppingCart, User, Menu, Leaf, Droplet, Shield, Zap } from 'lucide-react';
+import { Search, ShoppingCart, User, Menu, Leaf } from 'lucide-react';
 import { api } from '../../lib/api'; // Corrected the import path
 
 const HerbalRemedies = () => {
@@ -7,7 +7,7 @@ const HerbalRemedies = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState([]); // Will now hold remedies data
   const [categories, setCategories] = useState([
-    { name: 'All Remedies', icon: Leaf }
+    { name: 'All Remedies' }
   ]); // Will be populated from API
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,7 +37,7 @@ const HerbalRemedies = () => {
         
         // Transform categories to match existing structure
         const transformedCategories = [
-          { name: 'All Remedies', icon: Leaf },
+          { name: 'All Remedies' },
           ...categoriesData.map(cat => ({
             name: cat.name,
             // icon could be added based on category data if needed
@@ -113,7 +113,6 @@ const HerbalRemedies = () => {
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-wrap gap-3 justify-center">
             {categories.map((category) => {
-              const Icon = category.icon;
               const isActive = activeCategory === category.name;
               return (
                 <button
@@ -126,7 +125,6 @@ const HerbalRemedies = () => {
                   }`}
                   style={isActive ? { backgroundColor: '#7fb069' } : {}}
                 >
-                  {Icon && <Icon className="w-4 h-4" />}
                   {category.name}
                 </button>
               );

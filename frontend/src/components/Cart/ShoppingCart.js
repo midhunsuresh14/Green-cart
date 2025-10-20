@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ShoppingCart.css';
 
@@ -12,8 +12,27 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
       return [];
     }
   });
-  const [isLoading, setIsLoading] = useState(false);
+  // const [isLoading, setIsLoading] = useState(false); // Removed unused state
   const navigate = useNavigate();
+
+  // Image URL resolution function
+  const resolveImageUrl = useMemo(() => {
+    return (src) => {
+      if (!src) return 'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=200&q=80';
+      // If it's already a full URL, return as is
+      if (/^https?:\/\//i.test(src)) return src;
+      // If it's a local path that already starts with /uploads/, prepend the backend URL
+      if (src.startsWith('/uploads/')) {
+        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        const host = apiBase.replace(/\/api\/?$/, '');
+        return host + src;
+      }
+      // If it's a local path, prepend the API base URL
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const host = apiBase.replace(/\/api\/?$/, '');
+      return src.startsWith('/') ? host + src : host + '/' + src;
+    };
+  }, []);
 
   // Keep local state in sync with props or restore from localStorage on refresh
   useEffect(() => {
@@ -154,7 +173,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                 <div key={`${item.id}-${item.selectedSize?.name || 'default'}`} className="cart-item">
                   <div className="item-image">
                     <img 
-                      src={item.images?.[0] || item.image || 'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=200&q=80'} 
+                      src={resolveImageUrl(item.images?.[0] || item.image || item.imageUrl)} 
                       alt={item.name}
                     />
                   </div>

@@ -1,6 +1,6 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import './ProductListing.css';
-import ProductCard from './ProductCard';
+import OptimizedProductCard from './OptimizedProductCard';
 import { fetchCategories } from './categoriesData';
 import { Link } from 'react-router-dom';
 
@@ -11,14 +11,32 @@ const SORT_OPTIONS = [
   { value: 'new', label: 'New Arrivals' },
 ];
 
-export default function ProductListing({ onAddToCart, onViewDetails, onToggleWishlist, wishlistItems = [], user }) {
+// Debounce function to limit API calls
+const useDebounce = (value, delay) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+};
+
+const OptimizedProductListing = ({ onAddToCart, onViewDetails, onToggleWishlist, wishlistItems = [], user }) => {
   // UI state
-  const [selectedCategory, setSelectedCategory] = useState(null); // e.g., "Plants"
-  const [selectedSubcategory, setSelectedSubcategory] = useState(null); // e.g., "Indoor"
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const [selectedSubcategory, setSelectedSubcategory] = useState(null);
   const [sortBy, setSortBy] = useState('popularity');
-  const [priceMax, setPriceMax] = useState(600); // INR slider default 600 (₹)
+  const [priceMax, setPriceMax] = useState(600);
   const [filters, setFilters] = useState({ inStock: false, discount: false });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -35,26 +53,27 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Debounced search query
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
   // Load categories and products from backend
-  useEffect(() => {
-    let isMounted = true;
-    
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch categories
-        const categoryData = await fetchCategories();
-        if (isMounted) {
-          setCategories(categoryData);
-        }
-        
-        // Fetch products with better error handling
-        const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-        console.log('Fetching products from:', base + '/products');
-        
-        const res = await fetch(base + '/products');
+  const loadData = useCallback(async (signal) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch categories
+      const categoryData = await fetchCategories();
+      if (!signal.aborted) {
+        setCategories(categoryData);
+      }
+      
+      // Fetch products with better error handling
+      const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      console.log('Fetching products from:', base + '/products');
+      
+      const res = await fetch(base + '/products', { signal });
+      if (!signal.aborted) {
         console.log('Products API response status:', res.status);
         
         if (!res.ok) {
@@ -65,36 +84,45 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
         
         const data = await res.json();
         console.log('Products data received:', data);
-        
-        if (isMounted) {
-          setRemoteProducts(data);
-        }
-      } catch (e) {
-        console.error('Error fetching data:', e);
-        if (isMounted) {
-          setError(e.message || 'Failed to fetch products');
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setRemoteProducts(data);
       }
-    };
-
-    loadData();
-
-    // Re-fetch on tab focus (no aggressive polling)
-    const onFocus = () => loadData();
-    window.addEventListener('focus', onFocus);
-
-    return () => { 
-      isMounted = false; 
-      window.removeEventListener('focus', onFocus); 
-    };
+    } catch (e) {
+      if (!signal.aborted) {
+        console.error('Error fetching data:', e);
+        setError(e.message || 'Failed to fetch products');
+      }
+    } finally {
+      if (!signal.aborted) {
+        setLoading(false);
+      }
+    }
   }, []);
 
-  const filtered = useMemo(() => {
+  useEffect(() => {
+    const controller = new AbortController();
+    
+    loadData(controller.signal);
+
+    // Cleanup function
+    return () => {
+      controller.abort();
+    };
+  }, [loadData]);
+
+  // Filter products based on all criteria
+  const filteredProducts = useMemo(() => {
     let items = Array.isArray(remoteProducts) ? [...remoteProducts] : [];
+
+    // Search filter
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      items = items.filter((p) => 
+        (p.name && p.name.toLowerCase().includes(query)) ||
+        (p.description && p.description.toLowerCase().includes(query)) ||
+        (p.category && p.category.toLowerCase().includes(query)) ||
+        (p.subcategory && p.subcategory.toLowerCase().includes(query))
+      );
+    }
 
     // Category/subcategory filter
     if (selectedCategory) {
@@ -111,7 +139,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
     if (filters.inStock) items = items.filter((p) => (p.stock || 0) > 0);
     if (filters.discount) items = items.filter((p) => Number(p.discount || 0) > 0 || p.originalPrice);
 
-    // Sorting helper + group Plants first when no category is selected
+    // Sorting helper
     const applySort = (arr) => {
       const copy = [...arr];
       switch (sortBy) {
@@ -132,6 +160,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
       return copy;
     };
 
+    // Group Plants first when no category is selected
     if (!selectedCategory) {
       const plants = items.filter((p) => p.category === 'Plants');
       const others = items.filter((p) => p.category !== 'Plants');
@@ -141,13 +170,13 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
     }
 
     return items;
-  }, [remoteProducts, selectedCategory, selectedSubcategory, priceMax, filters, sortBy]);
+  }, [remoteProducts, selectedCategory, selectedSubcategory, priceMax, filters, sortBy, debouncedSearchQuery]);
 
   // Pagination slice
-  const total = filtered.length;
+  const total = filteredProducts.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pageSafe = Math.min(page, totalPages);
-  const pageSlice = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
+  const pageSlice = filteredProducts.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE);
 
   // Handlers
   const handleCategoryClick = (catKey) => {
@@ -169,6 +198,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
     setSortBy('popularity');
     setPriceMax(600);
     setFilters({ inStock: false, discount: false });
+    setSearchQuery('');
     setPage(1);
   };
 
@@ -219,6 +249,22 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
             {idx < breadcrumbTrail.length - 1 && <span className="sep">›</span>}
           </span>
         ))}
+      </div>
+
+      {/* Search Bar */}
+      <div className="search-bar-container">
+        <div className="search-bar">
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="search-input"
+          />
+          <button className="search-button">
+            <span className="material-icons">search</span>
+          </button>
+        </div>
       </div>
 
       {/* Mobile Category Menu Button */}
@@ -418,45 +464,49 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
           </div>
         </div>
 
-        <div className="product-grid">
-          {pageSlice.map((product) => (
-            <ProductCard
-              key={product.id}
-              product={product}
-              user={user}
-              onAddToCart={onAddToCart}
-              onViewDetails={onViewDetails}
-              onToggleWishlist={onToggleWishlist}
-              isInWishlist={wishlistIds.has(String(product.id))}
-            />
-          ))}
-        </div>
-
-        {total === 0 && (
+        {total === 0 ? (
           <div className="no-products-message">
             <p>No products found matching your criteria.</p>
             <button onClick={resetFilters}>Reset filters</button>
           </div>
-        )}
+        ) : (
+          <>
+            <div className="product-grid">
+              {pageSlice.map((product) => (
+                <OptimizedProductCard
+                  key={product.id}
+                  product={product}
+                  user={user}
+                  onAddToCart={onAddToCart}
+                  onViewDetails={onViewDetails}
+                  onToggleWishlist={onToggleWishlist}
+                  isInWishlist={wishlistIds.has(String(product.id))}
+                />
+              ))}
+            </div>
 
-        <div className="pagination">
-          <button className="page-btn" disabled={pageSafe === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            Previous
-          </button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
-            <button
-              key={n}
-              className={"page-btn " + (n === pageSafe ? 'active' : '')}
-              onClick={() => setPage(n)}
-            >
-              {n}
-            </button>
-          ))}
-          <button className="page-btn" disabled={pageSafe === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-            Next
-          </button>
-        </div>
+            <div className="pagination">
+              <button className="page-btn" disabled={pageSafe === 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                Previous
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  className={"page-btn " + (n === pageSafe ? 'active' : '')}
+                  onClick={() => setPage(n)}
+                >
+                  {n}
+                </button>
+              ))}
+              <button className="page-btn" disabled={pageSafe === totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                Next
+              </button>
+            </div>
+          </>
+        )}
       </section>
     </div>
   );
-}
+};
+
+export default OptimizedProductListing;

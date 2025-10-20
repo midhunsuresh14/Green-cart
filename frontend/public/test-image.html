@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Image Test</title>
+</head>
+<body>
+    <h1>Image Test</h1>
+    <p>Testing if images load correctly:</p>
+    
+    <h2>Direct Image URL Test</h2>
+    <img src="http://127.0.0.1:5000/uploads/20250915083905742088.webp" alt="Test Image" width="200" onerror="console.log('Image failed to load')" onload="console.log('Image loaded successfully')">
+    
+    <h2>Relative Path Test</h2>
+    <img src="/uploads/20250915083905742088.webp" alt="Test Image" width="200" onerror="console.log('Relative image failed to load')" onload="console.log('Relative image loaded successfully')">
+    
+    <script>
+        console.log('Testing image URLs...');
+        fetch('http://127.0.0.1:5000/api/products')
+            .then(response => response.json())
+            .then(products => {
+                console.log('Products received:', products);
+                if (products && products.length > 0) {
+                    const firstProduct = products[0];
+                    console.log('First product:', firstProduct);
+                    console.log('Image URL:', firstProduct.imageUrl);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching products:', error);
+            });
+    </script>
+</body>
+</html>

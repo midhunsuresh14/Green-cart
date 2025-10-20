@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { api } from '../../lib/api';
 import ProductSection from './ProductSection.jsx';
 import Recommendations from './Recommendations.jsx';
 import Reviews from './Reviews.jsx';
@@ -79,43 +80,36 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
   useEffect(() => {
     const fetchProduct = async () => {
       if (!productId) {
+        console.log('No productId provided, using sample data');
         setLoading(false);
         return;
       }
 
       setLoading(true);
+      console.log('Fetching product with ID:', productId);
       try {
-        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-        const response = await fetch(`${apiBase}/products/${productId}`);
+        // Use the public products endpoint to fetch the product
+        console.log('Calling api.listProductsPublic with:', `/${productId}`);
+        const productData = await api.listProductsPublic(`/${productId}`);
+        console.log('API Response:', productData);
         
-        if (response.ok) {
-          const productData = await response.json();
+        if (productData) {
+          console.log('Product data received:', productData);
           setDisplayProduct(productData);
           setProductRating(productData.rating || 0);
           setReviewCount(productData.reviews || 0);
           
           // Add this product to recently viewed
+          console.log('Adding product to recently viewed');
           addRecentlyViewed(productData);
           
           // Update the recently viewed display
           const updatedRecentlyViewed = getRecentlyViewed();
+          console.log('Updated recently viewed:', updatedRecentlyViewed);
           setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== productData.id)); // Exclude current product
         } else {
           // Fallback to sample data if product not found
-          const fallbackProduct = {
-            ...sampleProduct,
-            id: productId,
-            name: `Product ${productId}`,
-            description: 'Product details could not be loaded. This is a sample product description.'
-          };
-          setDisplayProduct(fallbackProduct);
-          
-          // Add fallback product to recently viewed
-          addRecentlyViewed(fallbackProduct);
-          
-          // Update the recently viewed display
-          const updatedRecentlyViewed = getRecentlyViewed();
-          setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== fallbackProduct.id)); // Exclude current product
+          throw new Error('Product not found');
         }
       } catch (error) {
         console.error('Error fetching product:', error);

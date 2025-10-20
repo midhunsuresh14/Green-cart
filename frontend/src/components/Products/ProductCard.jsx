@@ -114,6 +114,13 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
             onError={handleImageError}
             className="product-image"
             loading="lazy"
+            srcSet={product.images && Array.isArray(product.images)
+              ? product.images
+                  .filter(Boolean)
+                  .map((img) => `${getImageUrl(img)} 1x`)
+                  .join(', ')
+              : undefined}
+            sizes={product.images && Array.isArray(product.images) ? '200px' : undefined}
           />
         </Link>
         {!loadingStock && (

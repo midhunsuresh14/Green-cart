@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, Navigate, useLocation } from 'react-router-dom';
-import { Box, Typography, Button, Snackbar, Alert } from '@mui/material';
+import { Snackbar, Alert } from '@mui/material';
 import './App.css';
 import Login from './components/Auth/Login';
 import Signup from './components/Auth/Signup';

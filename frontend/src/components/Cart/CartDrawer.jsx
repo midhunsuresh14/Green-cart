@@ -1,6 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useMemo, useEffect } from 'react';
 
 export default function CartDrawer({ open, onClose, items = [], onUpdateQuantity, onRemoveItem, onCheckout }) {
+  // Image URL resolution function
+  const resolveImageUrl = useMemo(() => {
+    return (src) => {
+      if (!src) return 'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=200&q=80';
+      // If it's already a full URL, return as is
+      if (/^https?:\/\//i.test(src)) return src;
+      // If it's a local path that already starts with /uploads/, prepend the backend URL
+      if (src.startsWith('/uploads/')) {
+        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+        const host = apiBase.replace(/\/api\/?$/, '');
+        return host + src;
+      }
+      // If it's a local path, prepend the API base URL
+      const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      const host = apiBase.replace(/\/api\/?$/, '');
+      return src.startsWith('/') ? host + src : host + '/' + src;
+    };
+  }, []);
+
   useEffect(() => {
     if (open) {
       const prev = document.body.style.overflow;
@@ -92,7 +111,7 @@ export default function CartDrawer({ open, onClose, items = [], onUpdateQuantity
               padding: '12px' 
             }}>
               <img 
-                src={i.imageUrl || i.image} 
+                src={resolveImageUrl(i.imageUrl || i.image || i.images?.[0])} 
                 alt={i.name} 
                 style={{ 
                   width: '80px', 
