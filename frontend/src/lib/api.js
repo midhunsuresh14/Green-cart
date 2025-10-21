@@ -64,7 +64,7 @@ export const api = {
   uploadImage: async (file) => {
     const form = new FormData();
     form.append('file', file);
-    const res = await fetch(`${BASE_URL}/admin/upload`, {
+    const res = await fetch(`${BASE_URL}/upload`, {
       method: 'POST',
       headers: { ...getAuthHeaders() },
       body: form,

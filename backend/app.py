@@ -82,17 +82,17 @@ OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', 10))
 
 # Redis Configuration (optional)
 REDIS_HOST = os.getenv('REDIS_HOST', None)
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379)) if REDIS_HOST else None
-REDIS_DB = int(os.getenv('REDIS_DB', 0)) if REDIS_HOST else None
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None) if REDIS_HOST else None
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379)) if os.getenv('REDIS_HOST') else None
+REDIS_DB = int(os.getenv('REDIS_DB', 0)) if os.getenv('REDIS_HOST') else None
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None) if os.getenv('REDIS_HOST') else None
 
 redis_client = None
 if REDIS_HOST:
     try:
         redis_client = redis.Redis(
             host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
+            port=REDIS_PORT or 6379,
+            db=REDIS_DB or 0,
             password=REDIS_PASSWORD,
             decode_responses=True
         )
@@ -231,21 +231,27 @@ def token_required(f):
         try:
             if token.startswith('Bearer '):
                 token = token.split(' ')[1]
+            else:
+                return jsonify({'success': False, 'error': 'Invalid token format'}), 401
             
             data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user:
+            user_id = data.get('user_id')
+            if not user_id:
                 return jsonify({'success': False, 'error': 'Invalid token'}), 401
+                
+            user = users_collection.find_one({'_id': ObjectId(user_id)})
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 401
             
-            # Add user to request context for use in the route
-            request.current_user = user
+            # Add user to kwargs for access in the function
+            kwargs['current_user'] = user
             return f(*args, **kwargs)
         except jwt.ExpiredSignatureError:
             return jsonify({'success': False, 'error': 'Token has expired'}), 401
         except jwt.InvalidTokenError:
             return jsonify({'success': False, 'error': 'Invalid token'}), 401
         except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 401
+            return jsonify({'success': False, 'error': f'Authentication error: {str(e)}'}), 401
     return wrapper
 
 @app.route('/')
@@ -1119,6 +1125,54 @@ def upload_image():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
+# Image upload (for regular users, e.g., blog posts)
+@app.route('/api/upload', methods=['POST'])
+@token_required
+def upload_image_user(current_user=None):
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Empty filename'}), 400
+        if file.filename is None:
+            return jsonify({'error': 'Invalid filename'}), 400
+            
+        filename = secure_filename(file.filename)
+        ext = os.path.splitext(filename)[1].lower()
+
+        # Accept if extension is known or MIME type indicates an image
+        is_allowed_ext = ext in ALLOWED_IMAGE_EXTENSIONS
+        is_image_mime = (file.mimetype or '').lower().startswith('image/')
+        if not (is_allowed_ext or is_image_mime):
+            return jsonify({'error': 'Invalid file type'}), 400
+
+        # Infer extension from MIME if needed
+        if not is_allowed_ext:
+            mime = (file.mimetype or '').lower()
+            mime_to_ext = {
+                'image/jpeg': '.jpg',
+                'image/jpg': '.jpg',
+                'image/pjpeg': '.jpg',
+                'image/png': '.png',
+                'image/gif': '.gif',
+                'image/webp': '.webp',
+                'image/avif': '.avif',
+                'image/bmp': '.bmp',
+                'image/tiff': '.tiff',
+                'image/svg+xml': '.svg',
+                'image/heic': '.heic',
+                'image/heif': '.heif',
+            }
+            ext = mime_to_ext.get(mime, ext if ext else '.jpg')
+
+        saved_name = f"{datetime.datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}{ext}"
+        path = os.path.join(UPLOAD_DIR, saved_name)
+        file.save(path)
+        return jsonify({'url': f"/uploads/{saved_name}"})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 # Serve uploaded files
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
@@ -1614,8 +1668,16 @@ def create_order():
                     'receipt': str(result.inserted_id),
                     'payment_capture': 1,
                 }
-                rzp_order = razorpay_client.order.create(rzp_order_data)
-                rzp_order_id = rzp_order.get('id')
+                try:
+                    # Use getattr to safely access the order attribute
+                    order = getattr(razorpay_client, 'order', None)
+                    if order and hasattr(order, 'create'):
+                        rzp_order = order.create(rzp_order_data)
+                        rzp_order_id = rzp_order.get('id')
+                    else:
+                        return jsonify({'error': 'Razorpay order creation not available'}), 500
+                except Exception as e:
+                    return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
             except Exception as e:
                 return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
         else:
@@ -1664,7 +1726,12 @@ def verify_payment():
                 'razorpay_payment_id': razorpay_payment_id,
                 'razorpay_signature': razorpay_signature
             }
-            razorpay_client.utility.verify_payment_signature(params_dict)
+            # Use getattr to safely access the utility attribute
+            utility = getattr(razorpay_client, 'utility', None)
+            if utility and hasattr(utility, 'verify_payment_signature'):
+                utility.verify_payment_signature(params_dict)
+            else:
+                return jsonify({'success': False, 'error': 'Razorpay utility not available'}), 500
         except Exception as e:
             return jsonify({'success': False, 'error': f'Signature verification failed: {str(e)}'}), 400
 
@@ -2122,13 +2189,15 @@ def get_blog_posts():
 
 @app.route('/api/blog/posts', methods=['POST'])
 @token_required
-def create_blog_post():
+def create_blog_post(current_user=None):
     try:
-        user = get_current_user()
-        if not user:
+        print(f"DEBUG: create_blog_post called with current_user: {current_user}")
+        if not current_user:
+            print("DEBUG: No current_user found, returning error")
             return jsonify({'error': 'User not found'}), 404
             
         data = request.get_json()
+        print(f"DEBUG: Received data: {data}")
         
         # Validate required fields
         if not data.get('title') or not data.get('content'):
@@ -2140,19 +2209,23 @@ def create_blog_post():
             'content': data.get('content'),
             'category': data.get('category', 'General'),
             'image_url': data.get('image_url', ''),
-            'author_id': str(user['_id']),
-            'author_name': user.get('name', 'Anonymous'),
+            'author_id': str(current_user['_id']),
+            'author_name': current_user.get('name', 'Anonymous'),
             'created_at': datetime.datetime.utcnow(),
             'updated_at': datetime.datetime.utcnow(),
             'likes': 0,
             'comments_count': 0
         }
         
+        print(f"DEBUG: Creating post with document: {post_doc}")
+        
         # Insert into database
         result = db.blog_posts.insert_one(post_doc)
         
         # Add the inserted ID to the response
         post_doc['_id'] = str(result.inserted_id)
+        
+        print(f"DEBUG: Post created successfully with ID: {result.inserted_id}")
         
         return jsonify({
             'success': True,
@@ -2161,6 +2234,7 @@ def create_blog_post():
         }), 201
         
     except Exception as e:
+        print(f"DEBUG: Exception in create_blog_post: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/blog/posts/<post_id>', methods=['GET'])
@@ -2198,7 +2272,22 @@ def get_blog_post(post_id):
 @token_required
 def update_blog_post(post_id):
     try:
-        user = get_current_user()
+        # Get user from token
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+            try:
+                decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+                user_id = decoded.get('user_id')
+                if user_id:
+                    user = users_collection.find_one({'_id': ObjectId(user_id)})
+                else:
+                    return jsonify({'error': 'Invalid token'}), 401
+            except Exception:
+                return jsonify({'error': 'Invalid token'}), 401
+        else:
+            return jsonify({'error': 'Token is missing'}), 401
+            
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
@@ -2207,42 +2296,27 @@ def update_blog_post(post_id):
         if not post:
             return jsonify({'error': 'Post not found'}), 404
             
-        if str(post['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to edit this post'}), 403
-        
+        if str(post.get('author_id', '')) != str(user['_id']) and user.get('role') != 'admin':
+            return jsonify({'error': 'You are not authorized to update this post'}), 403
+            
         data = request.get_json()
         
         # Prepare update document
         update_doc = {
+            'title': data.get('title', post['title']),
+            'content': data.get('content', post['content']),
+            'category': data.get('category', post['category']),
+            'image_url': data.get('image_url', post['image_url']),
             'updated_at': datetime.datetime.utcnow()
         }
         
-        # Only update fields that are provided
-        if 'title' in data:
-            update_doc['title'] = data['title']
-        if 'content' in data:
-            update_doc['content'] = data['content']
-        if 'category' in data:
-            update_doc['category'] = data['category']
-        if 'image_url' in data:
-            update_doc['image_url'] = data['image_url']
-        
         # Update the post
-        db.blog_posts.update_one(
-            {'_id': ObjectId(post_id)},
-            {'$set': update_doc}
-        )
-        
-        # Get updated post
-        updated_post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        updated_post['_id'] = str(updated_post['_id'])
-        if updated_post.get('author_id'):
-            updated_post['author_id'] = str(updated_post['author_id'])
+        db.blog_posts.update_one({'_id': ObjectId(post_id)}, {'$set': update_doc})
         
         return jsonify({
             'success': True,
             'message': 'Blog post updated successfully',
-            'post': updated_post
+            'post': update_doc
         })
         
     except Exception as e:
@@ -2250,26 +2324,21 @@ def update_blog_post(post_id):
 
 @app.route('/api/blog/posts/<post_id>', methods=['DELETE'])
 @token_required
-def delete_blog_post(post_id):
+def delete_blog_post(post_id, current_user=None):
     try:
-        user = get_current_user()
-        if not user:
+        if not current_user:
             return jsonify({'error': 'User not found'}), 404
             
-        # Check if post exists
+        # Check if post exists and user is the author
         post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
         if not post:
             return jsonify({'error': 'Post not found'}), 404
             
-        # Check if user is the author or admin
-        if str(post['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to delete this post'}), 403
-        
+        if str(post.get('author_id', '')) != str(current_user['_id']) and current_user.get('role') != 'admin':
+            return jsonify({'error': 'You are not authorized to delete this post'}), 403
+            
         # Delete the post
         db.blog_posts.delete_one({'_id': ObjectId(post_id)})
-        
-        # Delete all comments for this post
-        db.blog_comments.delete_many({'post_id': post_id})
         
         return jsonify({
             'success': True,
@@ -2279,72 +2348,11 @@ def delete_blog_post(post_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/blog/posts/<post_id>/like', methods=['POST'])
-@token_required
-def like_blog_post(post_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if post exists
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-        
-        # Check if user has already liked this post
-        existing_like = db.blog_likes.find_one({
-            'post_id': post_id,
-            'user_id': str(user['_id'])
-        })
-        
-        if existing_like:
-            # Unlike the post
-            db.blog_likes.delete_one({
-                'post_id': post_id,
-                'user_id': str(user['_id'])
-            })
-            
-            # Decrement likes count
-            db.blog_posts.update_one(
-                {'_id': ObjectId(post_id)},
-                {'$inc': {'likes': -1}}
-            )
-            
-            return jsonify({
-                'success': True,
-                'message': 'Post unliked',
-                'liked': False
-            })
-        else:
-            # Like the post
-            db.blog_likes.insert_one({
-                'post_id': post_id,
-                'user_id': str(user['_id']),
-                'created_at': datetime.datetime.utcnow()
-            })
-            
-            # Increment likes count
-            db.blog_posts.update_one(
-                {'_id': ObjectId(post_id)},
-                {'$inc': {'likes': 1}}
-            )
-            
-            return jsonify({
-                'success': True,
-                'message': 'Post liked',
-                'liked': True
-            })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/blog/posts/<post_id>/comments', methods=['POST'])
 @token_required
-def add_blog_comment(post_id):
+def add_blog_comment(post_id, current_user=None):
     try:
-        user = get_current_user()
-        if not user:
+        if not current_user:
             return jsonify({'error': 'User not found'}), 404
             
         # Check if post exists
@@ -2362,8 +2370,8 @@ def add_blog_comment(post_id):
         comment_doc = {
             'post_id': post_id,
             'content': data.get('content'),
-            'author_id': str(user['_id']),
-            'author_name': user.get('name', 'Anonymous'),
+            'author_id': str(current_user['_id']),
+            'author_name': current_user.get('name', 'Anonymous'),
             'created_at': datetime.datetime.utcnow(),
             'updated_at': datetime.datetime.utcnow()
         }
@@ -2389,12 +2397,103 @@ def add_blog_comment(post_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/blog/comments/<comment_id>', methods=['DELETE'])
+@token_required
+def delete_blog_comment(comment_id, current_user=None):
+    try:
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check if comment exists
+        comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
+        if not comment:
+            return jsonify({'error': 'Comment not found'}), 404
+            
+        # Check if user is the author or admin
+        if str(comment.get('author_id', '')) != str(current_user['_id']) and current_user.get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized to delete this comment'}), 403
+        
+        # Delete the comment
+        db.blog_comments.delete_one({'_id': ObjectId(comment_id)})
+        
+        # Decrement comments count on the post
+        db.blog_posts.update_one(
+            {'_id': ObjectId(comment['post_id'])},
+            {'$inc': {'comments_count': -1}}
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'Comment deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/blog/posts/<post_id>/like', methods=['POST'])
+@token_required
+def like_blog_post(post_id, current_user=None):
+    try:
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        # Check if post exists
+        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
+        
+        # Check if user has already liked this post
+        existing_like = db.blog_likes.find_one({
+            'post_id': post_id,
+            'user_id': str(current_user['_id'])
+        })
+        
+        if existing_like:
+            # Unlike the post
+            db.blog_likes.delete_one({
+                'post_id': post_id,
+                'user_id': str(current_user['_id'])
+            })
+            
+            # Decrement likes count
+            db.blog_posts.update_one(
+                {'_id': ObjectId(post_id)},
+                {'$inc': {'likes': -1}}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': 'Post unliked',
+                'liked': False
+            })
+        else:
+            # Like the post
+            db.blog_likes.insert_one({
+                'post_id': post_id,
+                'user_id': str(current_user['_id']),
+                'created_at': datetime.datetime.utcnow()
+            })
+            
+            # Increment likes count
+            db.blog_posts.update_one(
+                {'_id': ObjectId(post_id)},
+                {'$inc': {'likes': 1}}
+            )
+            
+            return jsonify({
+                'success': True,
+                'message': 'Post liked',
+                'liked': True
+            })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/blog/comments/<comment_id>', methods=['PUT'])
 @token_required
-def update_blog_comment(comment_id):
+def update_blog_comment(comment_id, current_user=None):
     try:
-        user = get_current_user()
-        if not user:
+        if not current_user:
             return jsonify({'error': 'User not found'}), 404
             
         # Check if comment exists
@@ -2403,7 +2502,7 @@ def update_blog_comment(comment_id):
             return jsonify({'error': 'Comment not found'}), 404
             
         # Check if user is the author
-        if str(comment['author_id']) != str(user['_id']):
+        if str(comment.get('author_id', '')) != str(current_user['_id']):
             return jsonify({'error': 'Unauthorized to edit this comment'}), 403
         
         data = request.get_json()
@@ -2423,9 +2522,10 @@ def update_blog_comment(comment_id):
         
         # Get updated comment
         updated_comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
-        updated_comment['_id'] = str(updated_comment['_id'])
-        if updated_comment.get('author_id'):
-            updated_comment['author_id'] = str(updated_comment['author_id'])
+        if updated_comment:
+            updated_comment['_id'] = str(updated_comment['_id'])
+            if updated_comment.get('author_id'):
+                updated_comment['author_id'] = str(updated_comment['author_id'])
         
         return jsonify({
             'success': True,
@@ -2436,23 +2536,77 @@ def update_blog_comment(comment_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/blog/comments/<comment_id>', methods=['DELETE'])
-@token_required
-def delete_blog_comment(comment_id):
+# Admin Blog Management Endpoints
+@app.route('/api/admin/blog/posts', methods=['GET'])
+@admin_required
+def admin_list_blog_posts():
     try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+        # Get query parameters
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        
+        # Get total count
+        total = db.blog_posts.count_documents({})
+        
+        # Get posts with pagination
+        skip = (page - 1) * limit
+        posts = list(db.blog_posts.find()
+                     .sort('created_at', -1)
+                     .skip(skip)
+                     .limit(limit))
+        
+        # Convert ObjectId to string for JSON serialization
+        for post in posts:
+            post['_id'] = str(post['_id'])
+            if post.get('author_id'):
+                post['author_id'] = str(post['author_id'])
+        
+        return jsonify({
+            'posts': posts,
+            'total': total,
+            'page': page,
+            'limit': limit,
+            'pages': (total + limit - 1) // limit
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/blog/posts/<post_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_blog_post(post_id):
+    try:
+        # Check if post exists
+        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
+        if not post:
+            return jsonify({'error': 'Post not found'}), 404
             
+        # Delete the post
+        db.blog_posts.delete_one({'_id': ObjectId(post_id)})
+        
+        # Delete all comments for this post
+        db.blog_comments.delete_many({'post_id': post_id})
+        
+        # Delete all likes for this post
+        db.blog_likes.delete_many({'post_id': post_id})
+        
+        return jsonify({
+            'success': True,
+            'message': 'Blog post deleted successfully'
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/blog/comments/<comment_id>', methods=['DELETE'])
+@admin_required
+def admin_delete_blog_comment(comment_id):
+    try:
         # Check if comment exists
         comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
         if not comment:
             return jsonify({'error': 'Comment not found'}), 404
             
-        # Check if user is the author or admin
-        if str(comment['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to delete this comment'}), 403
-        
         # Delete the comment
         db.blog_comments.delete_one({'_id': ObjectId(comment_id)})
         
