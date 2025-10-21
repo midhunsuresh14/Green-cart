@@ -80,29 +80,26 @@ except Exception:
 OTP_LENGTH = int(os.getenv('OTP_LENGTH', 6))
 OTP_EXPIRY_MINUTES = int(os.getenv('OTP_EXPIRY_MINUTES', 10))
 
-# Redis Configuration (optional)
-REDIS_HOST = os.getenv('REDIS_HOST', None)
-REDIS_PORT = int(os.getenv('REDIS_PORT', 6379)) if REDIS_HOST else None
-REDIS_DB = int(os.getenv('REDIS_DB', 0)) if REDIS_HOST else None
-REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None) if REDIS_HOST else None
+# Redis Configuration
+REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
+REDIS_PORT = int(os.getenv('REDIS_PORT', 6379))
+REDIS_DB = int(os.getenv('REDIS_DB', 0))
+REDIS_PASSWORD = os.getenv('REDIS_PASSWORD', None)
 
-redis_client = None
-if REDIS_HOST:
-    try:
-        redis_client = redis.Redis(
-            host=REDIS_HOST,
-            port=REDIS_PORT,
-            db=REDIS_DB,
-            password=REDIS_PASSWORD,
-            decode_responses=True
-        )
-        # Test Redis connection
-        redis_client.ping()
-        print("Redis connection successful")
-    except Exception as e:
-        print(f"Redis connection failed: {e}")
-else:
-    print("Redis is disabled")
+try:
+    redis_client = redis.Redis(
+        host=REDIS_HOST,
+        port=REDIS_PORT,
+        db=REDIS_DB,
+        password=REDIS_PASSWORD,
+        decode_responses=True
+    )
+    # Test Redis connection
+    redis_client.ping()
+    print("Redis connection successful")
+except Exception as e:
+    redis_client = None
+    print(f"Redis connection failed: {e}")
 
 # OTP Helper Functions
 def generate_otp():
@@ -219,33 +216,6 @@ def admin_required(f):
         if user.get('role') != 'admin':
             return jsonify({'success': False, 'error': 'Forbidden: Admins only'}), 403
         return f(*args, **kwargs)
-    return wrapper
-
-def token_required(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'success': False, 'error': 'Token is missing'}), 401
-        
-        try:
-            if token.startswith('Bearer '):
-                token = token.split(' ')[1]
-            
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user:
-                return jsonify({'success': False, 'error': 'Invalid token'}), 401
-            
-            # Add user to request context for use in the route
-            request.current_user = user
-            return f(*args, **kwargs)
-        except jwt.ExpiredSignatureError:
-            return jsonify({'success': False, 'error': 'Token has expired'}), 401
-        except jwt.InvalidTokenError:
-            return jsonify({'success': False, 'error': 'Invalid token'}), 401
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 401
     return wrapper
 
 @app.route('/')
@@ -781,24 +751,17 @@ def admin_delete_product(product_id):
 @app.route('/api/products', methods=['GET'])
 def public_list_products():
     try:
-        # Initialize cache_key
-        cache_key = f"products_list_{request.args.get('category', 'all')}_{request.args.get('subcategory', 'all')}"
-        
-        # Try to get cached response first (if Redis is available)
+        # Try to get data from Redis cache first (if Redis is available)
+        cache_key = "products_list"
         if redis_client:
             try:
                 cached_data = redis_client.get(cache_key)
                 if cached_data:
-                    # Ensure cached_data is a string before parsing
-                    if isinstance(cached_data, (str, bytes)):
-                        return jsonify(json.loads(cached_data))
-                    else:
-                        # If it's not a string/bytes, treat as already parsed data
-                        return jsonify(cached_data)
+                    print("Returning products from Redis cache")
+                    return jsonify(json.loads(cached_data))
             except Exception as e:
-                print(f"Redis cache read error: {e}")
-                # Continue without cache if Redis fails
-
+                print(f"Error accessing Redis cache: {e}")
+        
         # If not in cache or Redis not available, fetch from database
         items = []
         for p in products_collection.find({}):
@@ -898,20 +861,11 @@ def list_categories():
             if 'subcategories' in cat:
                 subcategories = cat['subcategories']
             
-            # Ensure proper URL handling for uploaded images
-            image_url = cat.get('imageUrl', '')
-            if image_url and image_url.startswith('/uploads/'):
-                # This is a relative path to an uploaded image
-                full_image_url = image_url
-            else:
-                # This is either an external URL or empty
-                full_image_url = image_url
-            
             items.append({
                 'id': str(cat['_id']),
                 'name': cat.get('name'),
                 'description': cat.get('description', ''),
-                'imageUrl': full_image_url,  # Use the properly formatted image URL
+                'imageUrl': cat.get('imageUrl', ''),  # Add imageUrl field
                 'subcategories': subcategories
             })
         return jsonify(items)
@@ -1081,9 +1035,6 @@ def upload_image():
         file = request.files['file']
         if file.filename == '':
             return jsonify({'error': 'Empty filename'}), 400
-        if file.filename is None:
-            return jsonify({'error': 'Invalid filename'}), 400
-            
         filename = secure_filename(file.filename)
         ext = os.path.splitext(filename)[1].lower()
 
@@ -1273,10 +1224,7 @@ def bulk_upload_remedies():
         file = request.files['file']
         if file.filename == '':
             return jsonify({'error': 'Empty filename'}), 400
-            
-        if file.filename is None:
-            return jsonify({'error': 'Invalid filename'}), 400
-            
+        
         if not file.filename.lower().endswith('.csv'):
             return jsonify({'error': 'File must be a CSV'}), 400
         
@@ -1297,7 +1245,6 @@ def bulk_upload_remedies():
                 benefits = [b.strip() for b in row.get('benefits', '').split(',') if b.strip()]
                 tags = [t.strip() for t in row.get('tags', '').split(',') if t.strip()]
                 
-                # Create remedy document
                 remedy = {
                     'name': row.get('name', '').strip(),
                     'illness': row.get('illness', '').strip(),
@@ -1321,6 +1268,7 @@ def bulk_upload_remedies():
                     continue
                 
                 remedies_to_insert.append(remedy)
+                
             except Exception as e:
                 errors.append(f"Row {row_num}: {str(e)}")
         
@@ -1341,8 +1289,8 @@ def bulk_upload_remedies():
         return jsonify({'error': str(e)}), 400
 
 # Categories Management
-@app.route('/api/product-categories', methods=['GET'])
-def list_product_categories():
+@app.route('/api/categories', methods=['GET'])
+def list_categories():
     try:
         items = []
         for cat in categories_collection.find({}):
@@ -1351,26 +1299,69 @@ def list_product_categories():
             if 'subcategories' in cat:
                 subcategories = cat['subcategories']
             
-            # Ensure proper URL handling for uploaded images
-            image_url = cat.get('imageUrl', '')
-            if image_url and image_url.startswith('/uploads/'):
-                # This is a relative path to an uploaded image
-                full_image_url = image_url
-            else:
-                # This is either an external URL or empty
-                full_image_url = image_url
-            
             items.append({
                 'id': str(cat['_id']),
                 'name': cat.get('name'),
                 'description': cat.get('description', ''),
-                'imageUrl': full_image_url,  # Use the properly formatted image URL
+                'imageUrl': cat.get('imageUrl', ''),  # Add imageUrl field
                 'subcategories': subcategories
             })
         return jsonify(items)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/categories', methods=['POST'])
+@admin_required
+def create_category():
+    try:
+        data = request.get_json()
+        doc = {
+            'name': data.get('name'),
+            'description': data.get('description', ''),
+            'imageUrl': data.get('imageUrl', ''),  # Add imageUrl field
+            'subcategories': []
+        }
+        if not doc['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        result = categories_collection.insert_one(doc)
+        return jsonify({'id': str(result.inserted_id)}), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/categories/<category_id>', methods=['PUT'])
+@admin_required
+def update_category(category_id):
+    try:
+        data = request.get_json()
+        update = {
+            'name': data.get('name'),
+            'description': data.get('description', ''),
+            'imageUrl': data.get('imageUrl', '')  # Add imageUrl field
+        }
+        if not update['name']:
+            return jsonify({'error': 'Name is required'}), 400
+        
+        categories_collection.update_one({'_id': ObjectId(category_id)}, {'$set': update})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@app.route('/api/categories/<category_id>', methods=['DELETE'])
+@admin_required
+def delete_category(category_id):
+    try:
+        # Check if any remedies use this category
+        remedies_using_category = remedies_collection.find_one({'category': {'$regex': f'^{category_id}$', '$options': 'i'}})
+        if remedies_using_category:
+            return jsonify({'error': 'Cannot delete category that is being used by remedies'}), 400
+        
+        categories_collection.delete_one({'_id': ObjectId(category_id)})
+        return '', 204
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# Remedy Categories Management
 @app.route('/api/remedy-categories', methods=['GET'])
 def list_remedy_categories():
     try:
@@ -1505,7 +1496,7 @@ def get_reviews():
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/reviews', methods=['POST'])
-@login_required
+@token_required
 def create_review():
     try:
         user = get_current_user()
@@ -1554,9 +1545,6 @@ def create_review():
 def create_order():
     try:
         user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
         data = request.get_json()
         
         print(f"DEBUG: Received order data: {data}")  # Debug log
@@ -1608,13 +1596,12 @@ def create_order():
         amount_paise = int(total_amount * 100)
         if razorpay_client:
             try:
-                rzp_order_data = {
+                rzp_order = razorpay_client.order.create({
                     'amount': amount_paise,  # in paise
                     'currency': 'INR',
                     'receipt': str(result.inserted_id),
                     'payment_capture': 1,
-                }
-                rzp_order = razorpay_client.order.create(rzp_order_data)
+                })
                 rzp_order_id = rzp_order.get('id')
             except Exception as e:
                 return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
@@ -1953,522 +1940,6 @@ def chatbot():
             
     except Exception as e:
         return jsonify({'error': f'Unexpected error: {str(e)}'}), 500
-
-# Feedback Endpoints
-@app.route('/api/feedback', methods=['POST'])
-def submit_feedback():
-    try:
-        data = request.get_json()
-        
-        # Validate required fields
-        if not data.get('ratings') or not data.get('ratings').get('overall'):
-            return jsonify({'error': 'Overall rating is required'}), 400
-        
-        # Prepare feedback document
-        feedback_doc = {
-            'userId': data.get('userId'),
-            'userEmail': data.get('userEmail'),
-            'ratings': data.get('ratings', {}),
-            'feedback': data.get('feedback', ''),
-            'suggestions': data.get('suggestions', ''),
-            'timestamp': data.get('timestamp', datetime.datetime.utcnow().isoformat()),
-            'pageUrl': data.get('pageUrl', ''),
-            'userAgent': data.get('userAgent', ''),
-            'createdAt': datetime.datetime.utcnow(),
-            'status': 'new'
-        }
-        
-        # Insert into database
-        result = db.feedback.insert_one(feedback_doc)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Feedback submitted successfully',
-            'feedbackId': str(result.inserted_id)
-        }), 201
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/admin/feedback', methods=['GET'])
-@token_required
-def get_feedback():
-    try:
-        # Check if user is admin
-        token = request.headers.get('Authorization')
-        if token:
-            token = token.split(' ')[1]
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user or user.get('role') != 'admin':
-                return jsonify({'error': 'Admin access required'}), 403
-        
-        # Get query parameters
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 20))
-        status = request.args.get('status', 'all')
-        sort_by = request.args.get('sort_by', 'createdAt')
-        sort_order = request.args.get('sort_order', 'desc')
-        
-        # Build query
-        query = {}
-        if status != 'all':
-            query['status'] = status
-        
-        # Build sort
-        sort_direction = -1 if sort_order == 'desc' else 1
-        sort_criteria = [(sort_by, sort_direction)]
-        
-        # Get total count
-        total = db.feedback.count_documents(query)
-        
-        # Get feedback with pagination
-        skip = (page - 1) * limit
-        feedback_list = list(db.feedback.find(query)
-                           .sort(sort_criteria)
-                           .skip(skip)
-                           .limit(limit))
-        
-        # Convert ObjectId to string for JSON serialization
-        for feedback in feedback_list:
-            feedback['_id'] = str(feedback['_id'])
-            if feedback.get('userId'):
-                feedback['userId'] = str(feedback['userId'])
-        
-        return jsonify({
-            'feedback': feedback_list,
-            'total': total,
-            'page': page,
-            'limit': limit,
-            'pages': (total + limit - 1) // limit
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/admin/feedback/<feedback_id>/status', methods=['PUT'])
-@token_required
-def update_feedback_status(feedback_id):
-    try:
-        # Check if user is admin
-        token = request.headers.get('Authorization')
-        if token:
-            token = token.split(' ')[1]
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user or user.get('role') != 'admin':
-                return jsonify({'error': 'Admin access required'}), 403
-        
-        data = request.get_json()
-        new_status = data.get('status')
-        
-        if not new_status:
-            return jsonify({'error': 'Status is required'}), 400
-        
-        # Update feedback status
-        result = db.feedback.update_one(
-            {'_id': ObjectId(feedback_id)},
-            {'$set': {'status': new_status, 'updatedAt': datetime.datetime.utcnow()}}
-        )
-        
-        if result.matched_count == 0:
-            return jsonify({'error': 'Feedback not found'}), 404
-        
-        return jsonify({'success': True, 'message': 'Feedback status updated'})
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# Blog Endpoints
-@app.route('/api/blog/posts', methods=['GET'])
-def get_blog_posts():
-    try:
-        # Get query parameters
-        page = int(request.args.get('page', 1))
-        limit = int(request.args.get('limit', 10))
-        category = request.args.get('category', None)
-        
-        # Build query
-        query = {}
-        if category:
-            query['category'] = category
-            
-        # Get total count
-        total = db.blog_posts.count_documents(query)
-        
-        # Get posts with pagination
-        skip = (page - 1) * limit
-        posts = list(db.blog_posts.find(query)
-                     .sort('created_at', -1)
-                     .skip(skip)
-                     .limit(limit))
-        
-        # Convert ObjectId to string for JSON serialization
-        for post in posts:
-            post['_id'] = str(post['_id'])
-            if post.get('author_id'):
-                post['author_id'] = str(post['author_id'])
-        
-        return jsonify({
-            'posts': posts,
-            'total': total,
-            'page': page,
-            'limit': limit,
-            'pages': (total + limit - 1) // limit
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts', methods=['POST'])
-@token_required
-def create_blog_post():
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        data = request.get_json()
-        
-        # Validate required fields
-        if not data.get('title') or not data.get('content'):
-            return jsonify({'error': 'Title and content are required'}), 400
-        
-        # Prepare blog post document
-        post_doc = {
-            'title': data.get('title'),
-            'content': data.get('content'),
-            'category': data.get('category', 'General'),
-            'image_url': data.get('image_url', ''),
-            'author_id': str(user['_id']),
-            'author_name': user.get('name', 'Anonymous'),
-            'created_at': datetime.datetime.utcnow(),
-            'updated_at': datetime.datetime.utcnow(),
-            'likes': 0,
-            'comments_count': 0
-        }
-        
-        # Insert into database
-        result = db.blog_posts.insert_one(post_doc)
-        
-        # Add the inserted ID to the response
-        post_doc['_id'] = str(result.inserted_id)
-        
-        return jsonify({
-            'success': True,
-            'message': 'Blog post created successfully',
-            'post': post_doc
-        }), 201
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts/<post_id>', methods=['GET'])
-def get_blog_post(post_id):
-    try:
-        # Get the post
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-        
-        # Convert ObjectId to string for JSON serialization
-        post['_id'] = str(post['_id'])
-        if post.get('author_id'):
-            post['author_id'] = str(post['author_id'])
-        
-        # Get comments for this post
-        comments = list(db.blog_comments.find({'post_id': post_id})
-                       .sort('created_at', 1))
-        
-        # Convert ObjectId to string for JSON serialization
-        for comment in comments:
-            comment['_id'] = str(comment['_id'])
-            if comment.get('author_id'):
-                comment['author_id'] = str(comment['author_id'])
-        
-        return jsonify({
-            'post': post,
-            'comments': comments
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts/<post_id>', methods=['PUT'])
-@token_required
-def update_blog_post(post_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if post exists and user is the author
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-            
-        if str(post['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to edit this post'}), 403
-        
-        data = request.get_json()
-        
-        # Prepare update document
-        update_doc = {
-            'updated_at': datetime.datetime.utcnow()
-        }
-        
-        # Only update fields that are provided
-        if 'title' in data:
-            update_doc['title'] = data['title']
-        if 'content' in data:
-            update_doc['content'] = data['content']
-        if 'category' in data:
-            update_doc['category'] = data['category']
-        if 'image_url' in data:
-            update_doc['image_url'] = data['image_url']
-        
-        # Update the post
-        db.blog_posts.update_one(
-            {'_id': ObjectId(post_id)},
-            {'$set': update_doc}
-        )
-        
-        # Get updated post
-        updated_post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        updated_post['_id'] = str(updated_post['_id'])
-        if updated_post.get('author_id'):
-            updated_post['author_id'] = str(updated_post['author_id'])
-        
-        return jsonify({
-            'success': True,
-            'message': 'Blog post updated successfully',
-            'post': updated_post
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts/<post_id>', methods=['DELETE'])
-@token_required
-def delete_blog_post(post_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if post exists
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-            
-        # Check if user is the author or admin
-        if str(post['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to delete this post'}), 403
-        
-        # Delete the post
-        db.blog_posts.delete_one({'_id': ObjectId(post_id)})
-        
-        # Delete all comments for this post
-        db.blog_comments.delete_many({'post_id': post_id})
-        
-        return jsonify({
-            'success': True,
-            'message': 'Blog post deleted successfully'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts/<post_id>/like', methods=['POST'])
-@token_required
-def like_blog_post(post_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if post exists
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-        
-        # Check if user has already liked this post
-        existing_like = db.blog_likes.find_one({
-            'post_id': post_id,
-            'user_id': str(user['_id'])
-        })
-        
-        if existing_like:
-            # Unlike the post
-            db.blog_likes.delete_one({
-                'post_id': post_id,
-                'user_id': str(user['_id'])
-            })
-            
-            # Decrement likes count
-            db.blog_posts.update_one(
-                {'_id': ObjectId(post_id)},
-                {'$inc': {'likes': -1}}
-            )
-            
-            return jsonify({
-                'success': True,
-                'message': 'Post unliked',
-                'liked': False
-            })
-        else:
-            # Like the post
-            db.blog_likes.insert_one({
-                'post_id': post_id,
-                'user_id': str(user['_id']),
-                'created_at': datetime.datetime.utcnow()
-            })
-            
-            # Increment likes count
-            db.blog_posts.update_one(
-                {'_id': ObjectId(post_id)},
-                {'$inc': {'likes': 1}}
-            )
-            
-            return jsonify({
-                'success': True,
-                'message': 'Post liked',
-                'liked': True
-            })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/posts/<post_id>/comments', methods=['POST'])
-@token_required
-def add_blog_comment(post_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if post exists
-        post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
-        if not post:
-            return jsonify({'error': 'Post not found'}), 404
-            
-        data = request.get_json()
-        
-        # Validate required fields
-        if not data.get('content'):
-            return jsonify({'error': 'Comment content is required'}), 400
-        
-        # Prepare comment document
-        comment_doc = {
-            'post_id': post_id,
-            'content': data.get('content'),
-            'author_id': str(user['_id']),
-            'author_name': user.get('name', 'Anonymous'),
-            'created_at': datetime.datetime.utcnow(),
-            'updated_at': datetime.datetime.utcnow()
-        }
-        
-        # Insert comment
-        result = db.blog_comments.insert_one(comment_doc)
-        
-        # Add the inserted ID to the response
-        comment_doc['_id'] = str(result.inserted_id)
-        
-        # Increment comments count on the post
-        db.blog_posts.update_one(
-            {'_id': ObjectId(post_id)},
-            {'$inc': {'comments_count': 1}}
-        )
-        
-        return jsonify({
-            'success': True,
-            'message': 'Comment added successfully',
-            'comment': comment_doc
-        }), 201
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/comments/<comment_id>', methods=['PUT'])
-@token_required
-def update_blog_comment(comment_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if comment exists
-        comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
-        if not comment:
-            return jsonify({'error': 'Comment not found'}), 404
-            
-        # Check if user is the author
-        if str(comment['author_id']) != str(user['_id']):
-            return jsonify({'error': 'Unauthorized to edit this comment'}), 403
-        
-        data = request.get_json()
-        
-        # Validate required fields
-        if not data.get('content'):
-            return jsonify({'error': 'Comment content is required'}), 400
-        
-        # Update the comment
-        db.blog_comments.update_one(
-            {'_id': ObjectId(comment_id)},
-            {'$set': {
-                'content': data.get('content'),
-                'updated_at': datetime.datetime.utcnow()
-            }}
-        )
-        
-        # Get updated comment
-        updated_comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
-        updated_comment['_id'] = str(updated_comment['_id'])
-        if updated_comment.get('author_id'):
-            updated_comment['author_id'] = str(updated_comment['author_id'])
-        
-        return jsonify({
-            'success': True,
-            'message': 'Comment updated successfully',
-            'comment': updated_comment
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/blog/comments/<comment_id>', methods=['DELETE'])
-@token_required
-def delete_blog_comment(comment_id):
-    try:
-        user = get_current_user()
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        # Check if comment exists
-        comment = db.blog_comments.find_one({'_id': ObjectId(comment_id)})
-        if not comment:
-            return jsonify({'error': 'Comment not found'}), 404
-            
-        # Check if user is the author or admin
-        if str(comment['author_id']) != str(user['_id']) and user.get('role') != 'admin':
-            return jsonify({'error': 'Unauthorized to delete this comment'}), 403
-        
-        # Delete the comment
-        db.blog_comments.delete_one({'_id': ObjectId(comment_id)})
-        
-        # Decrement comments count on the post
-        db.blog_posts.update_one(
-            {'_id': ObjectId(comment['post_id'])},
-            {'$inc': {'comments_count': -1}}
-        )
-        
-        return jsonify({
-            'success': True,
-            'message': 'Comment deleted successfully'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

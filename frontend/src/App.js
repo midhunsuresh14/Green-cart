@@ -22,6 +22,16 @@ import Wishlist from './components/Wishlist';
 import HerbalRemedies from './components/HerbalRemedies/HerbalRemedies';
 import PDPPage from './components/PDP/PDPPage.jsx';
 import ChatBot from './components/ChatBot'; // Import the ChatBot component
+import FeedbackButton from './components/Feedback/FeedbackButton';
+
+// Import the new components
+import CategoryFirstPage from './components/Products/CategoryFirstPage';
+import CategoryProductPage from './components/Products/CategoryProductPage';
+
+// Blog Components
+import BlogPage from './components/Blog/BlogPage';
+import BlogPostDetail from './components/Blog/BlogPostDetail';
+import EditPost from './components/Blog/EditPost';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -574,18 +584,28 @@ function App() {
         <Routes>
           <Route path="/" element={<HomeMUI />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
-          <Route path="/products" element={
-            <ProductListing 
-              user={user}
-              onAddToCart={handleAddToCart} 
-              onViewDetails={(product) => {
-                setSelectedProduct(product);
-                navigate(`/pdp/${product.id}`);
-              }} 
-              onToggleWishlist={handleToggleWishlist} 
-              wishlistItems={wishlistItems} 
-            />
-          } />
+          {/* Replace the existing products route with our new category-first route */}
+          <Route path="/products" element={<CategoryFirstPage 
+            user={user}
+            onAddToCart={handleAddToCart} 
+            onViewDetails={(product) => {
+              setSelectedProduct(product);
+              navigate(`/pdp/${product.id}`);
+            }} 
+            onToggleWishlist={handleToggleWishlist} 
+            wishlistItems={wishlistItems} 
+          />} />
+          {/* Add the new category product page route */}
+          <Route path="/products/:categoryKey" element={<CategoryProductPage 
+            user={user}
+            onAddToCart={handleAddToCart} 
+            onViewDetails={(product) => {
+              setSelectedProduct(product);
+              navigate(`/pdp/${product.id}`);
+            }} 
+            onToggleWishlist={handleToggleWishlist} 
+            wishlistItems={wishlistItems} 
+          />} />
           <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
           <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
           <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w)=> String(w.id)===String(selectedProduct?.id))} />} />
@@ -601,6 +621,11 @@ function App() {
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
           <Route path="/profile" element={<UserProfile user={user} orders={orders} />} />
           <Route path="/remedies" element={<HerbalRemedies />} />
+          
+          {/* Blog Routes */}
+          <Route path="/blog" element={<BlogPage user={user} />} />
+          <Route path="/blog/:id" element={<BlogPostDetail user={user} />} />
+          <Route path="/blog/edit/:id" element={user ? <EditPost user={user} /> : <Navigate to="/login" />} />
           
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
@@ -640,6 +665,9 @@ function App() {
       
       {/* ChatBot Component */}
       <ChatBot />
+      
+      {/* Feedback Button */}
+      <FeedbackButton user={user} position="bottom-right" />
     </>
   );
 }

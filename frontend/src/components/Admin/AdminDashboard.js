@@ -7,6 +7,7 @@ import AdminUsers from './AdminUsers';
 import AdminCategories from './AdminCategories';
 import AdminRemedies from './AdminRemedies';
 import AdminRemedyCategories from './AdminRemedyCategories';
+import AdminFeedback from './AdminFeedback';
 import StatsCards from './StatsCards';
 import RecentActivity from './RecentActivity';
 import TopProducts from './TopProducts';
@@ -41,6 +42,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import HomeIcon from '@mui/icons-material/Home';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
+import FeedbackIcon from '@mui/icons-material/Feedback';
 import { api } from '../../lib/api';
 
 const drawerWidth = 260;
@@ -53,6 +55,7 @@ const sections = [
   { key: 'remedy-categories', label: 'Remedy Categories', icon: <LocalPharmacyIcon /> },
   { key: 'orders', label: 'Orders', icon: <ShoppingBagIcon /> },
   { key: 'users', label: 'Users', icon: <PeopleAltIcon /> },
+  { key: 'feedback', label: 'Feedback', icon: <FeedbackIcon /> },
 ];
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -241,6 +244,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {active === 'remedy-categories' && (<AdminRemedyCategories />)}
         {active === 'orders' && (<AdminOrders />)}
         {active === 'users' && (<AdminUsers />)}
+        {active === 'feedback' && (<AdminFeedback />)}
       </Box>
     </Box>
   );

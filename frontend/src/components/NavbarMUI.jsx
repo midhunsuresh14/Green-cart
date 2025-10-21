@@ -30,6 +30,7 @@ const links = [
   { label: 'Home', to: '/' },
   { label: 'Products', to: '/products' },
   { label: 'Herbal Remedies', to: '/remedies' },
+  { label: 'Blog', to: '/blog' }, // Add Blog link
 ];
 
 export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCount = 0, onOpenCart }) {

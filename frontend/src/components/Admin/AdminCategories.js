@@ -21,13 +21,17 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  Card,
+  CardMedia,
+  CardContent,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CategoryIcon from '@mui/icons-material/Category';
-import { api } from '../../lib/api';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import { listCategories, createCategory, updateCategory, deleteCategory, createSubCategory, updateSubCategory, deleteSubCategory, getAuthHeadersFunction } from '../../lib/api';
 
 export default function AdminCategories() {
   const [categories, setCategories] = useState([]);
@@ -36,16 +40,17 @@ export default function AdminCategories() {
   const [open, setOpen] = useState(false);
   const [subCategoryOpen, setSubCategoryOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const [form, setForm] = useState({ id: null, name: '', description: '' });
+  const [form, setForm] = useState({ id: null, name: '', description: '', imageUrl: '' });
   const [subCategoryForm, setSubCategoryForm] = useState({ id: null, name: '', description: '', categoryId: null });
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
+  const [imagePreview, setImagePreview] = useState('');
 
   // Load categories from API or use default structure
   async function loadCategories() {
     try {
       setLoading(true);
       // Try to fetch from API first
-      const data = await api.listCategories();
+      const data = await listCategories();
       console.log('Categories API response:', data);
       if (data && Array.isArray(data) && data.length > 0) {
         setCategories(data);
@@ -67,6 +72,7 @@ export default function AdminCategories() {
         id: 1,
         name: 'Plants',
         description: 'Indoor and outdoor plants',
+        imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 1, name: 'Indoor', description: 'Indoor plants for home decoration' },
           { id: 2, name: 'Outdoor', description: 'Outdoor plants for gardens' },
@@ -80,6 +86,7 @@ export default function AdminCategories() {
         id: 2,
         name: 'Crops & Seeds',
         description: 'Seeds and crops for cultivation',
+        imageUrl: 'https://images.unsplash.com/photo-1523978591478-c753949ff840?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 7, name: 'Vegetables', description: 'Vegetable seeds and plants' },
           { id: 8, name: 'Fruits', description: 'Fruit seeds and saplings' },
@@ -91,6 +98,7 @@ export default function AdminCategories() {
         id: 3,
         name: 'Pots & Planters',
         description: 'Containers for planting',
+        imageUrl: 'https://images.unsplash.com/photo-1598983069276-3d520e0f6d55?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 11, name: 'Ceramic', description: 'Ceramic pots and planters' },
           { id: 12, name: 'Clay/Terracotta', description: 'Traditional clay pots' },
@@ -103,6 +111,7 @@ export default function AdminCategories() {
         id: 4,
         name: 'Soil & Fertilizers',
         description: 'Soil mixes and fertilizers',
+        imageUrl: 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 16, name: 'Potting Mix', description: 'Ready-to-use potting mixes' },
           { id: 17, name: 'Compost/Manure', description: 'Organic compost and manure' },
@@ -114,6 +123,7 @@ export default function AdminCategories() {
         id: 5,
         name: 'Gardening Tools',
         description: 'Tools for gardening',
+        imageUrl: 'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 20, name: 'Hand Tools', description: 'Small hand gardening tools' },
           { id: 21, name: 'Watering Tools', description: 'Watering cans and sprinklers' },
@@ -124,6 +134,7 @@ export default function AdminCategories() {
         id: 6,
         name: 'Herbal & Eco Products',
         description: 'Eco-friendly and herbal products',
+        imageUrl: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
         subcategories: [
           { id: 23, name: 'Herbal Remedies', description: 'Natural herbal remedies' },
           { id: 24, name: 'Eco-Friendly Packs', description: 'Environmentally friendly packaging' }
@@ -136,14 +147,68 @@ export default function AdminCategories() {
     loadCategories();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle image upload
+  const handleImageUpload = async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api'}/admin/upload`, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeadersFunction(),
+        },
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to upload image');
+      }
+      
+      const data = await response.json();
+      return data.url;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      setToast({ open: true, message: 'Failed to upload image', severity: 'error' });
+      return null;
+    }
+  };
+
+  // Handle image file selection
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+      
+      // Upload image
+      const imageUrl = await handleImageUpload(file);
+      if (imageUrl) {
+        setForm({ ...form, imageUrl });
+        setToast({ open: true, message: 'Image uploaded successfully', severity: 'success' });
+      }
+    }
+  };
+
   // Category handlers
   function onEditCategory(category) {
-    setForm({ id: category.id, name: category.name, description: category.description || '' });
+    setForm({ 
+      id: category.id, 
+      name: category.name, 
+      description: category.description || '',
+      imageUrl: category.imageUrl || ''
+    });
+    setImagePreview(category.imageUrl || '');
     setOpen(true);
   }
 
   function onAddCategory() {
-    setForm({ id: null, name: '', description: '' });
+    setForm({ id: null, name: '', description: '', imageUrl: '' });
+    setImagePreview('');
     setOpen(true);
   }
 
@@ -155,39 +220,24 @@ export default function AdminCategories() {
 
       const payload = {
         name: form.name,
-        description: form.description
+        description: form.description,
+        imageUrl: form.imageUrl
       };
 
       if (form.id) {
         // Update existing category
-        if (api.updateCategory) {
-          await api.updateCategory(form.id, payload);
-        } else {
-          // Update local state if no API
-          setCategories(prev => prev.map(cat => 
-            cat.id === form.id ? { ...cat, ...payload } : cat
-          ));
-        }
+        await updateCategory(form.id, payload);
         setToast({ open: true, message: 'Category updated successfully', severity: 'success' });
       } else {
         // Create new category
-        if (api.createCategory) {
-          await api.createCategory(payload);
-        } else {
-          // Add to local state if no API
-          const newCategory = {
-            id: Math.max(...categories.map(c => c.id), 0) + 1,
-            ...payload,
-            subcategories: []
-          };
-          setCategories(prev => [...prev, newCategory]);
-        }
+        await createCategory(payload);
         setToast({ open: true, message: 'Category created successfully', severity: 'success' });
       }
 
-      setForm({ id: null, name: '', description: '' });
+      setForm({ id: null, name: '', description: '', imageUrl: '' });
+      setImagePreview('');
       setOpen(false);
-      if (api.listCategories) await loadCategories();
+      await loadCategories();
     } catch (e) {
       setError(e.message);
       setToast({ open: true, message: e.message, severity: 'error' });
@@ -197,14 +247,9 @@ export default function AdminCategories() {
   async function onDeleteCategory(id) {
     if (!window.confirm('Delete this category and all its subcategories?')) return;
     try {
-      if (api.deleteCategory) {
-        await api.deleteCategory(id);
-      } else {
-        // Remove from local state if no API
-        setCategories(prev => prev.filter(cat => cat.id !== id));
-      }
+      await deleteCategory(id);
       setToast({ open: true, message: 'Category deleted successfully', severity: 'success' });
-      if (api.listCategories) await loadCategories();
+      await loadCategories();
     } catch (e) {
       setError(e.message);
       setToast({ open: true, message: e.message, severity: 'error' });
@@ -243,44 +288,17 @@ export default function AdminCategories() {
 
       if (subCategoryForm.id) {
         // Update existing subcategory
-        if (api.updateSubCategory) {
-          await api.updateSubCategory(subCategoryForm.id, payload);
-        } else {
-          // Update local state
-          setCategories(prev => prev.map(cat => 
-            cat.id === selectedCategory.id 
-              ? {
-                  ...cat,
-                  subcategories: cat.subcategories.map(sub =>
-                    sub.id === subCategoryForm.id ? { ...sub, ...payload } : sub
-                  )
-                }
-              : cat
-          ));
-        }
+        await updateSubCategory(subCategoryForm.id, payload);
         setToast({ open: true, message: 'Subcategory updated successfully', severity: 'success' });
       } else {
         // Create new subcategory
-        if (api.createSubCategory) {
-          await api.createSubCategory(payload);
-        } else {
-          // Add to local state
-          const newSubCategory = {
-            id: Math.max(...categories.flatMap(c => c.subcategories?.map(s => s.id) || []), 0) + 1,
-            ...payload
-          };
-          setCategories(prev => prev.map(cat => 
-            cat.id === selectedCategory.id 
-              ? { ...cat, subcategories: [...(cat.subcategories || []), newSubCategory] }
-              : cat
-          ));
-        }
+        await createSubCategory(payload);
         setToast({ open: true, message: 'Subcategory created successfully', severity: 'success' });
       }
 
       setSubCategoryForm({ id: null, name: '', description: '', categoryId: null });
       setSubCategoryOpen(false);
-      if (api.listCategories) await loadCategories();
+      await loadCategories();
     } catch (e) {
       setError(e.message);
       setToast({ open: true, message: e.message, severity: 'error' });
@@ -290,18 +308,9 @@ export default function AdminCategories() {
   async function onDeleteSubCategory(categoryId, subcategoryId) {
     if (!window.confirm('Delete this subcategory?')) return;
     try {
-      if (api.deleteSubCategory) {
-        await api.deleteSubCategory(subcategoryId);
-      } else {
-        // Remove from local state
-        setCategories(prev => prev.map(cat => 
-          cat.id === categoryId 
-            ? { ...cat, subcategories: cat.subcategories.filter(sub => sub.id !== subcategoryId) }
-            : cat
-        ));
-      }
+      await deleteSubCategory(subcategoryId);
       setToast({ open: true, message: 'Subcategory deleted successfully', severity: 'success' });
-      if (api.listCategories) await loadCategories();
+      await loadCategories();
     } catch (e) {
       setError(e.message);
       setToast({ open: true, message: e.message, severity: 'error' });
@@ -327,7 +336,18 @@ export default function AdminCategories() {
             <Accordion key={category.id} sx={{ mb: 1 }}>
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                  <CategoryIcon color="primary" />
+                  {category.imageUrl ? (
+                    <Card sx={{ width: 60, height: 60 }}>
+                      <CardMedia
+                        component="img"
+                        height="60"
+                        image={category.imageUrl}
+                        alt={category.name}
+                      />
+                    </Card>
+                  ) : (
+                    <CategoryIcon color="primary" />
+                  )}
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="h6">{category.name}</Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -429,6 +449,53 @@ export default function AdminCategories() {
                 rows={3}
                 fullWidth
               />
+              
+              {/* Image Upload Section */}
+              <Box>
+                <Typography variant="subtitle1" gutterBottom>
+                  Category Image
+                </Typography>
+                {imagePreview && (
+                  <Card sx={{ mb: 2, maxWidth: 200 }}>
+                    <CardMedia
+                      component="img"
+                      height="140"
+                      image={imagePreview}
+                      alt="Category preview"
+                    />
+                  </Card>
+                )}
+                <input
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  id="image-upload"
+                  type="file"
+                  onChange={handleImageChange}
+                />
+                <label htmlFor="image-upload">
+                  <Button
+                    variant="outlined"
+                    component="span"
+                    startIcon={<CloudUploadIcon />}
+                    fullWidth
+                  >
+                    Upload Image
+                  </Button>
+                </label>
+                {form.imageUrl && (
+                  <Button
+                    onClick={() => {
+                      setForm({ ...form, imageUrl: '' });
+                      setImagePreview('');
+                    }}
+                    color="error"
+                    size="small"
+                    sx={{ mt: 1 }}
+                  >
+                    Remove Image
+                  </Button>
+                )}
+              </Box>
             </Stack>
           </DialogContent>
           <DialogActions>

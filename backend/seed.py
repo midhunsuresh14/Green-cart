@@ -54,6 +54,7 @@ def seed_categories():
         {
             "name": "Plants",
             "description": "Indoor and outdoor plants",
+            "imageUrl": "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop",
             "subcategories": [
                 {"id": "650000000000000000000001", "name": "Indoor", "description": "Indoor plants for home decoration"},
                 {"id": "650000000000000000000002", "name": "Outdoor", "description": "Outdoor plants for gardens"},
@@ -66,6 +67,7 @@ def seed_categories():
         {
             "name": "Crops & Seeds",
             "description": "Seeds and crops for cultivation",
+            "imageUrl": "https://images.unsplash.com/photo-1523978591478-c753949ff840?q=80&w=1600&auto=format&fit=crop",
             "subcategories": [
                 {"id": "650000000000000000000007", "name": "Vegetables", "description": "Vegetable seeds and plants"},
                 {"id": "650000000000000000000008", "name": "Fruits", "description": "Fruit seeds and saplings"},
@@ -76,6 +78,7 @@ def seed_categories():
         {
             "name": "Pots & Planters",
             "description": "Containers for planting",
+            "imageUrl": "https://images.unsplash.com/photo-1598983069276-3d520e0f6d55?q=80&w=1600&auto=format&fit=crop",
             "subcategories": [
                 {"id": "650000000000000000000011", "name": "Ceramic", "description": "Ceramic pots and planters"},
                 {"id": "650000000000000000000012", "name": "Plastic", "description": "Plastic containers"},
@@ -86,6 +89,7 @@ def seed_categories():
         {
             "name": "Tools & Equipment",
             "description": "Gardening tools and equipment",
+            "imageUrl": "https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=1600&auto=format&fit=crop",
             "subcategories": [
                 {"id": "650000000000000000000015", "name": "Hand Tools", "description": "Basic gardening hand tools"},
                 {"id": "650000000000000000000016", "name": "Watering", "description": "Watering cans and equipment"},
@@ -95,6 +99,7 @@ def seed_categories():
         {
             "name": "Fertilizers & Soil",
             "description": "Plant nutrition and growing media",
+            "imageUrl": "https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=1600&auto=format&fit=crop",
             "subcategories": [
                 {"id": "650000000000000000000018", "name": "Organic", "description": "Organic fertilizers and compost"},
                 {"id": "650000000000000000000019", "name": "Chemical", "description": "Chemical fertilizers"},

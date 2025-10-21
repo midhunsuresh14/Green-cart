@@ -50,6 +50,7 @@ async function request(path, options = {}) {
   }
 }
 
+// Export all API functions directly instead of attaching to an object
 export const api = {
   // Admin stats
   adminStats: () => request('/admin/stats'),
@@ -127,4 +128,77 @@ export const api = {
 
   // Chatbot
   chatbot: (messages) => request('/chatbot', { method: 'POST', body: JSON.stringify({ messages }) }),
+  
+  // Feedback
+  submitFeedback: (data) => request('/feedback', { method: 'POST', body: JSON.stringify(data) }),
+  getFeedback: () => request('/admin/feedback'),
+  updateFeedbackStatus: (id, status) => request(`/admin/feedback/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  
+  // Blog
+  getBlogPosts: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/blog/posts${query ? `?${query}` : ''}`);
+  },
+  createBlogPost: (data) => request('/blog/posts', { method: 'POST', body: JSON.stringify(data) }),
+  getBlogPost: (postId) => request(`/blog/posts/${postId}`),
+  updateBlogPost: (postId, data) => request(`/blog/posts/${postId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBlogPost: (postId) => request(`/blog/posts/${postId}`, { method: 'DELETE' }),
+  likeBlogPost: (postId) => request(`/blog/posts/${postId}/like`, { method: 'POST' }),
+  addBlogComment: (postId, data) => request(`/blog/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify(data) }),
+  updateBlogComment: (commentId, data) => request(`/blog/comments/${commentId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteBlogComment: (commentId) => request(`/blog/comments/${commentId}`, { method: 'DELETE' }),
+  
+  // Auth helpers
+  getAuthHeaders: getAuthHeaders
 };
+
+// Export individual functions for direct access
+export const adminStats = api.adminStats;
+export const listProductsPublic = api.listProductsPublic;
+export const listProducts = api.listProducts;
+export const createProduct = api.createProduct;
+export const updateProduct = api.updateProduct;
+export const deleteProduct = api.deleteProduct;
+export const uploadImage = api.uploadImage;
+export const listOrders = api.listOrders;
+export const updateOrderStatus = api.updateOrderStatus;
+export const createOrder = api.createOrder;
+export const verifyPayment = api.verifyPayment;
+export const lowStock = api.lowStock;
+export const listUsers = api.listUsers;
+export const updateUserRole = api.updateUserRole;
+export const toggleUserActive = api.toggleUserActive;
+export const deleteUser = api.deleteUser;
+export const listCategories = api.listCategories;
+export const createCategory = api.createCategory;
+export const updateCategory = api.updateCategory;
+export const deleteCategory = api.deleteCategory;
+export const createSubCategory = api.createSubCategory;
+export const updateSubCategory = api.updateSubCategory;
+export const deleteSubCategory = api.deleteSubCategory;
+export const listRemedies = api.listRemedies;
+export const createRemedy = api.createRemedy;
+export const updateRemedy = api.updateRemedy;
+export const deleteRemedy = api.deleteRemedy;
+export const bulkUploadRemedies = api.bulkUploadRemedies;
+export const listRemedyCategories = api.listRemedyCategories;
+export const createRemedyCategory = api.createRemedyCategory;
+export const updateRemedyCategory = api.updateRemedyCategory;
+export const deleteRemedyCategory = api.deleteRemedyCategory;
+export const adminNotifications = api.adminNotifications;
+export const markNotificationRead = api.markNotificationRead;
+export const chatbot = api.chatbot;
+export const submitFeedback = api.submitFeedback;
+export const getFeedback = api.getFeedback;
+export const updateFeedbackStatus = api.updateFeedbackStatus;
+export const getBlogPosts = api.getBlogPosts;
+export const createBlogPost = api.createBlogPost;
+export const getBlogPost = api.getBlogPost;
+export const updateBlogPost = api.updateBlogPost;
+export const deleteBlogPost = api.deleteBlogPost;
+export const likeBlogPost = api.likeBlogPost;
+export const addBlogComment = api.addBlogComment;
+export const updateBlogComment = api.updateBlogComment;
+export const deleteBlogComment = api.deleteBlogComment;
+// Rename the export to avoid naming conflict
+export const getAuthHeadersFunction = getAuthHeaders;

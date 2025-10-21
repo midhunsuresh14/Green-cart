@@ -1,0 +1,211 @@
+/* Feedback Button Styles */
+.feedback-button {
+  position: fixed;
+  z-index: 999;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  transition: all 0.3s ease;
+  overflow: visible;
+}
+
+.feedback-button:hover {
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+  transform: translateY(-2px);
+}
+
+.feedback-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Position Classes */
+.feedback-btn-bottom-right {
+  bottom: 24px;
+  right: 24px;
+}
+
+.feedback-btn-bottom-left {
+  bottom: 24px;
+  left: 24px;
+}
+
+.feedback-btn-top-right {
+  top: 24px;
+  right: 24px;
+}
+
+.feedback-btn-top-left {
+  top: 24px;
+  left: 24px;
+}
+
+/* Tooltip */
+.feedback-tooltip {
+  position: absolute;
+  background: #1f2937;
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1001;
+}
+
+.feedback-btn-bottom-right .feedback-tooltip,
+.feedback-btn-top-right .feedback-tooltip {
+  right: 100%;
+  margin-right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.feedback-btn-bottom-left .feedback-tooltip,
+.feedback-btn-top-left .feedback-tooltip {
+  left: 100%;
+  margin-left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.tooltip-arrow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  border: 4px solid transparent;
+}
+
+.feedback-btn-bottom-right .tooltip-arrow,
+.feedback-btn-top-right .tooltip-arrow {
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-left-color: #1f2937;
+}
+
+.feedback-btn-bottom-left .tooltip-arrow,
+.feedback-btn-top-left .tooltip-arrow {
+  right: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  border-right-color: #1f2937;
+}
+
+/* Pulse Animation */
+@keyframes feedback-pulse {
+  0% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3), 0 0 0 8px rgba(16, 185, 129, 0.1);
+  }
+  100% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+}
+
+.feedback-button {
+  animation: feedback-pulse 3s infinite;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .feedback-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .feedback-btn-bottom-right,
+  .feedback-btn-bottom-left {
+    bottom: 16px;
+  }
+
+  .feedback-btn-bottom-right {
+    right: 16px;
+  }
+
+  .feedback-btn-bottom-left {
+    left: 16px;
+  }
+
+  .feedback-btn-top-right,
+  .feedback-btn-top-left {
+    top: 16px;
+  }
+
+  .feedback-btn-top-right {
+    right: 16px;
+  }
+
+  .feedback-btn-top-left {
+    left: 16px;
+  }
+
+  .feedback-tooltip {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .feedback-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .feedback-btn-bottom-right,
+  .feedback-btn-bottom-left {
+    bottom: 12px;
+  }
+
+  .feedback-btn-bottom-right {
+    right: 12px;
+  }
+
+  .feedback-btn-bottom-left {
+    left: 12px;
+  }
+
+  .feedback-btn-top-right,
+  .feedback-btn-top-left {
+    top: 12px;
+  }
+
+  .feedback-btn-top-right {
+    right: 12px;
+  }
+
+  .feedback-btn-top-left {
+    left: 12px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .feedback-button {
+    animation: none;
+  }
+  
+  .feedback-button:hover {
+    transform: none;
+  }
+}
+
+/* High contrast mode */
+@media (prefers-contrast: high) {
+  .feedback-button {
+    border: 2px solid white;
+  }
+}
+

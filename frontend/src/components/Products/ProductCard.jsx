@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import './ProductCard.css';
 
 const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist }) => {
   const [stockInfo, setStockInfo] = useState({ stock: product.stock || 0, inStock: (product.stock || 0) > 0 });
@@ -107,20 +108,14 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
   return (
     <div className="product-card">
       <div className="product-image-container">
-        <Link to={`/product/${product.id}`} onClick={() => onViewDetails(product)}>
+        <Link to={`/pdp/${product.id}`} onClick={() => onViewDetails(product)}>
+          {/* Fix: Use the correct image property and ensure it shows the actual uploaded image */}
           <img 
-            src={getImageUrl(product.image_url || product.image || product.imageUrl)} 
+            src={getImageUrl(product.imageUrl || product.image_url || product.image)} 
             alt={product.name}
             onError={handleImageError}
             className="product-image"
             loading="lazy"
-            srcSet={product.images && Array.isArray(product.images)
-              ? product.images
-                  .filter(Boolean)
-                  .map((img) => `${getImageUrl(img)} 1x`)
-                  .join(', ')
-              : undefined}
-            sizes={product.images && Array.isArray(product.images) ? '200px' : undefined}
           />
         </Link>
         {!loadingStock && (
@@ -138,7 +133,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
       </div>
       <div className="product-details">
         <h3 className="product-name">
-          <Link to={`/product/${product.id}`} onClick={() => onViewDetails(product)}>
+          <Link to={`/pdp/${product.id}`} onClick={() => onViewDetails(product)}>
             {product.name}
           </Link>
         </h3>

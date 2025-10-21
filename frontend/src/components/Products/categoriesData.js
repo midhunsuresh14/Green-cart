@@ -26,8 +26,13 @@ export async function fetchCategories() {
       const transformed = categories.map(cat => ({
         name: cat.name,
         key: cat.name,
-        // Use a default cover image if none provided
-        cover: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
+        // Use imageUrl if available, otherwise fallback to cover or default image
+        // Ensure proper URL handling for uploaded images
+        cover: cat.imageUrl?.startsWith('/uploads/') ? `http://127.0.0.1:5000${cat.imageUrl}` : 
+               cat.imageUrl || cat.cover || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
+        imageUrl: cat.imageUrl?.startsWith('/uploads/') ? `http://127.0.0.1:5000${cat.imageUrl}` : 
+                 cat.imageUrl || cat.cover || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?q=80&w=1600&auto=format&fit=crop',
+        description: cat.description || '',
         children: (cat.subcategories || []).map(sub => ({
           name: sub.name,
           key: sub.name

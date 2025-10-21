@@ -66,23 +66,7 @@ const HerbalRemedies = () => {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fdf8' }}>
-      {/* Header */}
-      <header className="px-6 py-4" style={{ backgroundColor: '#7fb069' }}>
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2 text-white">
-            <Leaf className="w-6 h-6" />
-            <span className="text-xl font-semibold">GreenCart</span>
-          </div>
-          <div className="flex items-center gap-4 text-white">
-            <ShoppingCart className="w-5 h-5 cursor-pointer hover:opacity-80" />
-            <User className="w-5 h-5 cursor-pointer hover:opacity-80" />
-            <span className="cursor-pointer hover:opacity-80">Account</span>
-            <Menu className="w-5 h-5 cursor-pointer hover:opacity-80" />
-          </div>
-        </div>
-      </header>
-
-      {/* Hero Section */}
+      {/* Hero Section - Removed the duplicate navbar */}
       <section className="px-6 py-16" style={{ backgroundColor: '#7fb069' }}>
         <div className="max-w-4xl mx-auto text-center text-white">
           <h1 className="text-5xl font-light mb-4" style={{ fontFamily: 'serif' }}>
