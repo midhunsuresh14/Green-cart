@@ -29,3 +29,4 @@ update_*.py
 package*.json
 frontend/
 auth-app/
+backend/uploads/

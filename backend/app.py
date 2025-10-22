@@ -44,8 +44,14 @@ app.config['MAIL_DEFAULT_SENDER'] = (os.getenv('EMAIL_FROM_NAME', 'GreenCart'), 
 mail = Mail(app)
 
 # File uploads (local dev) - serve from /uploads
+# In serverless environments, we need to handle this differently
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), 'uploads')
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# Only create the directory if we're not in a serverless environment
+# Vercel and other serverless platforms have read-only file systems
+if not os.getenv('VERCEL'):
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.tif', '.tiff', '.svg', '.jfif', '.pjpeg', '.pjp', '.heic', '.heif'}
 
 # MongoDB Configuration (env override supported)
@@ -1089,6 +1095,10 @@ def delete_subcategory(subcategory_id):
 @admin_required
 def upload_image():
     try:
+        # In serverless environments, we can't save files to the local filesystem
+        if os.getenv('VERCEL'):
+            return jsonify({'error': 'File uploads are not supported in serverless deployment'}), 400
+            
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
         file = request.files['file']
@@ -1137,6 +1147,10 @@ def upload_image():
 @token_required
 def upload_image_user(current_user=None):
     try:
+        # In serverless environments, we can't save files to the local filesystem
+        if os.getenv('VERCEL'):
+            return jsonify({'error': 'File uploads are not supported in serverless deployment'}), 400
+            
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400
         file = request.files['file']
@@ -1183,6 +1197,9 @@ def upload_image_user(current_user=None):
 # Serve uploaded files
 @app.route('/uploads/<path:filename>')
 def serve_uploads(filename):
+    # In serverless environments, we can't serve files from the local filesystem
+    if os.getenv('VERCEL'):
+        return jsonify({'error': 'File serving is not supported in serverless deployment'}), 400
     return send_from_directory(UPLOAD_DIR, filename)
 
 # Orders endpoints (basic list and status update)
