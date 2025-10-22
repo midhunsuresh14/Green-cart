@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask import Flask, request, jsonify, send_file, send_from_directory, make_response
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from pymongo import MongoClient
@@ -16,6 +16,7 @@ import redis
 import json
 import openai  # Add OpenAI import
 
+
 # Load environment variables
 load_dotenv()
 
@@ -32,6 +33,7 @@ CORS(
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
     supports_credentials=True,
+    vary_header=True
 )
 
 # Email configuration
@@ -43,6 +45,60 @@ app.config['MAIL_PASSWORD'] = os.getenv('EMAIL_PASSWORD')
 app.config['MAIL_DEFAULT_SENDER'] = (os.getenv('EMAIL_FROM_NAME', 'GreenCart'), os.getenv('EMAIL_USERNAME'))
 
 mail = Mail(app)
+
+# Custom CORS decorator to ensure proper headers
+def add_cors_headers(response):
+    origin = request.headers.get('Origin')
+    allowed_origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://greencart-frontend-r7zs.onrender.com"
+    ]
+    
+    if origin in allowed_origins:
+        response.headers['Access-Control-Allow-Origin'] = origin
+    elif origin and any(origin.startswith(allowed) for allowed in allowed_origins):
+        response.headers['Access-Control-Allow-Origin'] = origin
+    else:
+        # Fallback to the first allowed origin if none match
+        response.headers['Access-Control-Allow-Origin'] = "https://greencart-frontend-r7zs.onrender.com"
+    
+    response.headers['Access-Control-Allow-Credentials'] = 'true'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires'
+    response.headers['Vary'] = 'Origin'
+    return response
+
+# Apply the CORS headers to all responses
+@app.after_request
+def after_request(response):
+    return add_cors_headers(response)
+
+# Handle preflight OPTIONS requests
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        response = make_response()
+        origin = request.headers.get('Origin', '*')
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            "https://greencart-frontend-r7zs.onrender.com"
+        ]
+        
+        if origin in allowed_origins or origin == '*':
+            response.headers.add("Access-Control-Allow-Origin", origin)
+        else:
+            response.headers.add("Access-Control-Allow-Origin", "https://greencart-frontend-r7zs.onrender.com")
+            
+        response.headers.add('Access-Control-Allow-Headers', "Content-Type, Authorization, Cache-Control, Pragma, Expires")
+        response.headers.add('Access-Control-Allow-Methods', "GET, POST, PUT, DELETE, OPTIONS")
+        response.headers.add('Access-Control-Allow-Credentials', "true")
+        return response
 
 # File uploads (local dev) - serve from /uploads
 # In serverless environments, we need to handle this differently

@@ -6,7 +6,7 @@ services:
     staticPublishPath: frontend/build
     envVars:
       - key: REACT_APP_API_URL
-        value: https://your-backend-url.vercel.app/api
+        value: https://green-cart-pi-sepia.vercel.app/api
     routes:
       - type: rewrite
         source: /*
