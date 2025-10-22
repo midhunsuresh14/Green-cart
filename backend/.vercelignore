@@ -27,3 +27,5 @@ setup_email.py
 show_db_info.py
 update_*.py
 package*.json
+../frontend/
+../auth-app/
