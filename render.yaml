@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: greencart-frontend
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: frontend/build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://your-backend-url.vercel.app/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

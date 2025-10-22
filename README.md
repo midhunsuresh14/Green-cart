@@ -12,7 +12,14 @@ GreenCart is a full-featured e-commerce platform for herbal products and remedie
 
 ### Frontend Deployment
 
-The frontend can be deployed to any static hosting service like Vercel, Netlify, or GitHub Pages.
+The frontend can be deployed to Render using the following steps:
+
+1. Set the root directory to `/` in your Render project settings
+2. Set the build command to `bash build.sh`
+3. Set the publish directory to `frontend/build`
+4. Add the required environment variables:
+   - `REACT_APP_API_URL` - The URL of your backend API (e.g., https://your-backend-url.vercel.app/api)
+5. The deployment will automatically use the `render.yaml` configuration file
 
 ### Backend Deployment
 
