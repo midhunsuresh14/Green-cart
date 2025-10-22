@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { getBlogPost, likeBlogPost, deleteBlogPost } from '../../lib/api';
+import { getBlogPost, likeBlogPost, deleteBlogPost, assetUrl } from '../../lib/api';
 import CommentSection from './CommentSection';
 import './Blog.css';
 
@@ -189,7 +189,7 @@ const BlogPostDetail = ({ user }) => {
         {post.image_url && (
           <div className="mb-8 rounded-xl overflow-hidden">
             <img 
-              src={post.image_url} 
+              src={assetUrl(post.image_url)} 
               alt={post.title} 
               className="w-full h-auto object-cover"
               onError={(e) => {

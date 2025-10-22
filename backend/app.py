@@ -49,7 +49,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 ALLOWED_IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.avif', '.bmp', '.tif', '.tiff', '.svg', '.jfif', '.pjpeg', '.pjp', '.heic', '.heif'}
 
 # MongoDB Configuration (env override supported)
-MONGO_URI = "mongodb://localhost:27017/"
+MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/')
 DB_NAME = "greencart"
 client = MongoClient(MONGO_URI)
 db = client[DB_NAME]
@@ -257,6 +257,13 @@ def token_required(f):
 @app.route('/')
 def home():
     return 'GreenCart Flask Backend Running!'
+
+@app.route('/health')
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.datetime.utcnow().isoformat()
+    })
 
 @app.route('/api/db-status')
 def db_status():
@@ -2626,3 +2633,6 @@ def admin_delete_blog_comment(comment_id):
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
+
+# Vercel requires this for serverless deployment
+application = app

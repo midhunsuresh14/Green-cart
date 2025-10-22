@@ -1,3 +1,48 @@
+# GreenCart Backend - Vercel Deployment
+
+This document explains how to deploy the GreenCart backend to Vercel.
+
+## Prerequisites
+
+1. A Vercel account
+2. MongoDB database (MongoDB Atlas recommended)
+3. Environment variables configured in Vercel
+
+## Deployment Steps
+
+1. Push your code to a GitHub repository
+2. Connect the repository to Vercel
+3. Set the root directory to `/backend` in Vercel project settings
+4. Add the required environment variables in Vercel dashboard
+
+## Required Environment Variables
+
+- `MONGO_URI` - MongoDB connection string
+- `SECRET_KEY` - Secret key for JWT tokens (generate a secure one)
+- `EMAIL_USERNAME` - Email for sending OTPs
+- `EMAIL_PASSWORD` - Password for email account
+- `RAZORPAY_KEY_ID` - Razorpay API key (optional)
+- `RAZORPAY_KEY_SECRET` - Razorpay API secret (optional)
+
+## Generating a Secure SECRET_KEY
+
+You can generate a secure secret key using Python:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+## Vercel Configuration
+
+The `vercel.json` file in this directory configures the deployment:
+- Uses the Python runtime
+- Points to `index.py` as the entrypoint
+- Routes all requests to the Flask app
+
+## Health Check Endpoint
+
+A health check endpoint is available at `/health` to verify the deployment is working correctly.
+
 # GreenCart Backend
 
 This is the Flask backend for the GreenCart application with MongoDB integration.

@@ -1,4 +1,12 @@
 const BASE_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+const API_ORIGIN = BASE_URL.replace(/\/?api\/?$/, '');
+
+export const assetUrl = (path) => {
+  if (!path) return '';
+  if (/^https?:\/\//i.test(path)) return path;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${API_ORIGIN}${normalizedPath}`;
+};
 
 function getAuthHeaders() {
   try {
@@ -136,7 +144,10 @@ export const api = {
   
   // Blog
   getBlogPosts: (params = {}) => {
-    const query = new URLSearchParams(params).toString();
+    const filtered = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(filtered).toString();
     return request(`/blog/posts${query ? `?${query}` : ''}`);
   },
   createBlogPost: (data) => request('/blog/posts', { method: 'POST', body: JSON.stringify(data) }),

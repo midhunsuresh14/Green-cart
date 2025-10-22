@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
+import { assetUrl } from '../../lib/api';
 import CommentSection from './CommentSection';
 import './Blog.css';
 
@@ -34,7 +35,7 @@ const BlogPost = ({ post, user, onLike, onPostUpdated }) => {
       <div className="relative h-48 overflow-hidden">
         {post.image_url ? (
           <img 
-            src={post.image_url} 
+            src={assetUrl(post.image_url)} 
             alt={post.title} 
             className="w-full h-full object-cover"
             onError={(e) => {
