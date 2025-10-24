@@ -88,10 +88,27 @@ export const api = {
     });
     
     if (!response.ok) {
-      throw new Error(await response.text());
+      const errorText = await response.text();
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.error || errorText);
+      } catch (e) {
+        throw new Error(errorText);
+      }
     }
     
-    return response.json();
+    const result = await response.json();
+    
+    // Check if the response has the expected structure
+    if (!result.success) {
+      throw new Error(result.error || 'Upload failed');
+    }
+    
+    if (!result.url) {
+      throw new Error('Upload succeeded but no URL returned');
+    }
+    
+    return result;
   },
 
   // Orders

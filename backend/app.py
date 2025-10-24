@@ -49,12 +49,21 @@ load_dotenv()
 # Initialize Cloudinary only if available
 if CLOUDINARY_AVAILABLE:
     try:
-        cloudinary.config(
-            cloud_name=os.getenv('CLOUD_NAME'),
-            api_key=os.getenv('CLOUD_API_KEY'),
-            api_secret=os.getenv('CLOUD_API_SECRET')
-        )
-        print("Cloudinary configured successfully")
+        cloud_name = os.getenv('CLOUD_NAME')
+        api_key = os.getenv('CLOUD_API_KEY')
+        api_secret = os.getenv('CLOUD_API_SECRET')
+        
+        # Check if all required environment variables are set
+        if not cloud_name or not api_key or not api_secret:
+            print("Warning: Cloudinary environment variables not set. Please check your .env file.")
+            CLOUDINARY_AVAILABLE = False
+        else:
+            cloudinary.config(
+                cloud_name=cloud_name,
+                api_key=api_key,
+                api_secret=api_secret
+            )
+            print(f"Cloudinary configured successfully with cloud name: {cloud_name}")
     except Exception as e:
         print(f"Warning: Failed to configure Cloudinary: {e}")
         CLOUDINARY_AVAILABLE = False
@@ -2074,6 +2083,10 @@ def clear_product_cache():
 @app.route('/api/cloudinary-upload', methods=['POST'])
 def upload_to_cloudinary():
     try:
+        # Check if Cloudinary is available
+        if not CLOUDINARY_AVAILABLE:
+            return jsonify({'error': 'Cloudinary is not configured. Please set up Cloudinary credentials in .env file.'}), 500
+        
         # Get JSON data from request
         data = request.get_json()
         
@@ -2094,6 +2107,13 @@ def upload_to_cloudinary():
             use_filename=True,
             unique_filename=False
         )
+        
+        # Debug: Print the upload result
+        print(f"Cloudinary upload result: {upload_result}")
+        
+        # Check if secure_url is in the result
+        if 'secure_url' not in upload_result:
+            return jsonify({'error': f'Upload failed: secure_url not found in response. Full response: {upload_result}'}), 500
         
         # Return the secure URL of the uploaded image
         return jsonify({
