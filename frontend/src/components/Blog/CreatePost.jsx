@@ -1,31 +1,24 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { createBlogPost, uploadImage } from '../../lib/api';
+import { createBlogPost } from '../../lib/api';
+import ImageUpload from '../UI/ImageUpload';
 import './Blog.css';
 
 const CreatePost = ({ onPostCreated, user }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [category, setCategory] = useState('General');
-  const [image, setImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [imageUrl, setImageUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
   const categories = ['Gardening Tips', 'Plant Care', 'Herbal Remedies', 'Success Stories', 'General'];
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setImage(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
   const handleRemoveImage = () => {
-    setImage(null);
     setImagePreview(null);
+    setImageUrl('');
   };
 
   const handleSubmit = async (e) => {
@@ -41,14 +34,6 @@ const CreatePost = ({ onPostCreated, user }) => {
     setSuccess(false);
     
     try {
-      let imageUrl = '';
-      
-      // Upload image if provided
-      if (image) {
-        const imageData = await uploadImage(image);
-        imageUrl = imageData.url;
-      }
-      
       // Create blog post
       const postData = {
         title: title.trim(),
@@ -64,8 +49,8 @@ const CreatePost = ({ onPostCreated, user }) => {
       setTitle('');
       setContent('');
       setCategory('General');
-      setImage(null);
       setImagePreview(null);
+      setImageUrl('');
       
       // Notify parent component
       onPostCreated();
@@ -147,42 +132,12 @@ const CreatePost = ({ onPostCreated, user }) => {
         </div>
         
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Add Photo (Optional)
-          </label>
-          
-          {imagePreview ? (
-            <div className="relative inline-block">
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                className="w-32 h-32 object-cover rounded-lg border border-gray-300"
-              />
-              <button
-                type="button"
-                onClick={handleRemoveImage}
-                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center w-32 h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-green-400">
-              <label className="cursor-pointer">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                />
-              </label>
-            </div>
-          )}
+          <ImageUpload 
+            onImageUpload={setImageUrl}
+            label="Add Photo (Optional)"
+            previewUrl={imagePreview}
+            setPreviewUrl={setImagePreview}
+          />
         </div>
         
         <div className="flex justify-end space-x-4">
@@ -192,8 +147,8 @@ const CreatePost = ({ onPostCreated, user }) => {
               setTitle('');
               setContent('');
               setCategory('General');
-              setImage(null);
               setImagePreview(null);
+              setImageUrl('');
             }}
             className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
           >

@@ -70,15 +70,28 @@ export const api = {
   updateProduct: (id, data) => request(`/admin/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteProduct: (id) => request(`/admin/products/${id}`, { method: 'DELETE' }),
   uploadImage: async (file) => {
-    const form = new FormData();
-    form.append('file', file);
-    const res = await fetch(`${BASE_URL}/upload`, {
-      method: 'POST',
-      headers: { ...getAuthHeaders() },
-      body: form,
+    // Convert file to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    
+    // Send base64 string to backend
+    const response = await fetch(`${BASE_URL}/cloudinary-upload`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ image: base64 })
+    });
+    
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    
+    return response.json();
   },
 
   // Orders

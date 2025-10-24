@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
+import ImageUpload from '../UI/ImageUpload';
 import {
   Box,
   Button,
@@ -35,7 +36,7 @@ export default function AdminProducts() {
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
   const [form, setForm] = useState({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
-  const [file, setFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
 
@@ -56,17 +57,19 @@ export default function AdminProducts() {
 
   function onEdit(p) {
     setForm({ id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '', price: p.price, stock: p.stock, description: p.description || '', imageUrl: p.imageUrl || '' });
+    setImagePreview(p.imageUrl || null);
     setOpen(true);
   }
 
   function onAdd() {
     setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
-    setFile(null);
+    setImagePreview(null);
     setOpen(true);
   }
 
   function resetForm() {
     setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
+    setImagePreview(null);
   }
 
   async function onSubmit(e) {
@@ -81,12 +84,7 @@ export default function AdminProducts() {
       if (!(priceNum > 0)) throw new Error('Price must be > 0');
       if (stockNum < 0) throw new Error('Stock must be ≥ 0');
 
-      let imageUrl = form.imageUrl;
-      if (file) {
-        const res = await api.uploadImage(file);
-        imageUrl = res.url;
-      }
-
+      // Use the imageUrl from form state (which gets updated by ImageUpload component)
       const payload = {
         name: form.name,
         category: form.category,
@@ -94,8 +92,9 @@ export default function AdminProducts() {
         price: priceNum,
         stock: stockNum,
         description: form.description,
-        imageUrl,
+        imageUrl: form.imageUrl,
       };
+      
       if (form.id) {
         await api.updateProduct(form.id, payload);
         setToast({ open: true, message: 'Product updated', severity: 'success' });
@@ -106,7 +105,6 @@ export default function AdminProducts() {
       // Signal other tabs/pages to refresh product list
       try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) {}
       resetForm();
-      setFile(null);
       setOpen(false);
       await load();
     } catch (e) {
@@ -218,15 +216,17 @@ export default function AdminProducts() {
               <TextField type="number" inputProps={{ step: '1', min: 0 }} label="Stock" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} fullWidth />
             </Stack>
             <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} fullWidth />
-            <TextField label="Image URL" placeholder="or use upload" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} fullWidth />
-            <Button variant="outlined" component="label">
-              Upload Image
-              <input type="file" accept="image/*" hidden onChange={(e) => setFile(e.target.files?.[0] || null)} />
-            </Button>
+            <TextField label="Image URL" placeholder="or use upload below" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} fullWidth />
+            <ImageUpload 
+              onImageUpload={(url) => setForm({ ...form, imageUrl: url || '' })}
+              label="Product Image"
+              previewUrl={imagePreview}
+              setPreviewUrl={setImagePreview}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setOpen(false); resetForm(); setFile(null); }}>Cancel</Button>
+          <Button onClick={() => { setOpen(false); resetForm(); }}>Cancel</Button>
           <Button type="submit" variant="contained">{form.id ? 'Update' : 'Create'}</Button>
         </DialogActions>
       </Dialog>
@@ -239,16 +239,3 @@ export default function AdminProducts() {
     </Box>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

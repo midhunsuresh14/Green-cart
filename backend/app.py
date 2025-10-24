@@ -15,10 +15,20 @@ from dotenv import load_dotenv
 import redis
 import json
 import openai  # Add OpenAI import
-
+import base64
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Load environment variables
 load_dotenv()
+
+# Initialize Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv('CLOUD_NAME'),
+    api_key=os.getenv('CLOUD_API_KEY'),
+    api_secret=os.getenv('CLOUD_API_SECRET')
+)
 
 app = Flask(__name__)
 CORS(
@@ -2025,6 +2035,45 @@ def clear_product_cache():
             return jsonify({'success': False, 'message': 'Redis not configured'}), 500
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+# Cloudinary Upload Endpoint
+@app.route('/api/cloudinary-upload', methods=['POST'])
+def upload_to_cloudinary():
+    try:
+        # Get JSON data from request
+        data = request.get_json()
+        
+        # Check if base64 image string is provided
+        if not data or 'image' not in data:
+            return jsonify({'error': 'No image data provided'}), 400
+        
+        image_data = data['image']
+        
+        # Check if image data is base64 string
+        if not isinstance(image_data, str) or not image_data.startswith('data:image'):
+            return jsonify({'error': 'Invalid image format. Expected base64 string.'}), 400
+        
+        # Upload image to Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            image_data,
+            folder="greencart_uploads",
+            use_filename=True,
+            unique_filename=False
+        )
+        
+        # Return the secure URL of the uploaded image
+        return jsonify({
+            'success': True,
+            'url': upload_result['secure_url']
+        }), 200
+        
+    except Exception as e:
+        # Handle general errors
+        # Check if it's a Cloudinary-specific error
+        if 'Cloudinary' in str(e) or 'cloudinary' in str(e).lower():
+            return jsonify({'error': f'Cloudinary error: {str(e)}'}), 500
+        else:
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
 # Chatbot Endpoint with Mistral/OpenAI support
 @app.route('/api/chatbot', methods=['POST'])
