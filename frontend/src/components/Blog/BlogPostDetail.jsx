@@ -14,6 +14,7 @@ const BlogPostDetail = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isLiked, setIsLiked] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     fetchPost();
@@ -52,10 +53,6 @@ const BlogPostDetail = ({ user }) => {
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete this post?')) {
-      return;
-    }
-    
     try {
       await deleteBlogPost(id);
       navigate('/blog');
@@ -68,6 +65,8 @@ const BlogPostDetail = ({ user }) => {
     // Refresh the post to get updated comment count
     fetchPost();
   };
+
+  const canEditOrDelete = user && (user.id === post?.author_id || user.role === 'admin');
 
   if (loading) {
     return (
@@ -145,17 +144,17 @@ const BlogPostDetail = ({ user }) => {
               {post.category}
             </span>
             
-            {user && (user.id === post.author_id || user.role === 'admin') && (
+            {canEditOrDelete && (
               <div className="flex space-x-2">
                 <Link 
                   to={`/blog/edit/${post._id}`}
-                  className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-md hover:bg-blue-200"
+                  className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-md hover:bg-blue-200 transition-colors"
                 >
                   Edit
                 </Link>
                 <button
-                  onClick={handleDelete}
-                  className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-md hover:bg-red-200"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-md hover:bg-red-200 transition-colors"
                 >
                   Delete
                 </button>
@@ -261,6 +260,32 @@ const BlogPostDetail = ({ user }) => {
           onCommentsUpdate={handleCommentsUpdate}
         />
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Delete</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete the post "{post.title}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };

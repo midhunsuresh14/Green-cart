@@ -66,6 +66,11 @@ const EditPost = ({ user }) => {
       return;
     }
     
+    if (title.trim().length > 100) {
+      setError('Title must be 100 characters or less');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     setSuccess(false);
@@ -101,7 +106,7 @@ const EditPost = ({ user }) => {
     }
   };
 
-  if (error) {
+  if (error && error.includes('not found')) {
     return (
       <div className="edit-post py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">

@@ -171,6 +171,7 @@ export const api = {
   addBlogComment: (postId, data) => request(`/blog/posts/${postId}/comments`, { method: 'POST', body: JSON.stringify(data) }),
   updateBlogComment: (commentId, data) => request(`/blog/comments/${commentId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBlogComment: (commentId) => request(`/blog/comments/${commentId}`, { method: 'DELETE' }),
+  adminDeleteBlogPost: (postId) => request(`/admin/blog/posts/${postId}`, { method: 'DELETE' }),
   
   // Auth helpers
   getAuthHeaders: getAuthHeaders
@@ -224,5 +225,6 @@ export const likeBlogPost = api.likeBlogPost;
 export const addBlogComment = api.addBlogComment;
 export const updateBlogComment = api.updateBlogComment;
 export const deleteBlogComment = api.deleteBlogComment;
+export const adminDeleteBlogPost = api.adminDeleteBlogPost;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;

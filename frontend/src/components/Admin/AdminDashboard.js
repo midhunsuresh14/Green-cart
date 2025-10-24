@@ -8,6 +8,7 @@ import AdminCategories from './AdminCategories';
 import AdminRemedies from './AdminRemedies';
 import AdminRemedyCategories from './AdminRemedyCategories';
 import AdminFeedback from './AdminFeedback';
+import AdminBlogPosts from './AdminBlogPosts';
 import StatsCards from './StatsCards';
 import RecentActivity from './RecentActivity';
 import TopProducts from './TopProducts';
@@ -56,6 +57,7 @@ const sections = [
   { key: 'orders', label: 'Orders', icon: <ShoppingBagIcon /> },
   { key: 'users', label: 'Users', icon: <PeopleAltIcon /> },
   { key: 'feedback', label: 'Feedback', icon: <FeedbackIcon /> },
+  { key: 'blog-posts', label: 'Blog Posts', icon: <FeedbackIcon /> },
 ];
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -245,6 +247,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {active === 'orders' && (<AdminOrders />)}
         {active === 'users' && (<AdminUsers />)}
         {active === 'feedback' && (<AdminFeedback />)}
+        {active === 'blog-posts' && (<AdminBlogPosts />)}
       </Box>
     </Box>
   );

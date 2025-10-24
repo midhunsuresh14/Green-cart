@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { assetUrl } from '../../lib/api';
+import { assetUrl, deleteBlogPost } from '../../lib/api';
 import CommentSection from './CommentSection';
 import './Blog.css';
 
 const BlogPost = ({ post, user, onLike, onPostUpdated }) => {
   const [showComments, setShowComments] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const navigate = useNavigate();
 
   const handleLike = () => {
@@ -25,6 +26,21 @@ const BlogPost = ({ post, user, onLike, onPostUpdated }) => {
   const handleAuthorClick = (e) => {
     e.stopPropagation();
   };
+
+  const handleEdit = () => {
+    navigate(`/blog/edit/${post._id}`);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteBlogPost(post._id);
+      onPostUpdated(); // Refresh the posts list
+    } catch (err) {
+      console.error('Error deleting post:', err);
+    }
+  };
+
+  const canEditOrDelete = user && (user.id === post.author_id || user.role === 'admin');
 
   return (
     <motion.div 
@@ -52,6 +68,24 @@ const BlogPost = ({ post, user, onLike, onPostUpdated }) => {
             {post.category}
           </span>
         </div>
+        
+        {/* Edit/Delete Options for Author/Admin */}
+        {canEditOrDelete && (
+          <div className="absolute top-4 left-4 flex space-x-2">
+            <button
+              onClick={handleEdit}
+              className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Post Content */}
@@ -145,6 +179,32 @@ const BlogPost = ({ post, user, onLike, onPostUpdated }) => {
             user={user} 
             onCommentsUpdate={onPostUpdated}
           />
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Confirm Delete</h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete the post "{post.title}"? This action cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </motion.div>
