@@ -16,19 +16,50 @@ import redis
 import json
 import openai  # Add OpenAI import
 import base64
-import cloudinary
-import cloudinary.uploader
-import cloudinary.api
+
+# Conditional import for cloudinary
+try:
+    import cloudinary
+    import cloudinary.uploader
+    import cloudinary.api
+    CLOUDINARY_AVAILABLE = True
+except ImportError:
+    print("Warning: Cloudinary library not available")
+    CLOUDINARY_AVAILABLE = False
+    # Create a dynamic mock object to prevent AttributeError
+    import types
+    
+    class MockUploader:
+        def upload(self, *args, **kwargs):
+            return {}
+    
+    class MockApi:
+        def delete_resources(self, *args, **kwargs):
+            pass
+    
+    # Create a dynamic module-like object
+    cloudinary = types.SimpleNamespace()
+    cloudinary.config = lambda *args, **kwargs: None
+    cloudinary.uploader = MockUploader()
+    cloudinary.api = MockApi()
 
 # Load environment variables
 load_dotenv()
 
-# Initialize Cloudinary
-cloudinary.config(
-    cloud_name=os.getenv('CLOUD_NAME'),
-    api_key=os.getenv('CLOUD_API_KEY'),
-    api_secret=os.getenv('CLOUD_API_SECRET')
-)
+# Initialize Cloudinary only if available
+if CLOUDINARY_AVAILABLE:
+    try:
+        cloudinary.config(
+            cloud_name=os.getenv('CLOUD_NAME'),
+            api_key=os.getenv('CLOUD_API_KEY'),
+            api_secret=os.getenv('CLOUD_API_SECRET')
+        )
+        print("Cloudinary configured successfully")
+    except Exception as e:
+        print(f"Warning: Failed to configure Cloudinary: {e}")
+        CLOUDINARY_AVAILABLE = False
+else:
+    print("Cloudinary library not available, using mock implementation")
 
 app = Flask(__name__)
 CORS(
