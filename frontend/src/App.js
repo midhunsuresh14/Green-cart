@@ -22,7 +22,7 @@ import Wishlist from './components/Wishlist';
 import HerbalRemedies from './components/HerbalRemedies/HerbalRemedies';
 import PDPPage from './components/PDP/PDPPage.jsx';
 import ChatBot from './components/ChatBot'; // Import the ChatBot component
-import FeedbackButton from './components/Feedback/FeedbackButton';
+import FeedbackModal from './components/Feedback/FeedbackModal'; // Import FeedbackModal
 
 // Import the new components
 import CategoryFirstPage from './components/Products/CategoryFirstPage';
@@ -220,6 +220,7 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [orders, setOrders] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false); // Add feedback modal state
   const [toast, setToast] = useState({ open: false, type: 'success', message: '' });
   const navigate = useNavigate();
   const location = useLocation();
@@ -572,12 +573,29 @@ function App() {
     });
   };
 
+  // Add function to open feedback modal
+  const handleOpenFeedback = () => {
+    setIsFeedbackModalOpen(true);
+  };
+
+  // Add function to close feedback modal
+  const handleCloseFeedback = () => {
+    setIsFeedbackModalOpen(false);
+  };
+
   return (
     <>
       {location.pathname.startsWith('/admin') ? (
         <AdminNavbar user={user} onLogout={handleLogout} />
       ) : (
-        <NavbarMUI user={user} onLogout={handleLogout} wishlistItems={wishlistItems} cartCount={cartItems.reduce((s,i)=>s+(i.quantity||1),0)} onOpenCart={()=>setIsCartOpen(true)} />
+        <NavbarMUI 
+          user={user} 
+          onLogout={handleLogout} 
+          wishlistItems={wishlistItems} 
+          cartCount={cartItems.reduce((s,i)=>s+(i.quantity||1),0)} 
+          onOpenCart={()=>setIsCartOpen(true)} 
+          onOpenFeedback={handleOpenFeedback} // Pass feedback handler to navbar
+        />
       )}
 
       <main>
@@ -663,11 +681,15 @@ function App() {
         onCheckout={()=>{ setIsCartOpen(false); navigate('/checkout'); }}
       />
       
-      {/* ChatBot Component */}
+      {/* ChatBot Component - Positioned to avoid overlapping with feedback button */}
       <ChatBot />
       
-      {/* Feedback Button */}
-      <FeedbackButton user={user} position="bottom-right" />
+      {/* Feedback Modal - Show when user clicks feedback icon in navbar */}
+      <FeedbackModal
+        isOpen={isFeedbackModalOpen}
+        onClose={handleCloseFeedback}
+        user={user}
+      />
     </>
   );
 }

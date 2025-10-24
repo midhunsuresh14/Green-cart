@@ -598,11 +598,11 @@ ${remedyNames}
 
   return (
     <>
-      {/* Chat Toggle Button */}
+      {/* Chat Toggle Button - Positioned to avoid overlapping with feedback button */}
       <button
         onClick={toggleChat}
         className="fixed bottom-6 right-6 bg-green-600 text-white rounded-full p-4 shadow-lg hover:bg-green-700 transition-all duration-300 z-50"
-        style={{ zIndex: 1000 }}
+        style={{ zIndex: 1000, right: '90px' }} // Adjust position to avoid overlapping with feedback button
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
       </button>
@@ -610,7 +610,7 @@ ${remedyNames}
       {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-24 right-6 w-80 h-96 bg-white rounded-lg shadow-xl border border-gray-200 flex flex-col z-50"
-             style={{ zIndex: 1000 }}>
+             style={{ zIndex: 1000, right: '90px' }}> {/* Adjust position to avoid overlapping with feedback button */}
           {/* Chat Header */}
           <div className="bg-green-600 text-white p-4 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center gap-2">

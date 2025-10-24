@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import FeedbackModal from './FeedbackModal';
 import './FeedbackButton.css';
 
-const FeedbackButton = ({ user, position = 'bottom-right' }) => {
+const FeedbackButton = ({ user, position = 'bottom-left' }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
@@ -13,6 +13,9 @@ const FeedbackButton = ({ user, position = 'bottom-right' }) => {
     'top-right': 'feedback-btn-top-right',
     'top-left': 'feedback-btn-top-left'
   };
+
+  // If we're using the navbar feedback button, we don't need to show this floating button
+  if (!position) return null;
 
   return (
     <>
@@ -64,4 +67,3 @@ const FeedbackButton = ({ user, position = 'bottom-right' }) => {
 };
 
 export default FeedbackButton;
-

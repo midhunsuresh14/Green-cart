@@ -24,6 +24,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
 import PersonIcon from '@mui/icons-material/Person';
 import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
+import FeedbackIcon from '@mui/icons-material/Feedback'; // Add FeedbackIcon import
 import { Link as RouterLink } from 'react-router-dom';
 
 const links = [
@@ -33,7 +34,7 @@ const links = [
   { label: 'Blog', to: '/blog' }, // Add Blog link
 ];
 
-export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCount = 0, onOpenCart }) {
+export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCount = 0, onOpenCart, onOpenFeedback }) {
   const [open, setOpen] = useState(false);
   const [profileEl, setProfileEl] = useState(null);
 
@@ -107,6 +108,14 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
                 </Box>
               )}
             </IconButton>
+            {/* Add Feedback Icon Button */}
+            <IconButton 
+              onClick={() => onOpenFeedback && onOpenFeedback()} 
+              color="inherit" 
+              aria-label="Feedback"
+            >
+              <FeedbackIcon />
+            </IconButton>
             {user?.role === 'admin' && (
               <Button startIcon={<DashboardIcon />} component={RouterLink} to="/admin" color="inherit">Admin</Button>
             )}
@@ -161,6 +170,12 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
             <ListItem disablePadding>
               <ListItemButton component={RouterLink} to="/wishlist">
                 <ListItemText primary={`Wishlist ${wishlistItems.length > 0 ? `(${wishlistItems.length})` : ''}`} />
+              </ListItemButton>
+            </ListItem>
+            {/* Add Feedback to mobile menu */}
+            <ListItem disablePadding>
+              <ListItemButton onClick={() => { toggle(false)(); onOpenFeedback && onOpenFeedback(); }}>
+                <ListItemText primary="Feedback" />
               </ListItemButton>
             </ListItem>
             {user?.role === 'admin' && (
