@@ -38,7 +38,8 @@ CORS(
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://greencart-frontend-r7zs.onrender.com"
+        "https://greencart-frontend-r7zs.onrender.com",
+        "https://green-cart-pi-sepia.vercel.app"
     ],
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
@@ -64,7 +65,8 @@ def add_cors_headers(response):
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
-        "https://greencart-frontend-r7zs.onrender.com"
+        "https://greencart-frontend-r7zs.onrender.com",
+        "https://green-cart-pi-sepia.vercel.app"
     ]
     
     if origin in allowed_origins:
@@ -97,7 +99,8 @@ def handle_preflight():
             "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
-            "https://greencart-frontend-r7zs.onrender.com"
+            "https://greencart-frontend-r7zs.onrender.com",
+            "https://green-cart-pi-sepia.vercel.app"
         ]
         
         if origin in allowed_origins or origin == '*':
