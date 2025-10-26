@@ -112,7 +112,13 @@ export const api = {
   },
 
   // Orders
-  listOrders: (paymentStatus) => request(`/orders${paymentStatus ? `?paymentStatus=${encodeURIComponent(paymentStatus)}` : ''}`),
+  listOrders: (params = {}) => {
+    const filtered = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(filtered).toString();
+    return request(`/orders${query ? `?${query}` : ''}`);
+  },
   updateOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   createOrder: (payload) => request('/orders/create', { method: 'POST', body: JSON.stringify(payload) }),
   verifyPayment: (payload) => request('/orders/verify', { method: 'POST', body: JSON.stringify(payload) }),
@@ -160,6 +166,10 @@ export const api = {
   updateRemedyCategory: (id, data) => request(`/remedy-categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRemedyCategory: (id) => request(`/remedy-categories/${id}`, { method: 'DELETE' }),
 
+  // User Notifications
+  getUserNotifications: () => request('/notifications'),
+  markUserNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
+  
   // Admin Notifications
   adminNotifications: () => request('/admin/notifications'),
   markNotificationRead: (id) => request(`/admin/notifications/${id}/mark-read`, { method: 'PUT' }),
@@ -249,6 +259,8 @@ export const listRemedyCategories = api.listRemedyCategories;
 export const createRemedyCategory = api.createRemedyCategory;
 export const updateRemedyCategory = api.updateRemedyCategory;
 export const deleteRemedyCategory = api.deleteRemedyCategory;
+export const getUserNotifications = api.getUserNotifications;
+export const markUserNotificationRead = api.markUserNotificationRead;
 export const adminNotifications = api.adminNotifications;
 export const markNotificationRead = api.markNotificationRead;
 export const chatbot = api.chatbot;

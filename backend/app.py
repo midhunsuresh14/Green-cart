@@ -1317,17 +1317,45 @@ def serve_uploads(filename):
 @admin_required
 def list_orders():
     try:
+        # Get query parameters for filtering
+        payment_status = request.args.get('paymentStatus')
+        delivery_status = request.args.get('deliveryStatus')
+        sort_order = request.args.get('sortOrder', 'desc')  # Default to descending (newest first)
+        
+        # Build query
+        query = {}
+        if payment_status:
+            query['paymentStatus'] = payment_status
+        if delivery_status:
+            query['deliveryStatus'] = delivery_status
+        
+        # Debug logging
+        print(f"DEBUG: Order query: {query}")
+        
         items = []
-        for o in orders_collection.find():
+        order_count = orders_collection.count_documents(query)
+        print(f"DEBUG: Found {order_count} orders matching query")
+        
+        # Sort by creation date
+        sort_direction = -1 if sort_order == 'desc' else 1
+        
+        for o in orders_collection.find(query).sort('created_at', sort_direction):
             items.append({
                 'id': str(o['_id']),
-                'customerName': o.get('customerName'),
-                'total': float(o.get('total', 0)),
-                'status': o.get('status', 'pending'),
-                'createdAt': o.get('created_at', datetime.datetime.utcnow()),
+                'customerName': o.get('userName'),
+                'customerEmail': o.get('userEmail'),
+                'userId': o.get('userId'),
+                'totalAmount': float(o.get('total', 0)),
+                'paymentStatus': o.get('paymentStatus', 'Pending'),
+                'deliveryStatus': o.get('deliveryStatus', 'Pending'),
+                'razorpayPaymentId': o.get('razorpay_payment_id'),
+                'createdAt': o.get('created_at'),
             })
+            
+        print(f"DEBUG: Returning {len(items)} orders")
         return jsonify(items)
     except Exception as e:
+        print(f"ERROR in list_orders: {e}")
         return jsonify({'error': str(e)}), 500
 
 # Admin stats
@@ -1351,9 +1379,38 @@ def update_order_status(order_id):
         data = request.get_json()
         status = data.get('status')
         # Mini project statuses
-        if status not in ['pending', 'confirmed', 'delivered']:
+        valid_statuses = ['Pending', 'Confirmed', 'Shipped', 'Delivered']
+        if status not in valid_statuses:
             return jsonify({'error': 'Invalid status'}), 400
-        orders_collection.update_one({'_id': ObjectId(order_id)}, {'$set': {'status': status}})
+        
+        # Get the order to get user information
+        order = orders_collection.find_one({'_id': ObjectId(order_id)})
+        if not order:
+            return jsonify({'error': 'Order not found'}), 404
+        
+        # Update the order status
+        orders_collection.update_one({'_id': ObjectId(order_id)}, {'$set': {'deliveryStatus': status}})
+        
+        # Send notification to user
+        user_id = order.get('userId')
+        if user_id:
+            status_messages = {
+                'Confirmed': 'Your order has been confirmed and is being prepared for shipment.',
+                'Shipped': 'Your order has been shipped and is on its way to you.',
+                'Delivered': 'Your order has been delivered successfully. Thank you for shopping with us!'
+            }
+            
+            notification = {
+                'userId': user_id,
+                'title': f'Order #{order_id[:8]} Status Updated',
+                'message': status_messages.get(status, f'Your order status has been updated to {status}'),
+                'type': 'order_status',
+                'relatedId': order_id,
+                'read': False,
+                'createdAt': datetime.datetime.utcnow()
+            }
+            notifications_collection.insert_one(notification)
+        
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -1783,13 +1840,19 @@ def create_order():
             'total': total_amount,
             'address': address,
             'status': 'pending',
-            'paymentStatus': 'pending',
+            'paymentStatus': 'Pending',
+            'deliveryStatus': 'Pending',
             'created_at': datetime.datetime.utcnow(),
             'updated_at': datetime.datetime.utcnow()
         }
         
+        print(f"DEBUG: Creating order with document: {order_doc}")
+        
         # Insert order
         result = orders_collection.insert_one(order_doc)
+        
+        # Debug logging
+        print(f"DEBUG: Order created with ID: {result.inserted_id}")
         
         # Create Razorpay order
         rzp_order_id = None
@@ -1822,6 +1885,8 @@ def create_order():
             {'_id': result.inserted_id},
             {'$set': {'razorpay_order_id': rzp_order_id}}
         )
+        
+        print(f"DEBUG: Razorpay order ID saved: {rzp_order_id}")
 
         # Return order for Razorpay payment processing
         return jsonify({
@@ -1835,6 +1900,7 @@ def create_order():
         }), 201
         
     except Exception as e:
+        print(f"ERROR in create_order: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/orders/verify', methods=['POST'])
@@ -1846,6 +1912,8 @@ def verify_payment():
         razorpay_order_id = data.get('razorpay_order_id')
         razorpay_signature = data.get('razorpay_signature')
         order_id = data.get('dbOrderId')
+        
+        print(f"DEBUG: Payment verification data: {data}")
 
         if not all([razorpay_payment_id, razorpay_order_id, razorpay_signature, order_id]):
             return jsonify({'success': False, 'error': 'Missing payment verification fields'}), 400
@@ -1870,9 +1938,10 @@ def verify_payment():
             return jsonify({'success': False, 'error': f'Signature verification failed: {str(e)}'}), 400
 
         # Mark order as paid
+        print(f"DEBUG: Updating order {order_id} status to Success/Confirmed")
         orders_collection.update_one(
             {'_id': ObjectId(order_id)},
-            {'$set': {'paymentStatus': 'completed', 'status': 'confirmed', 'razorpay_payment_id': razorpay_payment_id}}
+            {'$set': {'paymentStatus': 'Success', 'deliveryStatus': 'Confirmed', 'razorpay_payment_id': razorpay_payment_id}}
         )
 
         # Reduce stock after payment is confirmed
@@ -1883,6 +1952,7 @@ def verify_payment():
         return jsonify({'success': True, 'message': 'Payment verified successfully'})
 
     except Exception as e:
+        print(f"ERROR in verify_payment: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # Stock Management Functions
@@ -2057,6 +2127,65 @@ def get_admin_notifications():
 @admin_required
 def mark_notification_read(notification_id):
     try:
+        notifications_collection.update_one(
+            {'_id': ObjectId(notification_id)},
+            {'$set': {'read': True}}
+        )
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# User notifications
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def get_user_notifications():
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Get notifications for the current user, sorted by creation date (newest first)
+        notifications = list(notifications_collection.find(
+            {'userId': str(user['_id'])}
+        ).sort('createdAt', -1).limit(50))
+        
+        # Format notifications for frontend
+        formatted_notifications = []
+        for n in notifications:
+            formatted_notifications.append({
+                '_id': str(n['_id']),
+                'title': n.get('title', ''),
+                'message': n.get('message', ''),
+                'type': n.get('type', ''),
+                'relatedId': n.get('relatedId', ''),
+                'read': n.get('read', False),
+                'created_at': n.get('createdAt', datetime.datetime.utcnow())
+            })
+        
+        return jsonify({
+            'notifications': formatted_notifications,
+            'unreadCount': len([n for n in formatted_notifications if not n['read']])
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/notifications/<notification_id>/read', methods=['PUT'])
+@login_required
+def mark_user_notification_read(notification_id):
+    try:
+        user = get_current_user()
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        
+        # Verify the notification belongs to the user
+        notification = notifications_collection.find_one({
+            '_id': ObjectId(notification_id),
+            'userId': str(user['_id'])
+        })
+        
+        if not notification:
+            return jsonify({'error': 'Notification not found'}), 404
+        
         notifications_collection.update_one(
             {'_id': ObjectId(notification_id)},
             {'$set': {'read': True}}
