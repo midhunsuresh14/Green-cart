@@ -58,6 +58,12 @@
   color: #111827;
 }
 
+.notifications-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .unread-badge {
   background: #ef4444;
   color: white;
@@ -65,7 +71,24 @@
   border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 600;
-  margin-left: 8px;
+}
+
+.clear-all-btn {
+  background: none;
+  border: 1px solid #d1d5db;
+  color: #4b5563;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-all-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+  color: #111827;
 }
 
 .close-btn {

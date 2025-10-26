@@ -44,6 +44,19 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
     }
   };
 
+  const handleMarkAllAsRead = async () => {
+    try {
+      // Mark all unread notifications as read
+      const unreadNotifications = notifications.filter(n => !n.read);
+      await Promise.all(unreadNotifications.map(notif => markBlogNotificationRead(notif._id)));
+      
+      // Update the state to mark all as read
+      setNotifications(notifications.map(notif => ({ ...notif, read: true })));
+    } catch (err) {
+      console.error('Error marking all notifications as read:', err);
+    }
+  };
+
   const handleNotificationClick = (notification) => {
     if (!notification.read) {
       handleMarkAsRead(notification._id);
@@ -59,10 +72,17 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
       <div className="notifications-panel" onClick={(e) => e.stopPropagation()}>
         <div className="notifications-header">
           <h2>Notifications</h2>
-          {unreadCount > 0 && (
-            <span className="unread-badge">{unreadCount}</span>
-          )}
-          <button className="close-btn" onClick={onClose}>×</button>
+          <div className="notifications-header-actions">
+            {unreadCount > 0 && (
+              <span className="unread-badge">{unreadCount}</span>
+            )}
+            {notifications.length > 0 && (
+              <button className="clear-all-btn" onClick={handleMarkAllAsRead}>
+                Mark All as Read
+              </button>
+            )}
+            <button className="close-btn" onClick={onClose}>×</button>
+          </div>
         </div>
 
         {loading ? (
