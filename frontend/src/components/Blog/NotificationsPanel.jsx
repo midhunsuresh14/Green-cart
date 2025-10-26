@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
-import { getBlogNotifications, markBlogNotificationRead } from '../../lib/api';
+import { getBlogNotifications, markBlogNotificationRead, deleteBlogNotification, deleteAllBlogNotifications } from '../../lib/api';
 import './NotificationsPanel.css';
 
 const NotificationsPanel = ({ user, isOpen, onClose }) => {
@@ -57,6 +57,24 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
     }
   };
 
+  const handleDeleteNotification = async (notifId) => {
+    try {
+      await deleteBlogNotification(notifId);
+      setNotifications(notifications.filter(notif => notif._id !== notifId));
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      await deleteAllBlogNotifications();
+      setNotifications([]);
+    } catch (err) {
+      console.error('Error clearing all notifications:', err);
+    }
+  };
+
   const handleNotificationClick = (notification) => {
     if (!notification.read) {
       handleMarkAsRead(notification._id);
@@ -77,11 +95,20 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
               <span className="unread-badge">{unreadCount}</span>
             )}
             {notifications.length > 0 && (
-              <button className="clear-all-btn" onClick={handleMarkAllAsRead}>
-                Mark All as Read
-              </button>
+              <>
+                <button className="mark-all-read-btn" onClick={handleMarkAllAsRead}>
+                  <span className="material-icons">done_all</span>
+                  Mark All Read
+                </button>
+                <button className="clear-all-btn" onClick={handleClearAllNotifications}>
+                  <span className="material-icons">delete</span>
+                  Clear All
+                </button>
+              </>
             )}
-            <button className="close-btn" onClick={onClose}>×</button>
+            <button className="close-btn" onClick={onClose}>
+              <span className="material-icons">close</span>
+            </button>
           </div>
         </div>
 
@@ -100,25 +127,50 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
         ) : (
           <div className="notifications-list">
             {notifications.map((notification) => (
-              <Link
-                key={notification._id}
-                to={`/blog/${notification.post_id}`}
-                className={`notification-item ${!notification.read ? 'unread' : ''}`}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className="notification-icon">
-                  {notification.type === 'like' ? '❤️' : '💬'}
+              <div key={notification._id} className={`notification-item ${!notification.read ? 'unread' : ''}`}>
+                <Link
+                  to={`/blog/${notification.post_id}`}
+                  className="notification-link"
+                  onClick={() => handleNotificationClick(notification)}
+                >
+                  <div className="notification-icon">
+                    {notification.type === 'like' ? '❤️' : '💬'}
+                  </div>
+                  <div className="notification-content">
+                    <p className="notification-text">
+                      <strong>{notification.actor_name}</strong> {notification.type === 'like' ? 'liked' : 'commented on'} your post
+                    </p>
+                    <span className="notification-time">
+                      {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
+                    </span>
+                  </div>
+                  {!notification.read && <div className="unread-indicator"></div>}
+                </Link>
+                <div className="notification-actions">
+                  {!notification.read && (
+                    <button 
+                      className="mark-read-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkAsRead(notification._id);
+                      }}
+                      title="Mark as read"
+                    >
+                      <span className="material-icons">done</span>
+                    </button>
+                  )}
+                  <button 
+                    className="delete-notification-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteNotification(notification._id);
+                    }}
+                    title="Delete notification"
+                  >
+                    <span className="material-icons">delete</span>
+                  </button>
                 </div>
-                <div className="notification-content">
-                  <p className="notification-text">
-                    <strong>{notification.actor_name}</strong> {notification.type === 'like' ? 'liked' : 'commented on'} your post
-                  </p>
-                  <span className="notification-time">
-                    {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                  </span>
-                </div>
-                {!notification.read && <div className="unread-indicator"></div>}
-              </Link>
+              </div>
             ))}
           </div>
         )}

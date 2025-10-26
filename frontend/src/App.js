@@ -12,6 +12,8 @@ import ProductDetail from './components/Products/ProductDetail';
 import ShoppingCart from './components/Cart/ShoppingCart';
 import Checkout from './components/Checkout/Checkout';
 import UserProfile from './components/Profile/UserProfile';
+import OrderDetails from './components/Profile/OrderDetails';
+import UserOrders from './components/Profile/UserOrders';
 import About from './components/Static/About';
 import Contact from './components/Static/Contact';
 import HomeMUI from './components/HomeMUI';
@@ -33,6 +35,10 @@ import BlogPage from './components/Blog/BlogPage';
 import BlogPostDetail from './components/Blog/BlogPostDetail';
 import EditPost from './components/Blog/EditPost';
 import MyBlogs from './components/Blog/MyBlogs';
+
+// Event Components
+import EventDetails from './components/Events/EventDetails';
+import EventTicket from './components/Events/EventTicket';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -638,8 +644,14 @@ function App() {
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
           <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
-          <Route path="/profile" element={<UserProfile user={user} orders={orders} />} />
+          <Route path="/profile" element={<UserProfile user={user} wishlistItems={wishlistItems} />} />
+          <Route path="/orders" element={<UserOrders user={user} />} />
+          <Route path="/orders/:orderId" element={<OrderDetails user={user} />} />
           <Route path="/remedies" element={<HerbalRemedies />} />
+          
+          {/* Event Routes */}
+          <Route path="/events/:eventId" element={<EventDetails />} />
+          <Route path="/events/tickets/:ticketId" element={<EventTicket />} />
           
           {/* Blog Routes */}
           <Route path="/blog" element={<BlogPage user={user} />} />

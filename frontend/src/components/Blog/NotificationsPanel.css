@@ -73,11 +73,14 @@
   font-weight: 600;
 }
 
-.clear-all-btn {
-  background: none;
+.mark-all-read-btn, .clear-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: white;
   border: 1px solid #d1d5db;
   color: #4b5563;
-  padding: 6px 12px;
+  padding: 8px 12px;
   border-radius: 6px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -85,20 +88,35 @@
   transition: all 0.2s;
 }
 
-.clear-all-btn:hover {
+.mark-all-read-btn:hover, .clear-all-btn:hover {
   background: #f9fafb;
   border-color: #9ca3af;
   color: #111827;
 }
 
+.mark-all-read-btn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.clear-all-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
 .close-btn {
   background: none;
   border: none;
-  font-size: 1.5rem;
   color: #6b7280;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
@@ -140,6 +158,14 @@
   background: #fef3c7;
 }
 
+.notification-link {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
 .notification-icon {
   font-size: 1.5rem;
   margin-right: 12px;
@@ -174,6 +200,41 @@
   border-radius: 50%;
   margin-left: 12px;
   flex-shrink: 0;
+}
+
+.notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+}
+
+.mark-read-btn, .delete-notification-btn {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.mark-read-btn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.delete-notification-btn:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.mark-read-btn .material-icons, .delete-notification-btn .material-icons {
+  font-size: 18px;
 }
 
 /* Scrollbar styling */
@@ -217,5 +278,10 @@
 
   .notification-item {
     padding: 14px 16px;
+  }
+  
+  .notification-actions {
+    flex-direction: column;
+    gap: 4px;
   }
 }

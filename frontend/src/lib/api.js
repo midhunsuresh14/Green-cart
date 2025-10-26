@@ -119,6 +119,7 @@ export const api = {
     const query = new URLSearchParams(filtered).toString();
     return request(`/orders${query ? `?${query}` : ''}`);
   },
+  getUserOrders: () => request('/user/orders'),
   updateOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   createOrder: (payload) => request('/orders/create', { method: 'POST', body: JSON.stringify(payload) }),
   verifyPayment: (payload) => request('/orders/verify', { method: 'POST', body: JSON.stringify(payload) }),
@@ -212,6 +213,8 @@ export const api = {
   // Blog Notifications
   getBlogNotifications: () => request('/blog/notifications'),
   markBlogNotificationRead: (notifId) => request(`/blog/notifications/${notifId}/read`, { method: 'PUT' }),
+  deleteBlogNotification: (notifId) => request(`/blog/notifications/${notifId}`, { method: 'DELETE' }),
+  deleteAllBlogNotifications: () => request('/blog/notifications', { method: 'DELETE' }),
   
   // My Blogs
   getMyBlogPosts: (params = {}) => {
@@ -235,6 +238,7 @@ export const updateProduct = api.updateProduct;
 export const deleteProduct = api.deleteProduct;
 export const uploadImage = api.uploadImage;
 export const listOrders = api.listOrders;
+export const getUserOrders = api.getUserOrders;
 export const updateOrderStatus = api.updateOrderStatus;
 export const createOrder = api.createOrder;
 export const verifyPayment = api.verifyPayment;
@@ -280,6 +284,8 @@ export const adminDeleteBlogPost = api.adminDeleteBlogPost;
 export const adminListBlogPosts = api.adminListBlogPosts;
 export const getBlogNotifications = api.getBlogNotifications;
 export const markBlogNotificationRead = api.markBlogNotificationRead;
+export const deleteBlogNotification = api.deleteBlogNotification;
+export const deleteAllBlogNotifications = api.deleteAllBlogNotifications;
 export const getMyBlogPosts = api.getMyBlogPosts;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;

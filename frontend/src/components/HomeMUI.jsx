@@ -7,6 +7,7 @@ import ShoppingBasketOutlined from '@mui/icons-material/ShoppingBasketOutlined';
 import ArrowForwardIosRounded from '@mui/icons-material/ArrowForwardIosRounded';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
+import EventsSection from './Events/EventsSection';
 
 export default function HomeMUI() {
     const navigate = useNavigate();
@@ -285,6 +286,9 @@ export default function HomeMUI() {
                     </Typography>
                 )}
             </Container>
+
+            {/* Events Section */}
+            <EventsSection />
 
             {/* Stats */}
             <Box sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 8 } }}>
