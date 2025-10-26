@@ -1,13 +1,13 @@
 import React from 'react';
-import { Box, Container, Typography, Stack, Grid, Paper, Button, Divider, Card, CardContent, CardMedia } from '@mui/material';
+import { Box, Container, Typography, Stack, Grid, Paper, Button, Divider, Card, CardContent, CardMedia, Chip } from '@mui/material';
 import CameraAltOutlined from '@mui/icons-material/CameraAltOutlined';
 import WbSunnyOutlined from '@mui/icons-material/WbSunnyOutlined';
 import LocalPharmacyOutlined from '@mui/icons-material/LocalPharmacyOutlined';
 import ShoppingBasketOutlined from '@mui/icons-material/ShoppingBasketOutlined';
 import ArrowForwardIosRounded from '@mui/icons-material/ArrowForwardIosRounded';
+import EventIcon from '@mui/icons-material/Event';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
-import EventsSection from './Events/EventsSection';
 
 export default function HomeMUI() {
     const navigate = useNavigate();
@@ -40,13 +40,10 @@ export default function HomeMUI() {
         fetchData();
     }, []);
 
-    // Get top rated products (sort by rating and take top 8)
-    const topRatedProducts = React.useMemo(() => {
+    // Get some products for the slideshow (take first 10)
+    const slideshowProducts = React.useMemo(() => {
         if (!products || products.length === 0) return [];
-        return [...products]
-            .filter(p => p.rating && p.rating > 0) // Only products with ratings
-            .sort((a, b) => (b.rating || 0) - (a.rating || 0)) // Sort by rating descending
-            .slice(0, 8); // Take top 8
+        return [...products].slice(0, 10);
     }, [products]);
 
     // Helper function to resolve image URLs
@@ -62,6 +59,13 @@ export default function HomeMUI() {
     const getPrimaryImageUrl = (product) => {
         const raw = product?.imageUrl || product?.image || product?.image_path || product?.imagePath || product?.thumbnail || product?.photo || product?.photoUrl || product?.url;
         return resolveImageUrl(raw);
+    };
+
+    // Format price in INR
+    const formatINR = (value) => {
+        if (value == null) return '';
+        const num = Number(value);
+        return `₹${num.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
     };
 
     return (
@@ -220,75 +224,197 @@ export default function HomeMUI() {
                 </Box>
             </Container>
 
-            {/* Best Rated Products */}
-            <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-                <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 4 }}>
-                    <Typography variant="h4" fontWeight={800}>Best Rated Products</Typography>
-                    <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
-                        Discover our top-rated products loved by our customers
-                    </Typography>
-                </Stack>
-                
-                {loading ? (
-                    <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', pb: 2 }}>
-                        {Array.from({ length: 6 }).map((_, i) => (
-                            <Box key={i} sx={{ minWidth: 220, height: 300, bgcolor: 'grey.200', borderRadius: 2, animation: 'pulse 1.5s ease-in-out infinite' }} />
-                        ))}
+            {/* Product Slideshow */}
+            <Box sx={{ py: { xs: 6, md: 8 }, bgcolor: 'grey.50' }}>
+                <Container maxWidth="lg">
+                    <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 4 }}>
+                        <Typography variant="h4" fontWeight={800}>Featured Products</Typography>
+                        <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
+                            Discover our handpicked selection of premium products
+                        </Typography>
                     </Stack>
-                ) : error ? (
-                    <Typography color="error" textAlign="center">Failed to load products</Typography>
-                ) : topRatedProducts.length > 0 ? (
-                    <Stack direction="row" spacing={3} sx={{ overflowX: 'auto', pb: 2, '&::-webkit-scrollbar': { height: 8 }, '&::-webkit-scrollbar-thumb': { bgcolor: 'grey.400', borderRadius: 4 } }}>
-                        {topRatedProducts.map((product) => (
-                            <Card key={product.id} sx={{ minWidth: 220, borderRadius: 3, boxShadow: 3, flexShrink: 0 }}>
-                                <CardMedia
-                                    component="img"
-                                    height="160"
-                                    image={getPrimaryImageUrl(product)}
-                                    alt={product.name}
-                                    sx={{ objectFit: 'cover' }}
-                                    onError={(e) => {
-                                        e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=300&q=60';
+                    
+                    {loading ? (
+                        <Stack direction="row" spacing={2} sx={{ overflowX: 'hidden', pb: 2 }}>
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <Box key={i} sx={{ minWidth: 280, height: 350, bgcolor: 'grey.200', borderRadius: 2, animation: 'pulse 1.5s ease-in-out infinite' }} />
+                            ))}
+                        </Stack>
+                    ) : error ? (
+                        <Typography color="error" textAlign="center">Failed to load products</Typography>
+                    ) : slideshowProducts.length > 0 ? (
+                        <>
+                            <Box sx={{ 
+                                position: 'relative',
+                                overflow: 'hidden',
+                                height: 380,
+                                borderRadius: 3,
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            }}>
+                                <Stack 
+                                    direction="row" 
+                                    spacing={2}
+                                    sx={{ 
+                                        position: 'absolute',
+                                        top: 0,
+                                        left: 0,
+                                        width: 'max-content',
+                                        animation: 'slideshow 30s linear infinite',
+                                        '&:hover': {
+                                            animationPlayState: 'paused'
+                                        },
+                                        '@keyframes slideshow': {
+                                            '0%': {
+                                                transform: 'translateX(0)'
+                                            },
+                                            '100%': {
+                                                transform: `translateX(-${(slideshowProducts.length * 300) - 1200}px)`
+                                            }
+                                        }
                                     }}
-                                />
-                                <CardContent>
-                                    <Typography variant="subtitle1" fontWeight={600} noWrap>
-                                        {product.name}
-                                    </Typography>
-                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ my: 1 }}>
-                                        <Typography variant="body2" color="warning.main">
-                                            ★ {product.rating}
-                                        </Typography>
-                                        <Typography variant="body2" color="text.secondary">
-                                            ({product.reviews || 0} reviews)
-                                        </Typography>
-                                    </Stack>
-                                    <Typography variant="h6" color="primary.main">
-                                        ₹{product.price}
-                                    </Typography>
-                                    <Button 
-                                        component={RouterLink} 
-                                        to={`/pdp/${product.id}`}
-                                        variant="contained" 
-                                        color="primary" 
-                                        fullWidth 
-                                        sx={{ mt: 1 }}
-                                    >
-                                        View Details
-                                    </Button>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </Stack>
-                ) : (
-                    <Typography textAlign="center" color="text.secondary">
-                        No rated products available yet
-                    </Typography>
-                )}
-            </Container>
+                                >
+                                    {[...slideshowProducts, ...slideshowProducts].map((product, index) => (
+                                        <Card 
+                                            key={`${product.id}-${index}`} 
+                                            sx={{ 
+                                                width: 280,
+                                                height: 350,
+                                                borderRadius: 3, 
+                                                boxShadow: 3, 
+                                                mx: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': {
+                                                    transform: 'translateY(-8px)',
+                                                    boxShadow: '0 12px 24px rgba(0,0,0,0.15)'
+                                                }
+                                            }}
+                                        >
+                                            <CardMedia
+                                                component="img"
+                                                height="180"
+                                                image={getPrimaryImageUrl(product)}
+                                                alt={product.name}
+                                                sx={{ objectFit: 'cover' }}
+                                                onError={(e) => {
+                                                    e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=300&q=60';
+                                                }}
+                                            />
+                                            <CardContent sx={{ 
+                                                pb: 2,
+                                                flexGrow: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column'
+                                            }}>
+                                                <Typography variant="subtitle1" fontWeight={600} noWrap>
+                                                    {product.name}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" noWrap sx={{ my: 1, flexGrow: 1 }}>
+                                                    {product.description}
+                                                </Typography>
+                                                <Stack direction="row" alignItems="center" spacing={1} sx={{ my: 1 }}>
+                                                    <Typography variant="body2" color="warning.main">
+                                                        ★ {product.rating || 0}
+                                                    </Typography>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        ({product.reviews || 0} reviews)
+                                                    </Typography>
+                                                </Stack>
+                                                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                                    <Typography variant="h6" color="primary.main">
+                                                        {formatINR(product.price)}
+                                                    </Typography>
+                                                    <Button 
+                                                        component={RouterLink} 
+                                                        to={`/pdp/${product.id}`}
+                                                        variant="contained" 
+                                                        color="primary" 
+                                                        size="small"
+                                                    >
+                                                        View
+                                                    </Button>
+                                                </Stack>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </Stack>
+                            </Box>
+                            {/* Explore All Products Button */}
+                            <Stack direction="row" justifyContent="center" sx={{ mt: 4 }}>
+                                <Button 
+                                    component={RouterLink} 
+                                    to="/products"
+                                    variant="contained" 
+                                    color="primary" 
+                                    size="large"
+                                    sx={{ 
+                                        py: 1.5,
+                                        px: 4,
+                                        fontWeight: 600,
+                                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                                        '&:hover': {
+                                            boxShadow: '0 6px 16px rgba(22, 163, 74, 0.35)',
+                                            transform: 'translateY(-2px)'
+                                        }
+                                    }}
+                                >
+                                    Explore All Products
+                                </Button>
+                            </Stack>
+                        </>
+                    ) : (
+                        <Typography textAlign="center" color="text.secondary">
+                            No products available yet
+                        </Typography>
+                    )}
+                </Container>
+            </Box>
 
-            {/* Events Section */}
-            <EventsSection />
+            {/* Explore Events Section */}
+            <Box sx={{ py: 8, bgcolor: 'background.default' }}>
+                <Container maxWidth="lg">
+                    <Stack spacing={4} alignItems="center" textAlign="center">
+                        <Chip 
+                            icon={<EventIcon />} 
+                            label="Events" 
+                            color="primary" 
+                            variant="outlined" 
+                            sx={{ 
+                                height: 32,
+                                '& .MuiChip-icon': {
+                                    color: 'primary.main'
+                                }
+                            }} 
+                        />
+                        <Typography variant="h3" fontWeight={800} sx={{ color: 'text.primary' }}>
+                            Explore Our Events
+                        </Typography>
+                        <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 720 }}>
+                            Join our exciting events and workshops to learn more about sustainable agriculture and herbal wellness
+                        </Typography>
+                        <Button 
+                            variant="contained" 
+                            color="primary" 
+                            size="large"
+                            sx={{ 
+                                py: 1.5,
+                                px: 4,
+                                fontWeight: 600,
+                                fontSize: '1.1rem',
+                                boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                                '&:hover': {
+                                    boxShadow: '0 6px 16px rgba(22, 163, 74, 0.35)',
+                                    transform: 'translateY(-2px)'
+                                }
+                            }}
+                            onClick={() => navigate('/events')}
+                        >
+                            View All Events
+                        </Button>
+                    </Stack>
+                </Container>
+            </Box>
 
             {/* Stats */}
             <Box sx={{ bgcolor: 'grey.50', py: { xs: 6, md: 8 } }}>

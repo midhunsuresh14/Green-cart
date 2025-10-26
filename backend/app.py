@@ -1454,6 +1454,8 @@ def update_order_status(order_id):
 
 # Remedies CRUD
 @app.route('/api/remedies', methods=['GET'])
+# Remedies CRUD
+@app.route('/api/remedies', methods=['GET'])
 def list_remedies():
     try:
         items = []
@@ -1476,6 +1478,34 @@ def list_remedies():
                 'created_at': r.get('created_at')
             })
         return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/remedies/<remedy_id>', methods=['GET'])
+def get_remedy(remedy_id):
+    try:
+        remedy = remedies_collection.find_one({'_id': ObjectId(remedy_id)})
+        if not remedy:
+            return jsonify({'error': 'Remedy not found'}), 404
+        
+        remedy_data = {
+            'id': str(remedy['_id']),
+            'name': remedy.get('name', ''),
+            'illness': remedy.get('illness', ''),
+            'category': remedy.get('category', ''),
+            'keywords': remedy.get('keywords', []),
+            'description': remedy.get('description', ''),
+            'benefits': remedy.get('benefits', []),
+            'preparation': remedy.get('preparation', ''),
+            'dosage': remedy.get('dosage', ''),
+            'duration': remedy.get('duration', ''),
+            'precautions': remedy.get('precautions', ''),
+            'effectiveness': remedy.get('effectiveness', ''),
+            'imageUrl': remedy.get('imageUrl', ''),
+            'tags': remedy.get('tags', []),
+            'created_at': remedy.get('created_at')
+        }
+        return jsonify(remedy_data)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

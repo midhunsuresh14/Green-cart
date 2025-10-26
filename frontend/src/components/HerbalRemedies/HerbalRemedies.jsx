@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Search, ShoppingCart, User, Menu, Leaf } from 'lucide-react';
+import { useNavigate } from 'react-router-dom'; // Add useNavigate import
 import { api } from '../../lib/api'; // Corrected the import path
 
 const HerbalRemedies = () => {
+  const navigate = useNavigate(); // Add navigate hook
   const [activeCategory, setActiveCategory] = useState('All Remedies');
   const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState([]); // Will now hold remedies data
@@ -63,6 +65,11 @@ const HerbalRemedies = () => {
                          (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesCategory && matchesSearch;
   });
+
+  // Add function to handle viewing remedy details
+  const handleViewRemedy = (remedyId) => {
+    navigate(`/remedies/${remedyId}`);
+  };
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f8fdf8' }}>
@@ -163,6 +170,7 @@ const HerbalRemedies = () => {
                       </p>
                     )}
                     <button
+                      onClick={() => handleViewRemedy(product.id)} // Update button to use handleViewRemedy
                       className="w-full py-2 px-4 rounded-full font-medium text-white transition-colors duration-200 hover:opacity-90 shadow-md hover:shadow-lg"
                       style={{ backgroundColor: '#7fb069' }}
                     >

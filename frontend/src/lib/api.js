@@ -146,6 +146,7 @@ export const api = {
 
   // Remedies
   listRemedies: () => request('/remedies'),
+  getRemedy: (id) => request(`/remedies/${id}`),
   createRemedy: (data) => request('/remedies', { method: 'POST', body: JSON.stringify(data) }),
   updateRemedy: (id, data) => request(`/remedies/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteRemedy: (id) => request(`/remedies/${id}`, { method: 'DELETE' }),
@@ -255,6 +256,7 @@ export const createSubCategory = api.createSubCategory;
 export const updateSubCategory = api.updateSubCategory;
 export const deleteSubCategory = api.deleteSubCategory;
 export const listRemedies = api.listRemedies;
+export const getRemedy = api.getRemedy;
 export const createRemedy = api.createRemedy;
 export const updateRemedy = api.updateRemedy;
 export const deleteRemedy = api.deleteRemedy;

@@ -465,6 +465,16 @@ export default function AdminCategories() {
                     />
                   </Card>
                 )}
+                <TextField
+                  label="Image URL"
+                  value={form.imageUrl}
+                  onChange={(e) => {
+                    setForm({ ...form, imageUrl: e.target.value });
+                    setImagePreview(e.target.value);
+                  }}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                />
                 <input
                   accept="image/*"
                   style={{ display: 'none' }}

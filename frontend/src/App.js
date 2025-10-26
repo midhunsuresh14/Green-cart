@@ -22,6 +22,7 @@ import CartDrawer from './components/Cart/CartDrawer';
 import AdminNavbar from './components/Admin/AdminNavbar';
 import Wishlist from './components/Wishlist';
 import HerbalRemedies from './components/HerbalRemedies/HerbalRemedies';
+import RemedyDetail from './components/HerbalRemedies/RemedyDetail';
 import PDPPage from './components/PDP/PDPPage.jsx';
 import ChatBot from './components/ChatBot'; // Import the ChatBot component
 import FeedbackModal from './components/Feedback/FeedbackModal'; // Import FeedbackModal
@@ -37,6 +38,7 @@ import EditPost from './components/Blog/EditPost';
 import MyBlogs from './components/Blog/MyBlogs';
 
 // Event Components
+import EventsPage from './components/Events/EventsPage';
 import EventDetails from './components/Events/EventDetails';
 import EventTicket from './components/Events/EventTicket';
 
@@ -648,8 +650,10 @@ function App() {
           <Route path="/orders" element={<UserOrders user={user} />} />
           <Route path="/orders/:orderId" element={<OrderDetails user={user} />} />
           <Route path="/remedies" element={<HerbalRemedies />} />
+          <Route path="/remedies/:remedyId" element={<RemedyDetail />} />
           
           {/* Event Routes */}
+          <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:eventId" element={<EventDetails />} />
           <Route path="/events/tickets/:ticketId" element={<EventTicket />} />
           
