@@ -5,10 +5,11 @@ import WbSunnyOutlined from '@mui/icons-material/WbSunnyOutlined';
 import LocalPharmacyOutlined from '@mui/icons-material/LocalPharmacyOutlined';
 import ShoppingBasketOutlined from '@mui/icons-material/ShoppingBasketOutlined';
 import ArrowForwardIosRounded from '@mui/icons-material/ArrowForwardIosRounded';
-import { Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 
 export default function HomeMUI() {
+    const navigate = useNavigate();
     const [categories, setCategories] = React.useState([]);
     const [products, setProducts] = React.useState([]);
     const [loading, setLoading] = React.useState(true);
@@ -108,41 +109,114 @@ export default function HomeMUI() {
 
             {/* Features */}
             <Container maxWidth="lg" sx={{ py: { xs: 6, md: 8 } }}>
-                <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 2 }}>
+                <Stack spacing={3} alignItems="center" textAlign="center" sx={{ mb: 4 }}>
                     <Typography variant="h4" fontWeight={800}>Why Choose GreenCart?</Typography>
                     <Typography color="text.secondary" sx={{ maxWidth: 720 }}>
                         Powerful tools to help you grow smarter and live greener.
                     </Typography>
                 </Stack>
-                <Grid container spacing={3}>
+                
+                <Box 
+                    sx={{ 
+                        display: 'grid',
+                        gridTemplateColumns: { 
+                            xs: '1fr',
+                            md: 'repeat(2, 1fr)',
+                            lg: 'repeat(4, 1fr)' 
+                        },
+                        gap: 3,
+                        width: '100%'
+                    }}
+                >
                     {[{
-                        icon: <CameraAltOutlined color="success" />,
+                        icon: <CameraAltOutlined sx={{ fontSize: '3rem' }} color="success" />,
                         title: 'AI Plant Identification',
-                        desc: 'Upload a photo and instantly identify plants with details on medicinal properties and care.'
+                        desc: 'Upload a photo and instantly identify plants with details on medicinal properties and care.',
+                        link: '/products'
                     }, {
-                        icon: <WbSunnyOutlined color="warning" />,
+                        icon: <WbSunnyOutlined sx={{ fontSize: '3rem' }} color="warning" />,
                         title: 'Weather‑Based Suggestions',
-                        desc: 'Personalized crop recommendations using your location\'s weather patterns.'
+                        desc: 'Personalized crop recommendations using your location\'s weather patterns.',
+                        link: '/products'
                     }, {
-                        icon: <LocalPharmacyOutlined color="error" />,
+                        icon: <LocalPharmacyOutlined sx={{ fontSize: '3rem' }} color="error" />,
                         title: 'Herbal Remedies',
-                        desc: 'Discover natural treatments for common ailments with verified benefits.'
+                        desc: 'Discover natural treatments for common ailments with verified benefits.',
+                        link: '/remedies'
                     }, {
-                        icon: <ShoppingBasketOutlined color="primary" />,
+                        icon: <ShoppingBasketOutlined sx={{ fontSize: '3rem' }} color="primary" />,
                         title: 'Verified Products',
-                        desc: 'Shop curated organic plants and herbal products, verified for quality.'
+                        desc: 'Shop curated organic plants and herbal products, verified for quality.',
+                        link: '/products'
                     }].map((f) => (
-                        <Grid key={f.title} item xs={12} sm={6} md={3}>
-                            <Paper variant="outlined" sx={{ p: 3, borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
-                                <Stack spacing={1.5} alignItems="flex-start">
-                                    <Box sx={{ p: 1.25, borderRadius: 2, bgcolor: 'grey.100' }}>{f.icon}</Box>
-                                    <Typography variant="h6" fontWeight={700}>{f.title}</Typography>
-                                    <Typography color="text.secondary">{f.desc}</Typography>
-                                </Stack>
-                            </Paper>
-                        </Grid>
+                        <Paper 
+                            key={f.title}
+                            variant="outlined" 
+                            onClick={() => navigate(f.link)}
+                            sx={{ 
+                                p: 3, 
+                                borderRadius: 3, 
+                                height: '100%',
+                                display: 'flex', 
+                                flexDirection: 'column', 
+                                justifyContent: 'center',
+                                alignItems: 'center',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s ease',
+                                transform: 'translateY(0)',
+                                userSelect: 'none',
+                                textAlign: 'center',
+                                position: 'relative',
+                                overflow: 'hidden',
+                                bgcolor: 'background.paper',
+                                borderColor: 'divider',
+                                '&::before': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    right: 0,
+                                    bottom: 0,
+                                    background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.05) 0%, rgba(56, 142, 60, 0.05) 100%)',
+                                    opacity: 0,
+                                    transition: 'opacity 0.3s ease',
+                                },
+                                '&:hover': {
+                                    transform: 'translateY(-8px)',
+                                    boxShadow: '0 8px 20px rgba(0, 0, 0, 0.15)',
+                                    borderColor: 'primary.main',
+                                    '&::before': {
+                                        opacity: 1,
+                                    }
+                                },
+                                '&:active': {
+                                    transform: 'translateY(-4px)',
+                                    transition: 'all 0.1s ease',
+                                }
+                            }}
+                        >
+                            <Stack spacing={2} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
+                                <Box sx={{ 
+                                    p: 2, 
+                                    borderRadius: 2, 
+                                    bgcolor: 'grey.100',
+                                    display: 'flex', 
+                                    alignItems: 'center', 
+                                    justifyContent: 'center',
+                                    mb: 1
+                                }}>
+                                    {f.icon}
+                                </Box>
+                                <Typography variant="h6" fontWeight={700} textAlign="center" sx={{ color: 'text.primary' }}>
+                                    {f.title}
+                                </Typography>
+                                <Typography color="text.secondary" textAlign="center" sx={{ fontSize: '0.9rem', lineHeight: 1.6 }}>
+                                    {f.desc}
+                                </Typography>
+                            </Stack>
+                        </Paper>
                     ))}
-                </Grid>
+                </Box>
             </Container>
 
             {/* Best Rated Products */}

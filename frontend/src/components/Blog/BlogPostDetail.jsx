@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
 import { getBlogPost, likeBlogPost, deleteBlogPost, assetUrl } from '../../lib/api';
 import CommentSection from './CommentSection';
 import './Blog.css';
+
+// Function to validate if a string is a valid ObjectId
+const isValidObjectId = (id) => {
+  return /^[0-9a-fA-F]{24}$/.test(id);
+};
 
 const BlogPostDetail = ({ user }) => {
   const { id } = useParams();
@@ -21,6 +26,13 @@ const BlogPostDetail = ({ user }) => {
   }, [id]);
 
   const fetchPost = async () => {
+    // Validate the ID before making the API call
+    if (!isValidObjectId(id)) {
+      setError('Invalid post ID');
+      setLoading(false);
+      return;
+    }
+    
     try {
       setLoading(true);
       const response = await getBlogPost(id);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import './ProductListing.css';
 import ProductCard from './ProductCard';
 import { fetchCategories } from './categoriesData';
@@ -183,6 +183,33 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   // Get all subcategories for the selected category
   const currentSubcategories = categories.find(cat => cat.key === selectedCategory)?.children || [];
 
+  // Scroll to top functionality
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const topbarRef = useRef(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollPosition = window.scrollY;
+      setShowScrollTop(scrollPosition > 300);
+      
+      // Add sticky class to topbar when scrolled
+      if (topbarRef.current) {
+        if (scrollPosition > 100) {
+          topbarRef.current.classList.add('sticky');
+        } else {
+          topbarRef.current.classList.remove('sticky');
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (loading) {
     return (
       <div className="products-page">
@@ -338,7 +365,7 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
 
       {/* Main content */}
       <section className="products-area">
-        <div className="topbar">
+        <div className="topbar" ref={topbarRef}>
           <div className="topbar-controls">
             <div className="topbar-row">
               <label htmlFor="sort">Sort by</label>
@@ -456,7 +483,19 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
             Next
           </button>
         </div>
+
+        {/* Footer spacing for better visibility */}
+        <div className="footer-spacing"></div>
       </section>
+
+      {/* Scroll to Top Button */}
+      <button 
+        className={`scroll-to-top ${showScrollTop ? 'visible' : ''}`}
+        onClick={scrollToTop}
+        aria-label="Scroll to top"
+      >
+        <span className="material-icons">arrow_upward</span>
+      </button>
     </div>
   );
 }

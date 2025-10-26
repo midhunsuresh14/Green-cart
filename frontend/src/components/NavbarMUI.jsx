@@ -24,8 +24,10 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LoginIcon from '@mui/icons-material/Login';
 import PersonIcon from '@mui/icons-material/Person';
 import AppRegistrationIcon from '@mui/icons-material/AppRegistration';
-import FeedbackIcon from '@mui/icons-material/Feedback'; // Add FeedbackIcon import
+import FeedbackIcon from '@mui/icons-material/Feedback';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { Link as RouterLink } from 'react-router-dom';
+import NotificationsPanel from './Blog/NotificationsPanel';
 
 const links = [
   { label: 'Home', to: '/' },
@@ -37,10 +39,13 @@ const links = [
 export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCount = 0, onOpenCart, onOpenFeedback }) {
   const [open, setOpen] = useState(false);
   const [profileEl, setProfileEl] = useState(null);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const toggle = (val) => () => setOpen(val);
   const openProfile = (e) => setProfileEl(e.currentTarget);
   const closeProfile = () => setProfileEl(null);
+  const openNotifications = () => setNotificationsOpen(true);
+  const closeNotifications = () => setNotificationsOpen(false);
 
   return (
     <>
@@ -116,8 +121,16 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
             >
               <FeedbackIcon />
             </IconButton>
+
             {user?.role === 'admin' && (
               <Button startIcon={<DashboardIcon />} component={RouterLink} to="/admin" color="inherit">Admin</Button>
+            )}
+            {/* Notifications Icon (only show when logged in) */}
+            {user && (
+              <IconButton onClick={openNotifications} color="inherit" aria-label="Notifications" sx={{ position: 'relative' }}>
+                <NotificationsIcon />
+                {/* Unread notification badge - you can add unreadCount logic here */}
+              </IconButton>
             )}
             {user ? (
               <Stack direction="row" spacing={1} alignItems="center">
@@ -178,6 +191,15 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
                 <ListItemText primary="Feedback" />
               </ListItemButton>
             </ListItem>
+
+            {/* Notifications in mobile */}
+            {user && (
+              <ListItem disablePadding>
+                <ListItemButton onClick={() => { toggle(false)(); openNotifications(); }}>
+                  <ListItemText primary="Notifications" />
+                </ListItemButton>
+              </ListItem>
+            )}
             {user?.role === 'admin' && (
               <ListItem disablePadding>
                 <ListItemButton component={RouterLink} to="/admin">
@@ -202,6 +224,15 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
           </Box>
         </Box>
       </Drawer>
+
+      {/* Notifications Panel */}
+      {user && (
+        <NotificationsPanel 
+          user={user}
+          isOpen={notificationsOpen} 
+          onClose={closeNotifications} 
+        />
+      )}
     </>
   );
 }

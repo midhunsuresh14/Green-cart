@@ -2243,16 +2243,11 @@ def submit_feedback():
 
 @app.route('/api/admin/feedback', methods=['GET'])
 @token_required
-def get_feedback():
+def get_feedback(current_user=None):
     try:
         # Check if user is admin
-        token = request.headers.get('Authorization')
-        if token:
-            token = token.split(' ')[1]
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user or user.get('role') != 'admin':
-                return jsonify({'error': 'Admin access required'}), 403
+        if not current_user or current_user.get('role') != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
         
         # Get query parameters
         page = int(request.args.get('page', 1))
@@ -2299,16 +2294,11 @@ def get_feedback():
 
 @app.route('/api/admin/feedback/<feedback_id>/status', methods=['PUT'])
 @token_required
-def update_feedback_status(feedback_id):
+def update_feedback_status(feedback_id, current_user=None):
     try:
         # Check if user is admin
-        token = request.headers.get('Authorization')
-        if token:
-            token = token.split(' ')[1]
-            data = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
-            user = db.users.find_one({'_id': ObjectId(data['user_id'])})
-            if not user or user.get('role') != 'admin':
-                return jsonify({'error': 'Admin access required'}), 403
+        if not current_user or current_user.get('role') != 'admin':
+            return jsonify({'error': 'Admin access required'}), 403
         
         data = request.get_json()
         new_status = data.get('status')
@@ -2338,27 +2328,72 @@ def get_blog_posts():
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
         category = request.args.get('category', None)
+        sort_by = request.args.get('sortBy', 'latest')
+        search = request.args.get('search', None)
         
         # Build query
         query = {}
-        if category:
+        if category and category != 'All':
             query['category'] = category
+            
+        # Add search functionality
+        if search:
+            query['$or'] = [
+                {'title': {'$regex': search, '$options': 'i'}},
+                {'content': {'$regex': search, '$options': 'i'}}
+            ]
+            
+        # Determine sort order
+        sort_field = 'created_at'
+        sort_direction = -1  # Descending by default
+        
+        if sort_by == 'most_liked':
+            sort_field = 'likes'
+        elif sort_by == 'trending':
+            # For trending, we could use a combination of likes and recency
+            # For simplicity, we'll sort by likes for now
+            sort_field = 'likes'
+        # 'latest' uses created_at with descending order (default)
             
         # Get total count
         total = db.blog_posts.count_documents(query)
         
-        # Get posts with pagination
+        # Get posts with pagination and sorting
         skip = (page - 1) * limit
         posts = list(db.blog_posts.find(query)
-                     .sort('created_at', -1)
+                     .sort([(sort_field, sort_direction), ('created_at', -1)])
                      .skip(skip)
                      .limit(limit))
         
-        # Convert ObjectId to string for JSON serialization
+        # Try to get current user from token (if provided)
+        current_user = None
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header.split(' ', 1)[1]
+            try:
+                decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+                user_id = decoded.get('user_id')
+                if user_id:
+                    current_user = users_collection.find_one({'_id': ObjectId(user_id)})
+            except Exception:
+                # If token is invalid, continue without user
+                pass
+        
+        # Convert ObjectId to string for JSON serialization and add like status
         for post in posts:
             post['_id'] = str(post['_id'])
             if post.get('author_id'):
                 post['author_id'] = str(post['author_id'])
+            
+            # Add like status if user is logged in
+            if current_user:
+                existing_like = db.blog_likes.find_one({
+                    'post_id': str(post['_id']),
+                    'user_id': str(current_user['_id'])
+                })
+                post['liked'] = existing_like is not None
+            else:
+                post['liked'] = False
         
         return jsonify({
             'posts': posts,
@@ -2424,6 +2459,10 @@ def create_blog_post(current_user=None):
 @app.route('/api/blog/posts/<post_id>', methods=['GET'])
 def get_blog_post(post_id):
     try:
+        # Validate that post_id is a valid ObjectId
+        if not ObjectId.is_valid(post_id):
+            return jsonify({'error': f"'{post_id}' is not a valid ObjectId, it must be a 12-byte input or a 24-character hex string"}), 400
+        
         # Get the post
         post = db.blog_posts.find_one({'_id': ObjectId(post_id)})
         if not post:
@@ -2572,6 +2611,19 @@ def add_blog_comment(post_id, current_user=None):
             {'$inc': {'comments_count': 1}}
         )
         
+        # Create notification for post author (if not self-comment)
+        if str(post.get('author_id', '')) != str(current_user['_id']):
+            db.blog_notifications.insert_one({
+                'user_id': str(post['author_id']),
+                'post_id': post_id,
+                'comment_id': str(result.inserted_id),
+                'type': 'comment',
+                'actor_id': str(current_user['_id']),
+                'actor_name': current_user.get('name', 'Someone'),
+                'created_at': datetime.datetime.utcnow(),
+                'read': False
+            })
+        
         return jsonify({
             'success': True,
             'message': 'Comment added successfully',
@@ -2664,6 +2716,18 @@ def like_blog_post(post_id, current_user=None):
                 {'$inc': {'likes': 1}}
             )
             
+            # Create notification for post author (if not self-like)
+            if str(post.get('author_id', '')) != str(current_user['_id']):
+                db.blog_notifications.insert_one({
+                    'user_id': str(post['author_id']),
+                    'post_id': post_id,
+                    'type': 'like',
+                    'actor_id': str(current_user['_id']),
+                    'actor_name': current_user.get('name', 'Someone'),
+                    'created_at': datetime.datetime.utcnow(),
+                    'read': False
+                })
+            
             return jsonify({
                 'success': True,
                 'message': 'Post liked',
@@ -2728,14 +2792,35 @@ def admin_list_blog_posts():
         # Get query parameters
         page = int(request.args.get('page', 1))
         limit = int(request.args.get('limit', 10))
+        search = request.args.get('search', '').strip()
+        sort_by = request.args.get('sortBy', 'created_at')
+        sort_order = request.args.get('sortOrder', 'desc')
+        
+        # Build query
+        query = {}
+        if search:
+            query['$or'] = [
+                {'title': {'$regex': search, '$options': 'i'}},
+                {'content': {'$regex': search, '$options': 'i'}},
+                {'category': {'$regex': search, '$options': 'i'}},
+                {'author_name': {'$regex': search, '$options': 'i'}}
+            ]
+        
+        # Validate sort field
+        valid_sort_fields = ['created_at', 'title', 'likes', 'comments_count']
+        if sort_by not in valid_sort_fields:
+            sort_by = 'created_at'
+            
+        # Validate sort order
+        sort_direction = -1 if sort_order == 'desc' else 1
         
         # Get total count
-        total = db.blog_posts.count_documents({})
+        total = db.blog_posts.count_documents(query)
         
-        # Get posts with pagination
+        # Get posts with pagination and sorting
         skip = (page - 1) * limit
-        posts = list(db.blog_posts.find()
-                     .sort('created_at', -1)
+        posts = list(db.blog_posts.find(query)
+                     .sort([(sort_by, sort_direction), ('created_at', -1)])
                      .skip(skip)
                      .limit(limit))
         
@@ -2805,6 +2890,86 @@ def admin_delete_blog_comment(comment_id):
             'message': 'Comment deleted successfully'
         })
         
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Blog Notifications Endpoints
+@app.route('/api/blog/notifications', methods=['GET'])
+@token_required
+def get_notifications(current_user=None):
+    """Get all notifications for current user"""
+    try:
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        notifications = list(db.blog_notifications.find(
+            {'user_id': str(current_user['_id'])}
+        ).sort('created_at', -1).limit(50))
+        
+        for notif in notifications:
+            notif['_id'] = str(notif['_id'])
+        
+        # Count unread notifications
+        unread_count = sum(1 for n in notifications if not n.get('read', False))
+        
+        return jsonify({
+            'notifications': notifications,
+            'unread_count': unread_count
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/blog/notifications/<notif_id>/read', methods=['PUT'])
+@token_required
+def mark_blog_notification_read(notif_id, current_user=None):
+    """Mark blog notification as read"""
+    try:
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        result = db.blog_notifications.update_one(
+            {'_id': ObjectId(notif_id), 'user_id': str(current_user['_id'])},
+            {'$set': {'read': True, 'read_at': datetime.datetime.utcnow()}}
+        )
+        
+        if result.modified_count == 0:
+            return jsonify({'error': 'Notification not found'}), 404
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/blog/posts/my', methods=['GET'])
+@token_required
+def get_my_blog_posts(current_user=None):
+    """Get all posts by current user"""
+    try:
+        if not current_user:
+            return jsonify({'error': 'User not found'}), 404
+            
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 10))
+        
+        query = {'author_id': str(current_user['_id'])}
+        
+        total = db.blog_posts.count_documents(query)
+        skip = (page - 1) * limit
+        
+        posts = list(db.blog_posts.find(query)
+                    .sort('created_at', -1)
+                    .skip(skip)
+                    .limit(limit))
+        
+        for post in posts:
+            post['_id'] = str(post['_id'])
+            post['author_id'] = str(post['author_id'])
+        
+        return jsonify({
+            'posts': posts,
+            'total': total,
+            'page': page,
+            'pages': (total + limit - 1) // limit
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

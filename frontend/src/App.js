@@ -32,6 +32,7 @@ import CategoryProductPage from './components/Products/CategoryProductPage';
 import BlogPage from './components/Blog/BlogPage';
 import BlogPostDetail from './components/Blog/BlogPostDetail';
 import EditPost from './components/Blog/EditPost';
+import MyBlogs from './components/Blog/MyBlogs';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -642,8 +643,11 @@ function App() {
           
           {/* Blog Routes */}
           <Route path="/blog" element={<BlogPage user={user} />} />
-          <Route path="/blog/:id" element={<BlogPostDetail user={user} />} />
+          <Route path="/blog/explore" element={<BlogPage user={user} />} />
+          <Route path="/blog/create" element={user ? <BlogPage user={user} /> : <Navigate to="/login" />} />
+          <Route path="/blog/my" element={user ? <MyBlogs user={user} /> : <Navigate to="/login" />} />
           <Route path="/blog/edit/:id" element={user ? <EditPost user={user} /> : <Navigate to="/login" />} />
+          <Route path="/blog/:id" element={<BlogPostDetail user={user} />} />
           
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />

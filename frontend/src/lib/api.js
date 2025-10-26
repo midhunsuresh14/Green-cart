@@ -190,6 +190,28 @@ export const api = {
   deleteBlogComment: (commentId) => request(`/blog/comments/${commentId}`, { method: 'DELETE' }),
   adminDeleteBlogPost: (postId) => request(`/admin/blog/posts/${postId}`, { method: 'DELETE' }),
   
+  // Admin Blog Posts
+  adminListBlogPosts: (params = {}) => {
+    const filtered = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(filtered).toString();
+    return request(`/admin/blog/posts${query ? `?${query}` : ''}`);
+  },
+  
+  // Blog Notifications
+  getBlogNotifications: () => request('/blog/notifications'),
+  markBlogNotificationRead: (notifId) => request(`/blog/notifications/${notifId}/read`, { method: 'PUT' }),
+  
+  // My Blogs
+  getMyBlogPosts: (params = {}) => {
+    const filtered = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+    );
+    const query = new URLSearchParams(filtered).toString();
+    return request(`/blog/posts/my${query ? `?${query}` : ''}`);
+  },
+  
   // Auth helpers
   getAuthHeaders: getAuthHeaders
 };
@@ -243,5 +265,9 @@ export const addBlogComment = api.addBlogComment;
 export const updateBlogComment = api.updateBlogComment;
 export const deleteBlogComment = api.deleteBlogComment;
 export const adminDeleteBlogPost = api.adminDeleteBlogPost;
+export const adminListBlogPosts = api.adminListBlogPosts;
+export const getBlogNotifications = api.getBlogNotifications;
+export const markBlogNotificationRead = api.markBlogNotificationRead;
+export const getMyBlogPosts = api.getMyBlogPosts;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;
