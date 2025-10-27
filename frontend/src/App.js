@@ -41,6 +41,7 @@ import MyBlogs from './components/Blog/MyBlogs';
 import EventsPage from './components/Events/EventsPage';
 import EventDetails from './components/Events/EventDetails';
 import EventTicket from './components/Events/EventTicket';
+import EventRegistrationConfirmation from './components/Events/EventRegistrationConfirmation';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -655,7 +656,7 @@ function App() {
           {/* Event Routes */}
           <Route path="/events" element={<EventsPage />} />
           <Route path="/events/:eventId" element={<EventDetails />} />
-          <Route path="/events/tickets/:ticketId" element={<EventTicket />} />
+          <Route path="/events/confirmation" element={<EventRegistrationConfirmation />} />
           
           {/* Blog Routes */}
           <Route path="/blog" element={<BlogPage user={user} />} />

@@ -12,10 +12,10 @@ const EventDetails = () => {
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [bookingLoading, setBookingLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
   const [error, setError] = useState(null);
-  const [bookingError, setBookingError] = useState(null);
-  const [bookingSuccess, setBookingSuccess] = useState(false);
+  const [registerError, setRegisterError] = useState(null);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
   const [attendeeName, setAttendeeName] = useState('');
   const [attendeeEmail, setAttendeeEmail] = useState('');
   const [attendeePhone, setAttendeePhone] = useState('');
@@ -55,145 +55,79 @@ const EventDetails = () => {
     });
   };
 
-  const handleBookEvent = async () => {
+  const handleRegisterEvent = async () => {
     // Validate form
     if (!attendeeName || !attendeeEmail || !attendeePhone) {
-      setBookingError('Please fill in all required fields');
+      setRegisterError('Please fill in all required fields');
       return;
     }
 
     if (tickets <= 0) {
-      setBookingError('Please select at least 1 ticket');
+      setRegisterError('Please select at least 1 ticket');
       return;
     }
 
     // Check if event data is available
     if (!event) {
-      setBookingError('Event data not loaded. Please try again.');
+      setRegisterError('Event data not loaded. Please try again.');
       return;
     }
     
     // Check if eventId is valid
     if (!eventId) {
-      setBookingError('Invalid event ID. Please try again.');
+      setRegisterError('Invalid event ID. Please try again.');
       return;
     }
 
     try {
-      setBookingLoading(true);
-      setBookingError(null);
+      setRegistering(true);
+      setRegisterError(null);
 
-      // Book the event first
-      const bookingData = {
+      // Register for the event
+      const registrationData = {
         attendee_name: attendeeName,
         attendee_email: attendeeEmail,
         attendee_phone: attendeePhone,
         tickets: parseInt(tickets)
       };
 
-      console.log('Booking event with ID:', eventId);
-      console.log('Booking data:', bookingData);
+      console.log('Registering for event with ID:', eventId);
+      console.log('Registration data:', registrationData);
 
-      const bookingResponse = await eventsApi.bookEvent(eventId, bookingData);
+      const registrationResponse = await eventsApi.registerEvent(eventId, registrationData);
       
       // Log the response for debugging
-      console.log('Booking response:', bookingResponse);
+      console.log('Registration response:', registrationResponse);
       
-      // Check if bookingResponse exists
-      if (!bookingResponse) {
-        throw new Error('No response received from booking server');
+      // Check if registrationResponse exists
+      if (!registrationResponse) {
+        throw new Error('No response received from registration server');
       }
       
-      // Handle different possible response structures
-      let booking;
-      if (bookingResponse.booking) {
-        booking = bookingResponse.booking;
-      } else if (bookingResponse.data && bookingResponse.data.booking) {
-        booking = bookingResponse.data.booking;
-      } else {
-        // If we can't find the booking in expected locations, throw an error
-        throw new Error('Invalid booking response structure: ' + JSON.stringify(bookingResponse));
-      }
+      // The backend returns the registration object directly
+      // No need to unwrap it from a 'registration' property
       
-      // Check if booking ID exists
-      if (!booking._id) {
-        throw new Error('Invalid booking response: Missing booking ID');
-      }
-      
-      if (event.price > 0) {
-        // Process payment for paid events
-        await processPayment(booking._id, event.title);
-      } else {
-        // For free events, redirect to ticket page
-        setBookingSuccess(true);
-        setTimeout(() => {
-          navigate(`/events/tickets/${booking._id}`);
-        }, 2000);
-      }
+      // Show success and redirect to confirmation
+      setRegisterSuccess(true);
+      setTimeout(() => {
+        navigate(`/events/confirmation`);
+      }, 2000);
     } catch (err) {
-      setBookingError(err.message || 'Failed to book event');
-      console.error('Error booking event:', err);
+      setRegisterError(err.message || 'Failed to register for event');
+      console.error('Error registering for event:', err);
     } finally {
-      setBookingLoading(false);
+      setRegistering(false);
     }
   };
 
+  // This function is deprecated as we're using registration instead of payment
   const processPayment = async (bookingId, eventTitle) => {
-    try {
-      // Load Razorpay script
-      const Razorpay = await loadRazorpay();
-      if (!Razorpay) {
-        throw new Error('Failed to load payment gateway. Please try again.');
-      }
-
-      // Create Razorpay order
-      const order = await createRazorpayOrder(bookingId);
-      
-      // Configure payment options
-      const options = {
-        key: process.env.REACT_APP_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'GreenCart Events',
-        description: `Event Booking: ${eventTitle}`,
-        order_id: order.id,
-        handler: async function (response) {
-          try {
-            // Verify payment on backend
-            await eventsApi.processEventPayment(bookingId, {
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_signature: response.razorpay_signature
-            });
-            
-            // Show success and redirect to ticket
-            setBookingSuccess(true);
-            setTimeout(() => {
-              navigate(`/events/tickets/${bookingId}`);
-            }, 2000);
-          } catch (err) {
-            setBookingError('Payment verification failed. Please contact support.');
-            console.error('Payment verification error:', err);
-          }
-        },
-        prefill: {
-          name: attendeeName,
-          email: attendeeEmail,
-          contact: attendeePhone
-        },
-        theme: {
-          color: '#16a34a'
-        }
-      };
-
-      // Open payment modal
-      const rzp = new Razorpay(options);
-      rzp.open();
-    } catch (err) {
-      setBookingError(err.message || 'Payment processing failed');
-      console.error('Payment error:', err);
-    }
-  };
+    // For backward compatibility, we'll just show a success message
+    setRegisterSuccess(true);
+    setTimeout(() => {
+      navigate(`/events/confirmation`);
+    }, 2000);
+  }
 
   if (loading) {
     return (
@@ -226,15 +160,15 @@ const EventDetails = () => {
   return (
     <Box sx={{ py: 6, bgcolor: 'background.default' }}>
       <Container maxWidth="md">
-        {bookingSuccess && (
+        {registerSuccess && (
           <Alert severity="success" sx={{ mb: 3 }}>
-            Event booked successfully! Redirecting to your ticket...
+            Successfully registered for the event! Redirecting to confirmation...
           </Alert>
         )}
-        
-        {bookingError && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setBookingError(null)}>
-            {bookingError}
+
+        {registerError && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setRegisterError(null)}>
+            {registerError}
           </Alert>
         )}
         
@@ -293,22 +227,53 @@ const EventDetails = () => {
                     <PeopleIcon color="primary" />
                     <Stack>
                       <Typography variant="body2" color="text.secondary">
-                        Price
+                        Event Type
                       </Typography>
                       <Typography variant="h6" fontWeight={700} color="primary.main">
-                        ₹{event.price.toFixed(2)}
+                        Free Event
                       </Typography>
                     </Stack>
                   </Stack>
+                  
+                  {event.max_attendees && (
+                    <Stack direction="row" spacing={2} alignItems="center">
+                      <PeopleIcon color="primary" />
+                      <Stack>
+                        <Typography variant="body2" color="text.secondary">
+                          Availability
+                        </Typography>
+                        <Typography 
+                          variant="body1" 
+                          fontWeight={600}
+                          color={event.is_full ? 'error.main' : 'success.main'}
+                        >
+                          {event.is_full 
+                            ? 'Fully Occupied' 
+                            : `${event.available_slots || 0} slot(s) available`
+                          }
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  )}
                 </Stack>
                 
                 {/* Booking Form */}
-                <Card sx={{ flex: 1, p: 3, bgcolor: 'grey.50' }}>
+                <Card sx={{ flex: 1, p: 3, bgcolor: event.is_full ? 'grey.100' : 'grey.50' }}>
                   <Typography variant="h6" fontWeight={700} sx={{ mb: 3 }}>
-                    Book Your Tickets
+                    {event.is_full ? 'Event Fully Occupied' : 'Register for Event'}
                   </Typography>
                   
-                  <Stack spacing={3}>
+                  {event.is_full ? (
+                    <Alert severity="warning" sx={{ mb: 2 }}>
+                      <Typography variant="body1" fontWeight={600}>
+                        This event has reached its maximum capacity.
+                      </Typography>
+                      <Typography variant="body2">
+                        Unfortunately, no more registrations are being accepted at this time.
+                      </Typography>
+                    </Alert>
+                  ) : (
+                    <Stack spacing={3}>
                     <TextField
                       label="Full Name"
                       value={attendeeName}
@@ -341,6 +306,7 @@ const EventDetails = () => {
                         variant="outlined" 
                         size="small"
                         onClick={() => setTickets(Math.max(1, tickets - 1))}
+                        disabled={event.is_full}
                       >
                         -
                       </Button>
@@ -348,7 +314,11 @@ const EventDetails = () => {
                       <Button 
                         variant="outlined" 
                         size="small"
-                        onClick={() => setTickets(tickets + 1)}
+                        onClick={() => {
+                          const maxAllowed = event.available_slots || 100;
+                          setTickets(Math.min(maxAllowed, tickets + 1));
+                        }}
+                        disabled={event.is_full || (event.available_slots && tickets >= event.available_slots)}
                       >
                         +
                       </Button>
@@ -359,24 +329,27 @@ const EventDetails = () => {
                       color="primary" 
                       size="large"
                       fullWidth
-                      onClick={handleBookEvent}
-                      disabled={bookingLoading || bookingSuccess}
+                      onClick={handleRegisterEvent}
+                      disabled={registering || registerSuccess || event.is_full}
                       sx={{ 
                         py: 1.5,
                         fontWeight: 600,
-                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                        boxShadow: event.is_full ? 'none' : '0 4px 12px rgba(22, 163, 74, 0.25)',
                         '&:hover': {
-                          boxShadow: '0 6px 16px rgba(22, 163, 74, 0.35)'
+                          boxShadow: event.is_full ? 'none' : '0 6px 16px rgba(22, 163, 74, 0.35)'
                         }
                       }}
                     >
-                      {bookingLoading ? (
+                      {registering ? (
                         <CircularProgress size={24} color="inherit" />
+                      ) : event.is_full ? (
+                        'Event Fully Occupied'
                       ) : (
-                        `Book Now ₹${(event.price * tickets).toFixed(2)}`
+                        `Register Now`
                       )}
                     </Button>
                   </Stack>
+                  )}
                 </Card>
               </Stack>
             </Stack>

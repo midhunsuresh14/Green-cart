@@ -125,19 +125,19 @@ const EventsPage = () => {
         ) : (
           <Grid container spacing={4}>
             {upcomingEvents.map((event) => (
-              <Grid item xs={12} md={6} lg={4} key={event._id}>
+              <Grid item xs={12} sm={6} md={4} key={event._id}>
                 <Card 
                   sx={{ 
                     height: '100%', 
                     display: 'flex', 
                     flexDirection: 'column',
-                    borderRadius: 3,
+                    borderRadius: 1.5,
                     overflow: 'hidden',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                    boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
                     '&:hover': {
-                      transform: 'translateY(-8px)',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.15)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
                       borderColor: 'primary.main'
                     },
                     cursor: 'pointer'
@@ -146,27 +146,27 @@ const EventsPage = () => {
                 >
                   <CardMedia
                     component="img"
-                    height="200"
+                    height="140"
                     image={event.image || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80'}
                     alt={event.title}
                     sx={{ 
                       objectFit: 'cover',
-                      transition: 'transform 0.3s ease',
+                      transition: 'transform 0.2s ease',
                       '&:hover': {
-                        transform: 'scale(1.05)'
+                        transform: 'scale(1.01)'
                       }
                     }}
                     onError={(e) => {
                       e.currentTarget.src = 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=800&q=80';
                     }}
                   />
-                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 3 }}>
+                  <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', p: 1.5 }}>
                     <Typography 
-                      variant="h6" 
-                      fontWeight={700} 
+                      variant="subtitle1" 
+                      fontWeight={600} 
                       sx={{ 
-                        mb: 1,
-                        lineHeight: 1.3,
+                        mb: 0.5,
+                        lineHeight: 1.2,
                         color: 'text.primary',
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
@@ -180,10 +180,10 @@ const EventsPage = () => {
                       variant="body2" 
                       color="text.secondary" 
                       sx={{ 
-                        mb: 2, 
+                        mb: 1, 
                         flexGrow: 1,
                         display: '-webkit-box',
-                        WebkitLineClamp: 3,
+                        WebkitLineClamp: 2,
                         WebkitBoxOrient: 'vertical',
                         overflow: 'hidden'
                       }}
@@ -191,11 +191,11 @@ const EventsPage = () => {
                       {event.description}
                     </Typography>
                     
-                    <Stack spacing={1.5} sx={{ mb: 3 }}>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <EventIcon fontSize="small" color="primary" />
+                    <Stack spacing={1} sx={{ mb: 1.5 }}>
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <EventIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                         <Typography 
-                          variant="body2" 
+                          variant="caption" 
                           sx={{ 
                             fontWeight: 500,
                             color: 'text.primary'
@@ -204,29 +204,16 @@ const EventsPage = () => {
                           {formatDate(event.date)}
                         </Typography>
                       </Stack>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <LocationOnIcon fontSize="small" color="primary" />
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <LocationOnIcon fontSize="small" color="primary" sx={{ fontSize: '1rem' }} />
                         <Typography 
-                          variant="body2" 
+                          variant="caption" 
                           sx={{ 
                             fontWeight: 500,
                             color: 'text.primary'
                           }}
                         >
-                          {event.venue}, {event.location}
-                        </Typography>
-                      </Stack>
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <PeopleIcon fontSize="small" color="primary" />
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            fontWeight: 700,
-                            color: 'primary.main',
-                            fontSize: '1.1rem'
-                          }}
-                        >
-                          {event.price > 0 ? `₹${event.price.toFixed(2)} per ticket` : 'Free Event'}
+                          {event.venue}
                         </Typography>
                       </Stack>
                     </Stack>
@@ -234,24 +221,34 @@ const EventsPage = () => {
                     <Button 
                       variant="contained" 
                       color="primary" 
-                      size="large"
+                      size="small"
                       fullWidth
+                      disabled={event.is_full}
                       sx={{ 
                         mt: 'auto',
-                        py: 1.5,
+                        py: 0.8,
                         fontWeight: 600,
-                        boxShadow: '0 4px 12px rgba(22, 163, 74, 0.25)',
+                        fontSize: '0.8rem',
+                        boxShadow: event.is_full ? 'none' : '0 2px 4px rgba(22, 163, 74, 0.2)',
+                        bgcolor: event.is_full ? 'grey.400' : 'primary.main',
                         '&:hover': {
-                          boxShadow: '0 6px 16px rgba(22, 163, 74, 0.35)',
-                          transform: 'translateY(-2px)'
+                          boxShadow: event.is_full ? 'none' : '0 3px 6px rgba(22, 163, 74, 0.3)',
+                          transform: event.is_full ? 'none' : 'translateY(-1px)',
+                          bgcolor: event.is_full ? 'grey.500' : 'primary.dark',
+                        },
+                        '&.Mui-disabled': {
+                          bgcolor: 'grey.400',
+                          color: 'white'
                         }
                       }}
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate(`/events/${event._id}`);
+                        if (!event.is_full) {
+                          navigate(`/events/${event._id}`);
+                        }
                       }}
                     >
-                      View Details
+                      {event.is_full ? 'FULLY OCCUPIED' : 'REGISTER'}
                     </Button>
                   </CardContent>
                 </Card>
