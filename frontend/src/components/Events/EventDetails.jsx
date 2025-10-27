@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Box, Container, Typography, Card, CardContent, CardMedia, Button, Alert, Stack, CircularProgress, TextField } from '@mui/material';
+import { Box, Container, Typography, Card, CardContent, CardMedia, Button, Alert, Stack, CircularProgress, TextField, IconButton } from '@mui/material';
 import { eventsApi } from '../../lib/eventsApi';
 import { loadRazorpay, createRazorpayOrder } from '../../lib/payment';
 import EventIcon from '@mui/icons-material/Event';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PeopleIcon from '@mui/icons-material/People';
+import MapIcon from '@mui/icons-material/Map';
+import LoginIcon from '@mui/icons-material/Login';
 
-const EventDetails = () => {
+const EventDetails = ({ user }) => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const [event, setEvent] = useState(null);
@@ -23,7 +25,13 @@ const EventDetails = () => {
 
   useEffect(() => {
     fetchEvent();
-  }, [eventId]);
+    // Pre-fill form with user data if logged in
+    if (user) {
+      setAttendeeName(user.name || '');
+      setAttendeeEmail(user.email || '');
+      setAttendeePhone(user.phone || '');
+    }
+  }, [eventId, user]);
 
   const fetchEvent = async () => {
     try {
@@ -55,7 +63,25 @@ const EventDetails = () => {
     });
   };
 
+  const handleOpenInMap = () => {
+    // Construct location string
+    const location = `${event.venue}, ${event.location}`;
+    // Google Maps URL - works on all platforms
+    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location)}`;
+    // Open in new tab
+    window.open(mapsUrl, '_blank');
+  };
+
   const handleRegisterEvent = async () => {
+    // Check if user is logged in first
+    if (!user) {
+      setRegisterError('Please login to register for events');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+      return;
+    }
+
     // Validate form
     if (!attendeeName || !attendeeEmail || !attendeePhone) {
       setRegisterError('Please fill in all required fields');
@@ -213,7 +239,7 @@ const EventDetails = () => {
                   
                   <Stack direction="row" spacing={2} alignItems="center">
                     <LocationOnIcon color="primary" />
-                    <Stack>
+                    <Stack sx={{ flex: 1 }}>
                       <Typography variant="body2" color="text.secondary">
                         Venue
                       </Typography>
@@ -221,6 +247,23 @@ const EventDetails = () => {
                         {event.venue}, {event.location}
                       </Typography>
                     </Stack>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<MapIcon />}
+                      onClick={handleOpenInMap}
+                      sx={{
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
+                        '&:hover': {
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          borderColor: 'primary.main'
+                        }
+                      }}
+                    >
+                      Open in Map
+                    </Button>
                   </Stack>
                   
                   <Stack direction="row" spacing={2} alignItems="center">
@@ -263,7 +306,27 @@ const EventDetails = () => {
                     {event.is_full ? 'Event Fully Occupied' : 'Register for Event'}
                   </Typography>
                   
-                  {event.is_full ? (
+                  {!user ? (
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      <Stack spacing={2}>
+                        <Typography variant="body1" fontWeight={600}>
+                          Login Required
+                        </Typography>
+                        <Typography variant="body2">
+                          You need to be logged in to register for this event.
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          startIcon={<LoginIcon />}
+                          onClick={() => navigate('/login')}
+                          sx={{ alignSelf: 'flex-start' }}
+                        >
+                          Login to Register
+                        </Button>
+                      </Stack>
+                    </Alert>
+                  ) : event.is_full ? (
                     <Alert severity="warning" sx={{ mb: 2 }}>
                       <Typography variant="body1" fontWeight={600}>
                         This event has reached its maximum capacity.
@@ -280,6 +343,7 @@ const EventDetails = () => {
                       onChange={(e) => setAttendeeName(e.target.value)}
                       fullWidth
                       required
+                      disabled={!user}
                     />
                     
                     <TextField
@@ -289,6 +353,7 @@ const EventDetails = () => {
                       onChange={(e) => setAttendeeEmail(e.target.value)}
                       fullWidth
                       required
+                      disabled={!user}
                     />
                     
                     <TextField
@@ -298,6 +363,7 @@ const EventDetails = () => {
                       onChange={(e) => setAttendeePhone(e.target.value)}
                       fullWidth
                       required
+                      disabled={!user}
                     />
                     
                     <Stack direction="row" spacing={2} alignItems="center">
@@ -306,7 +372,7 @@ const EventDetails = () => {
                         variant="outlined" 
                         size="small"
                         onClick={() => setTickets(Math.max(1, tickets - 1))}
-                        disabled={event.is_full}
+                        disabled={event.is_full || !user}
                       >
                         -
                       </Button>
@@ -318,7 +384,7 @@ const EventDetails = () => {
                           const maxAllowed = event.available_slots || 100;
                           setTickets(Math.min(maxAllowed, tickets + 1));
                         }}
-                        disabled={event.is_full || (event.available_slots && tickets >= event.available_slots)}
+                        disabled={event.is_full || !user || (event.available_slots && tickets >= event.available_slots)}
                       >
                         +
                       </Button>
@@ -330,18 +396,20 @@ const EventDetails = () => {
                       size="large"
                       fullWidth
                       onClick={handleRegisterEvent}
-                      disabled={registering || registerSuccess || event.is_full}
+                      disabled={registering || registerSuccess || event.is_full || !user}
                       sx={{ 
                         py: 1.5,
                         fontWeight: 600,
-                        boxShadow: event.is_full ? 'none' : '0 4px 12px rgba(22, 163, 74, 0.25)',
+                        boxShadow: (event.is_full || !user) ? 'none' : '0 4px 12px rgba(22, 163, 74, 0.25)',
                         '&:hover': {
-                          boxShadow: event.is_full ? 'none' : '0 6px 16px rgba(22, 163, 74, 0.35)'
+                          boxShadow: (event.is_full || !user) ? 'none' : '0 6px 16px rgba(22, 163, 74, 0.35)'
                         }
                       }}
                     >
                       {registering ? (
                         <CircularProgress size={24} color="inherit" />
+                      ) : !user ? (
+                        'Login Required'
                       ) : event.is_full ? (
                         'Event Fully Occupied'
                       ) : (

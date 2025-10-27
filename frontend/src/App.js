@@ -654,8 +654,8 @@ function App() {
           <Route path="/remedies/:remedyId" element={<RemedyDetail />} />
           
           {/* Event Routes */}
-          <Route path="/events" element={<EventsPage />} />
-          <Route path="/events/:eventId" element={<EventDetails />} />
+          <Route path="/events" element={<EventsPage user={user} />} />
+          <Route path="/events/:eventId" element={<EventDetails user={user} />} />
           <Route path="/events/confirmation" element={<EventRegistrationConfirmation />} />
           
           {/* Blog Routes */}

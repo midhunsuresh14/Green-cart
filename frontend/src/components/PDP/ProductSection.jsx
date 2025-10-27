@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function ProductSection({ product, onAddToCart, user }) {
   const [qty, setQty] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [stockInfo, setStockInfo] = useState({ stock: 0, inStock: true });
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
   
   // Helper function to resolve image URLs
   const resolveImageUrl = (src) => {
@@ -105,6 +107,36 @@ export default function ProductSection({ product, onAddToCart, user }) {
     setLoading(true);
     try {
       onAddToCart({ ...product, quantity: qty, finalPrice: product.price });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBuyNow = async () => {
+    // Check if user is logged in
+    if (!user) {
+      // Redirect to login page
+      window.location.href = '/login';
+      return;
+    }
+    
+    if (!stockInfo.inStock) {
+      alert('This product is currently out of stock');
+      return;
+    }
+
+    const available = await checkAvailability(qty);
+    if (!available) {
+      alert(`Only ${stockInfo.stock} items available in stock`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Add to cart first
+      await onAddToCart({ ...product, quantity: qty, finalPrice: product.price });
+      // Then navigate to checkout
+      navigate('/checkout');
     } finally {
       setLoading(false);
     }
@@ -217,13 +249,14 @@ export default function ProductSection({ product, onAddToCart, user }) {
           </button>
           <button 
             className={`flex-1 border rounded-lg py-2 font-semibold transition ${
-              stockInfo.inStock
+              stockInfo.inStock && !loading
                 ? 'border-green-600 text-green-700 hover:bg-green-50'
                 : 'border-gray-300 text-gray-500 cursor-not-allowed'
             }`}
-            disabled={!stockInfo.inStock}
+            disabled={!stockInfo.inStock || loading}
+            onClick={handleBuyNow}
           >
-            Buy Now
+            {loading ? 'Processing...' : 'Buy Now'}
           </button>
         </div>
 
