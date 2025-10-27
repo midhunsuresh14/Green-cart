@@ -18,7 +18,7 @@
 .product-image-container {
   position: relative;
   width: 100%;
-  padding-top: 100%; /* 1:1 Aspect Ratio */
+  height: 220px; /* Fixed height for consistent image display */
   overflow: hidden;
 }
 

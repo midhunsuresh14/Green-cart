@@ -242,7 +242,7 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
               onClick={handleViewDetails}
             >
               <span className="material-icons">visibility</span>
-              <span>View</span>
+              <span>View Details</span>
             </button>
             <button
               className={`overlay-btn primary ${!stockInfo.inStock ? 'disabled' : ''}`}
@@ -250,7 +250,7 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
               disabled={!stockInfo.inStock}
             >
               <span className="material-icons">shopping_cart</span>
-              <span>Add</span>
+              <span>Add to Cart</span>
             </button>
           </div>
         </div>
