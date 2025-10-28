@@ -53,7 +53,9 @@ export const eventsApi = {
   deleteEvent: (id) => request(`/admin/events/${id}`, { method: 'DELETE' }),
   
   // User endpoints
-  bookEvent: (eventId, data) => request(`/events/${eventId}/book`, { method: 'POST', body: JSON.stringify(data) }),
-  processEventPayment: (bookingId, data) => request(`/events/bookings/${bookingId}/payment`, { method: 'POST', body: JSON.stringify(data) }),
-  getTicket: (ticketId) => request(`/events/tickets/${ticketId}`),
+  registerEvent: (eventId, data) => request(`/events/${eventId}/register`, { method: 'POST', body: JSON.stringify(data) }),
+  getRegistration: (registrationId) => request(`/events/registrations/${registrationId}`),
+  
+  // Admin endpoints
+  adminGetRegistrations: () => request('/admin/events/registrations'),
 };

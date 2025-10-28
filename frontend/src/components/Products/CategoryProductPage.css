@@ -246,6 +246,25 @@
   gap: 1.5rem;
 }
 
+/* Product Card Image Container - Ensure consistent sizing */
+.product-card .product-image-container {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+}
+
+.product-card .product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.product-card:hover .product-image {
+  transform: scale(1.05);
+}
+
 /* No Products Message */
 .no-products {
   text-align: center;
@@ -321,5 +340,10 @@
 
   .category-header-main h1 {
     font-size: 1.75rem;
+  }
+  
+  /* Ensure mobile product cards have proper image sizing */
+  .product-card .product-image-container {
+    height: 200px;
   }
 }

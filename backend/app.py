@@ -75,6 +75,7 @@ CORS(
     app,
     origins=[
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -102,6 +103,7 @@ def add_cors_headers(response):
     origin = request.headers.get('Origin')
     allowed_origins = [
         "http://localhost:3000",
+        "http://localhost:3001",
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -136,6 +138,7 @@ def handle_preflight():
         origin = request.headers.get('Origin', '*')
         allowed_origins = [
             "http://localhost:3000",
+            "http://localhost:3001",
             "http://127.0.0.1:3000",
             "http://localhost:5173",
             "http://127.0.0.1:5173",
@@ -3219,6 +3222,23 @@ def get_events():
         
         for event in events:
             event['_id'] = str(event['_id'])
+            event_id = event['_id']
+            
+            # Calculate total attendees and check if event is full
+            registrations = list(db.event_registrations.find({'event_id': event_id}))
+            total_attendees = sum(reg.get('quantity', 1) for reg in registrations)
+            event['total_attendees'] = total_attendees
+            event['registration_count'] = len(registrations)
+            
+            # Check if event is full
+            max_attendees = event.get('max_attendees', 0)
+            if max_attendees and max_attendees > 0:
+                event['is_full'] = total_attendees >= max_attendees
+                event['available_slots'] = max(0, max_attendees - total_attendees)
+            else:
+                event['is_full'] = False
+                event['available_slots'] = None
+            
             # Convert datetime to string for JSON serialization
             if isinstance(event.get('date'), datetime.datetime):
                 event['date'] = event['date'].isoformat()
@@ -3232,12 +3252,24 @@ def get_events():
 @app.route('/api/admin/events', methods=['GET'])
 @admin_required
 def admin_get_events(current_user=None):
-    """Get all events (admin only)"""
+    """Get all events (admin only) with registration counts"""
     try:
         events = list(db.events.find().sort('date', -1))
         
+        # Get registration counts for each event
         for event in events:
             event['_id'] = str(event['_id'])
+            event_id = event['_id']
+            
+            # Count registrations for this event
+            registration_count = db.event_registrations.count_documents({'event_id': event_id})
+            event['registration_count'] = registration_count
+            
+            # Calculate total attendees (sum of all quantities)
+            registrations = list(db.event_registrations.find({'event_id': event_id}))
+            total_attendees = sum(reg.get('quantity', 1) for reg in registrations)
+            event['total_attendees'] = total_attendees
+            
             # Convert datetime to string for JSON serialization
             if isinstance(event.get('date'), datetime.datetime):
                 event['date'] = event['date'].isoformat()
@@ -3254,7 +3286,7 @@ def create_event(current_user=None):
         data = request.get_json()
         
         # Validate required fields
-        required_fields = ['title', 'description', 'date', 'location', 'venue', 'price']
+        required_fields = ['title', 'description', 'date', 'location', 'venue']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
@@ -3280,7 +3312,7 @@ def create_event(current_user=None):
             'date': event_date,
             'location': data['location'],
             'venue': data['venue'],
-            'price': float(data['price']),
+            'price': float(data.get('price', 0)),
             'image': data.get('image', ''),
             'max_attendees': int(data.get('max_attendees', 100)) if data.get('max_attendees') else 100,
             'created_at': datetime.datetime.utcnow(),
@@ -3335,9 +3367,15 @@ def update_event(event_id, current_user=None):
             except ValueError as ve:
                 return jsonify({'error': f'Invalid date format: {str(ve)}'}), 400
         if 'price' in data:
-            update_data['price'] = float(data['price'])
+            try:
+                update_data['price'] = float(data['price'])
+            except (ValueError, TypeError):
+                pass  # Skip invalid price values
         if 'max_attendees' in data and data['max_attendees'] is not None:
-            update_data['max_attendees'] = int(data['max_attendees'])
+            try:
+                update_data['max_attendees'] = int(data['max_attendees'])
+            except (ValueError, TypeError):
+                pass  # Skip invalid max_attendees values
         
         result = db.events.update_one(
             {'_id': ObjectId(event_id)},
@@ -3373,16 +3411,19 @@ def delete_event(event_id, current_user=None):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/events/<event_id>/book', methods=['POST'])
+@app.route('/api/events/<event_id>/register', methods=['POST'])
 @token_required
-def book_event(event_id, current_user=None):
-    """Book tickets for an event"""
+def register_event(event_id, current_user=None):
+    """Register for an event"""
     try:
         if not current_user:
             return jsonify({'error': 'User not found'}), 404
             
         data = request.get_json()
-        quantity = data.get('quantity', 1)
+        quantity = data.get('tickets', data.get('quantity', 1))
+        attendee_name = data.get('attendee_name', current_user.get('name', ''))
+        attendee_email = data.get('attendee_email', current_user.get('email', ''))
+        attendee_phone = data.get('attendee_phone', current_user.get('phone', ''))
         
         # Get event
         event = db.events.find_one({'_id': ObjectId(event_id)})
@@ -3391,174 +3432,124 @@ def book_event(event_id, current_user=None):
             
         # Check if event is in the future
         if event['date'] < datetime.datetime.utcnow():
-            return jsonify({'error': 'Cannot book past events'}), 400
+            return jsonify({'error': 'Cannot register for past events'}), 400
+        
+        # Check if event has reached maximum attendees
+        max_attendees = event.get('max_attendees')
+        if max_attendees and max_attendees > 0:
+            # Calculate current total attendees
+            registrations = list(db.event_registrations.find({'event_id': event_id}))
+            total_attendees = sum(reg.get('quantity', 1) for reg in registrations)
             
-        # Create booking
-        booking = {
+            # Check if adding this registration would exceed the limit
+            if total_attendees + quantity > max_attendees:
+                available_slots = max(0, max_attendees - total_attendees)
+                if available_slots == 0:
+                    return jsonify({'error': 'Event is fully occupied. No slots available.'}), 400
+                else:
+                    return jsonify({'error': f'Only {available_slots} slot(s) available. Cannot register {quantity} attendee(s).'}), 400
+            
+        # Create registration
+        registration = {
             'event_id': event_id,
             'user_id': str(current_user['_id']),
             'user_email': current_user['email'],
             'user_name': current_user.get('name', ''),
+            'attendee_name': attendee_name,
+            'attendee_email': attendee_email,
+            'attendee_phone': attendee_phone,
             'quantity': quantity,
-            'total_price': float(event['price']) * quantity,
-            'booking_date': datetime.datetime.utcnow(),
-            'status': 'pending'
+            'registration_date': datetime.datetime.utcnow(),
+            'status': 'confirmed'
         }
         
-        result = db.event_bookings.insert_one(booking)
-        booking['_id'] = str(result.inserted_id)
+        result = db.event_registrations.insert_one(registration)
+        registration['_id'] = str(result.inserted_id)
         
-        return jsonify(booking), 201
+        return jsonify(registration), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# This endpoint is deprecated as we're using registration instead of payment
 @app.route('/api/events/bookings/<booking_id>/create-payment-order', methods=['POST'])
 @token_required
 def create_event_payment_order(booking_id, current_user=None):
-    """Create a Razorpay order for event booking"""
-    try:
-        if not current_user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        if not razorpay_client:
-            return jsonify({'error': 'Payment gateway not configured'}), 500
-            
-        # Get booking
-        booking = db.event_bookings.find_one({'_id': ObjectId(booking_id)})
-        if not booking:
-            return jsonify({'error': 'Booking not found'}), 404
-            
-        if booking['user_id'] != str(current_user['_id']):
-            return jsonify({'error': 'Unauthorized'}), 403
-            
-        print(f"Creating payment order for booking: {booking_id}")
-        print(f"Booking details: {booking}")
-        
-        # Create Razorpay order
-        order_data = {
-            'amount': int(booking['total_price'] * 100),  # Amount in paise
-            'currency': 'INR',
-            'receipt': f"event_booking_{booking_id}",
-            'payment_capture': 1
-        }
-        
-        print(f"Order data: {order_data}")
-        order = razorpay_client.order.create(order_data)
-        print(f"Created order: {order}")
-        
-        # Convert order to dict if it's not already
-        if hasattr(order, '__dict__'):
-            order_dict = order.__dict__
-        else:
-            order_dict = dict(order)
-        
-        return jsonify({
-            'order_id': order_dict.get('id'),
-            'amount': order_dict.get('amount'),
-            'currency': order_dict.get('currency')
-        })
-    except Exception as e:
-        print(f"Error creating payment order: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+    """This endpoint is deprecated. Use registration instead."""
+    return jsonify({'error': 'Payment system is deprecated. Use registration instead.'}), 400
 
+# This endpoint is deprecated as we're using registration instead of payment
 @app.route('/api/events/bookings/<booking_id>/payment', methods=['POST'])
 @token_required
 def process_event_payment(booking_id, current_user=None):
-    """Process payment for event booking"""
-    try:
-        if not current_user:
-            return jsonify({'error': 'User not found'}), 404
-            
-        data = request.get_json()
-        razorpay_payment_id = data.get('razorpay_payment_id')
-        razorpay_order_id = data.get('razorpay_order_id')
-        razorpay_signature = data.get('razorpay_signature')
-        
-        # Get booking
-        booking = db.event_bookings.find_one({'_id': ObjectId(booking_id)})
-        if not booking:
-            return jsonify({'error': 'Booking not found'}), 404
-            
-        if booking['user_id'] != str(current_user['_id']):
-            return jsonify({'error': 'Unauthorized'}), 403
-            
-        # Update booking with payment details
-        db.event_bookings.update_one(
-            {'_id': ObjectId(booking_id)},
-            {
-                '$set': {
-                    'status': 'confirmed',
-                    'payment_id': razorpay_payment_id,
-                    'order_id': razorpay_order_id,
-                    'signature': razorpay_signature,
-                    'payment_date': datetime.datetime.utcnow()
-                }
-            }
-        )
-        
-        # Generate ticket
-        ticket = {
-            'booking_id': booking_id,
-            'event_id': booking['event_id'],
-            'user_id': str(current_user['_id']),
-            'ticket_code': f"EV-{str(ObjectId())[10:18].upper()}-{booking_id[:8].upper()}",
-            'issue_date': datetime.datetime.utcnow(),
-            'status': 'active'
-        }
-        
-        ticket_result = db.event_tickets.insert_one(ticket)
-        ticket['_id'] = str(ticket_result.inserted_id)
-        
-        # Update booking with ticket ID
-        db.event_bookings.update_one(
-            {'_id': ObjectId(booking_id)},
-            {'$set': {'ticket_id': str(ticket_result.inserted_id)}}
-        )
-        
-        return jsonify({
-            'booking': booking,
-            'ticket': ticket
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    """This endpoint is deprecated. Use registration instead."""
+    return jsonify({'error': 'Payment system is deprecated. Use registration instead.'}), 400
 
-@app.route('/api/events/tickets/<ticket_id>', methods=['GET'])
+@app.route('/api/events/registrations/<registration_id>', methods=['GET'])
 @token_required
-def get_ticket(ticket_id, current_user=None):
-    """Get ticket details"""
+def get_registration(registration_id, current_user=None):
+    """Get registration details"""
     try:
         if not current_user:
             return jsonify({'error': 'User not found'}), 404
             
-        # Get ticket
-        ticket = db.event_tickets.find_one({'_id': ObjectId(ticket_id)})
-        if not ticket:
-            return jsonify({'error': 'Ticket not found'}), 404
+        # Get registration
+        registration = db.event_registrations.find_one({'_id': ObjectId(registration_id)})
+        if not registration:
+            return jsonify({'error': 'Registration not found'}), 404
             
         # Get event details
-        event = db.events.find_one({'_id': ObjectId(ticket['event_id'])})
+        event = db.events.find_one({'_id': ObjectId(registration['event_id'])})
         if not event:
             return jsonify({'error': 'Event not found'}), 404
             
         # Get user details
-        user = db.users.find_one({'_id': ObjectId(ticket['user_id'])})
+        user = db.users.find_one({'_id': ObjectId(registration['user_id'])})
         if not user:
             return jsonify({'error': 'User not found'}), 404
             
         # Format response
-        ticket['_id'] = str(ticket['_id'])
+        registration['_id'] = str(registration['_id'])
         event['_id'] = str(event['_id'])
         
         return jsonify({
-            'ticket': ticket,
+            'registration': registration,
             'event': event,
             'user': {
                 'name': user.get('name', ''),
                 'email': user['email']
             }
         })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/admin/events/registrations', methods=['GET'])
+@admin_required
+def admin_get_registrations(current_user=None):
+    """Get all event registrations (admin only)"""
+    try:
+        # Get all registrations with event and user details
+        registrations = list(db.event_registrations.find().sort('registration_date', -1))
+        
+        # Enrich with event and user details
+        enriched_registrations = []
+        for reg in registrations:
+            reg['_id'] = str(reg['_id'])
+            
+            # Get event details
+            event = db.events.find_one({'_id': ObjectId(reg['event_id'])})
+            if event:
+                reg['event_title'] = event.get('title', 'Unknown Event')
+                reg['event_date'] = event.get('date')
+            
+            # Get user details
+            user = db.users.find_one({'_id': ObjectId(reg['user_id'])})
+            if user:
+                reg['user_name'] = user.get('name', 'Unknown User')
+                reg['user_email'] = user.get('email', '')
+            
+            enriched_registrations.append(reg)
+        
+        return jsonify(enriched_registrations)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

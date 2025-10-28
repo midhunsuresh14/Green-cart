@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Alert, Stack, Chip } from '@mui/material';
+import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Alert, Stack, Chip, Tabs, Tab } from '@mui/material';
 import { eventsApi } from '../../lib/eventsApi';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -8,8 +8,10 @@ import EventIcon from '@mui/icons-material/Event';
 
 const EventManagement = () => {
   const [events, setEvents] = useState([]);
+  const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null);
   const [formData, setFormData] = useState({
@@ -18,14 +20,17 @@ const EventManagement = () => {
     date: '',
     location: '',
     venue: '',
-    price: '',
     image: '',
     max_attendees: ''
   });
 
   useEffect(() => {
-    fetchEvents();
-  }, []);
+    if (activeTab === 0) {
+      fetchEvents();
+    } else {
+      fetchRegistrations();
+    }
+  }, [activeTab]);
 
   const fetchEvents = async () => {
     try {
@@ -40,6 +45,23 @@ const EventManagement = () => {
     }
   };
 
+  const fetchRegistrations = async () => {
+    try {
+      setLoading(true);
+      const data = await eventsApi.adminGetRegistrations();
+      setRegistrations(data);
+    } catch (err) {
+      setError('Failed to load registrations');
+      console.error('Error fetching registrations:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
+  };
+
   const handleOpenDialog = (event = null) => {
     if (event) {
       setEditingEvent(event);
@@ -49,7 +71,6 @@ const EventManagement = () => {
         date: event.date ? new Date(event.date).toISOString().slice(0, 16) : '',
         location: event.location || '',
         venue: event.venue || '',
-        price: event.price || '',
         image: event.image || '',
         max_attendees: event.max_attendees || ''
       });
@@ -61,7 +82,6 @@ const EventManagement = () => {
         date: '',
         location: '',
         venue: '',
-        price: '',
         image: '',
         max_attendees: ''
       });
@@ -99,10 +119,7 @@ const EventManagement = () => {
       formData.description.trim() !== '' &&
       formData.date !== '' &&
       formData.location.trim() !== '' &&
-      formData.venue.trim() !== '' &&
-      formData.price !== '' &&
-      !isNaN(parseFloat(formData.price)) &&
-      parseFloat(formData.price) >= 0
+      formData.venue.trim() !== ''
     );
   };
 
@@ -130,13 +147,6 @@ const EventManagement = () => {
         return;
       }
 
-      // Validate price is a number
-      const price = parseFloat(formData.price);
-      if (isNaN(price) || price < 0) {
-        setError('Please enter a valid price');
-        return;
-      }
-
       // Validate max_attendees if provided
       if (formData.max_attendees && (isNaN(parseInt(formData.max_attendees)) || parseInt(formData.max_attendees) < 0)) {
         setError('Please enter a valid number for max attendees');
@@ -145,7 +155,7 @@ const EventManagement = () => {
 
       const eventData = {
         ...formData,
-        price: price,
+        price: 0,
         max_attendees: formData.max_attendees ? parseInt(formData.max_attendees) : undefined
       };
 
@@ -211,80 +221,143 @@ const EventManagement = () => {
         </Button>
       </Stack>
       
+      <Tabs value={activeTab} onChange={handleTabChange} sx={{ mb: 3 }}>
+        <Tab label="Events" />
+        <Tab label="Registrations" />
+      </Tabs>
+      
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
       
-      <Grid container spacing={3}>
-        {events.map((event) => (
-          <Grid item xs={12} md={6} lg={4} key={event._id}>
-            <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <CardMedia
-                component="img"
-                height="140"
-                image={event.image || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80'}
-                alt={event.title}
-                sx={{ objectFit: 'cover' }}
-                onError={(e) => {
-                  e.currentTarget.src = 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80';
-                }}
-              />
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Typography variant="h6" fontWeight={700} sx={{ mb: 1 }}>
-                  {event.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  {event.description}
-                </Typography>
-                
-                <Stack spacing={1} sx={{ mb: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <EventIcon fontSize="small" color="primary" />
-                    <Typography variant="body2">
-                      {formatDate(event.date)}
+      {activeTab === 0 && (
+        <Grid container spacing={3}>
+          {events.map((event) => (
+            <Grid item xs={12} sm={6} md={4} key={event._id}>
+              <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <CardMedia
+                  component="img"
+                  height="120"
+                  image={event.image || 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80'}
+                  alt={event.title}
+                  sx={{ objectFit: 'cover' }}
+                  onError={(e) => {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1517457373958-b7bdd4587205?auto=format&fit=crop&w=600&q=80';
+                  }}
+                />
+                <CardContent sx={{ flexGrow: 1, p: 1.5 }}>
+                  <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 0.5 }}>
+                    {event.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1, minHeight: 40 }}>
+                    {event.description}
+                  </Typography>
+                  
+                  <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+                    <Stack direction="row" alignItems="center" spacing={0.5}>
+                      <EventIcon fontSize="small" color="primary" sx={{ fontSize: '0.9rem' }} />
+                      <Typography variant="caption">
+                        {formatDate(event.date)}
+                      </Typography>
+                    </Stack>
+                    <Typography variant="caption">
+                      Venue: {event.venue}, {event.location}
+                    </Typography>
+                    {event.max_attendees && (
+                      <Typography variant="caption">
+                        Max Attendees: {event.max_attendees}
+                      </Typography>
+                    )}
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      Registered: {event.registration_count || 0} users ({event.total_attendees || 0} attendees)
                     </Typography>
                   </Stack>
-                  <Typography variant="body2">
-                    Venue: {event.venue}, {event.location}
-                  </Typography>
-                  <Typography variant="body2">
-                    Price: ₹{event.price.toFixed(2)}
-                  </Typography>
-                  {event.max_attendees && (
-                    <Typography variant="body2">
-                      Max Attendees: {event.max_attendees}
-                    </Typography>
-                  )}
-                </Stack>
-                
-                <Stack direction="row" spacing={1}>
-                  <Button 
-                    variant="outlined" 
-                    size="small"
-                    startIcon={<EditIcon />}
-                    onClick={() => handleOpenDialog(event)}
-                  >
-                    Edit
-                  </Button>
-                  <Button 
-                    variant="outlined" 
-                    color="error"
-                    size="small"
-                    startIcon={<DeleteIcon />}
-                    onClick={() => handleDelete(event._id)}
-                  >
-                    Delete
-                  </Button>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+                  
+                  <Stack direction="row" spacing={0.5}>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      startIcon={<EditIcon sx={{ fontSize: '1rem' }} />}
+                      onClick={() => handleOpenDialog(event)}
+                      sx={{ minWidth: 0, px: 1 }}
+                    >
+                      Edit
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      color="error"
+                      size="small"
+                      startIcon={<DeleteIcon sx={{ fontSize: '1rem' }} />}
+                      onClick={() => handleDelete(event._id)}
+                      sx={{ minWidth: 0, px: 1 }}
+                    >
+                      Delete
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
       
-      {events.length === 0 && (
+      {activeTab === 1 && (
+        <Box>
+          {loading ? (
+            <Typography>Loading registrations...</Typography>
+          ) : (
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                Event Registrations ({registrations.length})
+              </Typography>
+              {registrations.length === 0 ? (
+                <Typography color="text.secondary">No registrations found.</Typography>
+              ) : (
+                <Grid container spacing={2}>
+                  {registrations.map((reg) => (
+                    <Grid item xs={12} md={6} key={reg._id}>
+                      <Card sx={{ p: 2 }}>
+                        <Stack spacing={1}>
+                          <Typography variant="subtitle1" fontWeight={700}>
+                            {reg.event_title}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            Attendee: {reg.attendee_name || reg.user_name}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Email: {reg.attendee_email || reg.user_email}
+                          </Typography>
+                          {reg.attendee_phone && (
+                            <Typography variant="body2" color="text.secondary">
+                              Phone: {reg.attendee_phone}
+                            </Typography>
+                          )}
+                          <Typography variant="body2">
+                            Tickets: {reg.quantity}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Registered by: {reg.user_name} ({reg.user_email})
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Registration Date: {new Date(reg.registration_date).toLocaleString()}
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} color="success.main">
+                            Status: {reg.status}
+                          </Typography>
+                        </Stack>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              )}
+            </Box>
+          )}
+        </Box>
+      )}
+      
+      {activeTab === 0 && events.length === 0 && (
         <Typography textAlign="center" color="text.secondary" sx={{ py: 8 }}>
           No events found. Create your first event!
         </Typography>
@@ -349,17 +422,6 @@ const EventManagement = () => {
               onChange={handleChange}
               fullWidth
               required
-            />
-            
-            <TextField
-              label="Price (₹)"
-              type="number"
-              name="price"
-              value={formData.price}
-              onChange={handleChange}
-              fullWidth
-              required
-              inputProps={{ min: 0, step: 0.01 }}
             />
             
             <TextField

@@ -28,7 +28,7 @@ const HerbalRemedies = () => {
           name: remedy.name,
           category: remedy.category,
           description: remedy.description,
-          image: remedy.imageUrl,
+          image: remedy.imageUrl || '', // Ensure we're using the correct field
           // Additional remedy-specific fields can be added here if needed
         }));
         
