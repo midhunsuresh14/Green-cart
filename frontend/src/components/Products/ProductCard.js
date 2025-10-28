@@ -163,7 +163,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
               onClick={() => onViewDetails && onViewDetails(product)}
             >
               <span className="material-icons">visibility</span>
-              <span>View Details</span>
+              <span>View</span>
             </button>
             <button
               className={`overlay-btn primary ${!stockInfo.inStock ? 'disabled' : ''}`}
@@ -174,7 +174,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
               disabled={!stockInfo.inStock}
             >
               <span className="material-icons">shopping_cart</span>
-              <span>Add to Cart</span>
+              <span>Add</span>
             </button>
           </div>
         </div>

@@ -400,11 +400,7 @@ html {
   padding-top: 75%; /* 4:3 Aspect Ratio for consistent card heights */
   overflow: hidden;
   cursor: pointer;
-<<<<<<< HEAD
   background-color: #f3f4f6;
-=======
-  height: 220px; /* Fixed height for consistent image display */
->>>>>>> 225058ed6cf36c4365de8c06ec549fffd5702c0e
 }
 
 .product-image {
@@ -431,14 +427,9 @@ html {
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
-<<<<<<< HEAD
   backdrop-filter: blur(8px);
   z-index: 5;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-=======
-  backdrop-filter: blur(4px);
-  z-index: 2;
->>>>>>> 225058ed6cf36c4365de8c06ec549fffd5702c0e
 }
 
 /* Stock Badge */
@@ -477,7 +468,6 @@ html {
   transform: translateY(10px);
   transition: opacity 200ms ease, transform 200ms ease;
   pointer-events: none;
-  z-index: 3;
 }
 
 .product-card:hover .hover-overlay {
@@ -498,11 +488,7 @@ html {
   align-items: center;
   justify-content: center;
   gap: 6px;
-<<<<<<< HEAD
   padding: 12px 20px;
-=======
-  padding: 12px 16px;
->>>>>>> 225058ed6cf36c4365de8c06ec549fffd5702c0e
   border-radius: 10px;
   border: 1px solid var(--gc-gray-200);
   background: rgba(255, 255, 255, 0.98);

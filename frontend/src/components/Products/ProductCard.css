@@ -18,11 +18,7 @@
 .product-image-container {
   position: relative;
   width: 100%;
-<<<<<<< HEAD
   padding-top: 75%; /* 4:3 Aspect Ratio for consistent card heights */
-=======
-  height: 220px; /* Fixed height for consistent image display */
->>>>>>> 225058ed6cf36c4365de8c06ec549fffd5702c0e
   overflow: hidden;
   background-color: #f3f4f6;
 }
