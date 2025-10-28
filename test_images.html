@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .image-test {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .image-test img {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            margin-right: 15px;
+            border-radius: 4px;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background: #4caf50; color: white; }
+        .status.error { background: #f44336; color: white; }
+        .status.loading { background: #ff9800; color: white; }
+        pre {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🖼️ Image Loading Diagnostics</h1>
+
+    <div class="test-section">
+        <h2>1. API Response Test</h2>
+        <div id="api-test">
+            <p class="status loading">Loading API data...</p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. Direct Image Loading Test</h2>
+        <div id="image-tests"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. Raw API Response</h2>
+        <pre id="raw-response">Loading...</pre>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5000/api';
+
+        // Test API fetch
+        async function testAPI() {
+            try {
+                console.log('Fetching products from:', `${API_URL}/products`);
+                const response = await fetch(`${API_URL}/products`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const products = await response.json();
+                console.log('Products received:', products);
+                
+                // Display raw response
+                document.getElementById('raw-response').textContent = JSON.stringify(products.slice(0, 3), null, 2);
+                
+                // Update API test status
+                document.getElementById('api-test').innerHTML = `
+                    <p class="status success">✓ API Connected Successfully</p>
+                    <p>Received ${products.length} products</p>
+                `;
+                
+                // Test each product's image
+                const imageTestsDiv = document.getElementById('image-tests');
+                imageTestsDiv.innerHTML = '';
+                
+                products.slice(0, 5).forEach((product, index) => {
+                    const imageUrl = product.imageUrl || product.image || '';
+                    const testDiv = document.createElement('div');
+                    testDiv.className = 'image-test';
+                    testDiv.id = `test-${index}`;
+                    
+                    testDiv.innerHTML = `
+                        <img 
+                            src="${imageUrl}" 
+                            alt="${product.name}"
+                            onload="imageLoaded(${index})"
+                            onerror="imageError(${index}, '${imageUrl}')"
+                        >
+                        <div>
+                            <strong>${product.name}</strong><br>
+                            <small>${imageUrl}</small><br>
+                            <span class="status loading" id="status-${index}">Loading...</span>
+                        </div>
+                    `;
+                    
+                    imageTestsDiv.appendChild(testDiv);
+                });
+                
+            } catch (error) {
+                console.error('API Error:', error);
+                document.getElementById('api-test').innerHTML = `
+                    <p class="status error">✗ API Error: ${error.message}</p>
+                `;
+                document.getElementById('raw-response').textContent = `Error: ${error.message}`;
+            }
+        }
+
+        window.imageLoaded = function(index) {
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) {
+                statusEl.className = 'status success';
+                statusEl.textContent = '✓ Loaded';
+            }
+        };
+
+        window.imageError = function(index, url) {
+            const statusEl = document.getElementById(`status-${index}`);
+            if (statusEl) {
+                statusEl.className = 'status error';
+                statusEl.textContent = '✗ Failed to load';
+            }
+            console.error(`Image ${index} failed to load:`, url);
+        };
+
+        // Run test on page load
+        testAPI();
+    </script>
+</body>
+</html>
