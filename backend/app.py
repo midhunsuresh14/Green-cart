@@ -1,5 +1,4 @@
 from flask import Flask, request, jsonify, send_file, send_from_directory, make_response
-from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from pymongo import MongoClient
@@ -44,19 +43,8 @@ except ImportError:
     cloudinary.uploader = MockUploader()
     cloudinary.api = MockApi()
 
-# Load environment variables from the backend directory
-import os
-from pathlib import Path
-
-# Get the directory where app.py is located
-BASE_DIR = Path(__file__).resolve().parent
-env_path = BASE_DIR / '.env'
-
 # Load environment variables
-from dotenv import load_dotenv
-load_dotenv(dotenv_path=env_path)
-print(f"DEBUG: Loading .env from: {env_path}")
-print(f"DEBUG: .env file exists: {env_path.exists()}")
+load_dotenv()
 
 # Initialize Cloudinary only if available
 if CLOUDINARY_AVAILABLE:
@@ -200,20 +188,10 @@ app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'greencart-secret-key-2024-se
 # Razorpay configuration
 RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')
-print(f"DEBUG: RAZORPAY_KEY_ID loaded: {'Yes' if RAZORPAY_KEY_ID else 'No'}")
-print(f"DEBUG: RAZORPAY_KEY_SECRET loaded: {'Yes' if RAZORPAY_KEY_SECRET else 'No'}")
 try:
     import razorpay
-    print("DEBUG: Razorpay module imported successfully")
-    if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
-        razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
-        print("DEBUG: Razorpay client initialized successfully")
-        print(f"DEBUG: Razorpay client has 'order' attribute: {hasattr(razorpay_client, 'order')}")
-    else:
-        razorpay_client = None
-        print("DEBUG: Razorpay credentials not found, client set to None")
-except Exception as e:
-    print(f"DEBUG: Razorpay initialization failed: {e}")
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET)) if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET else None
+except Exception:
     razorpay = None
     razorpay_client = None
 
