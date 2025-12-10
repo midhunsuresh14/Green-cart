@@ -10,13 +10,13 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
   useEffect(() => {
     const fetchStockInfo = async () => {
       if (!product.id && !product._id) return;
-      
+
       setLoadingStock(true);
       try {
         const productId = product.id || product._id;
         const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
         const response = await fetch(`${apiBase}/products/${productId}/stock`);
-        
+
         if (response.ok) {
           const data = await response.json();
           setStockInfo({
@@ -44,7 +44,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
 
   const stockStatus = getStockStatus(stockInfo.stock);
   const isOutOfStock = !stockInfo.inStock;
-  
+
   // Get base URL for API requests
   const getBaseUrl = () => {
     return process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000';
@@ -53,17 +53,17 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
   // Handle image URL construction and fallback
   const getImageUrl = (imagePath) => {
     if (!imagePath) return '/images/placeholder-product.jpg';
-    
+
     // If it's already a full URL, return as is
     if (imagePath.startsWith('http') || imagePath.startsWith('blob:')) {
       return imagePath;
     }
-    
+
     // If it starts with /uploads, it's from the backend
     if (imagePath.startsWith('/uploads/')) {
       return `${getBaseUrl()}${imagePath}`;
     }
-    
+
     // Default case - assume it's a local path
     return imagePath;
   };
@@ -90,7 +90,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: 1 })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
@@ -105,47 +105,73 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
     onAddToCart(product);
   };
 
+  // Handle Buy Now
+  const handleBuyNow = () => {
+    onAddToCart(product);
+    // You might want to navigate to checkout here
+    // navigate('/checkout'); 
+  };
+
   return (
-    <div className="product-card">
-      <div className="product-image-container">
+    <div className="product-card group">
+      <div className="product-image-wrapper">
         <Link to={`/pdp/${product.id}`} onClick={() => onViewDetails(product)}>
-          {/* Fix: Use the correct image property and ensure it shows the actual uploaded image */}
-          <img 
-            src={getImageUrl(product.imageUrl || product.image_url || product.image)} 
+          <img
+            src={getImageUrl(product.imageUrl || product.image_url || product.image)}
             alt={product.name}
             onError={handleImageError}
             className="product-image"
             loading="lazy"
           />
         </Link>
-        {!loadingStock && (
-          <div className={`stock-badge ${stockStatus.className}`}>
-            {stockStatus.text}
-          </div>
-        )}
-        <button 
-          className={`wishlist-btn ${isInWishlist ? 'in-wishlist' : ''}`}
+        <button
+          className={`wishlist-icon-btn ${isInWishlist ? 'active' : ''}`}
           onClick={() => onToggleWishlist(product)}
-          aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
         >
-          ♥
+          <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
         </button>
       </div>
-      <div className="product-details">
-        <h3 className="product-name">
-          <Link to={`/pdp/${product.id}`} onClick={() => onViewDetails(product)}>
-            {product.name}
+
+      <div className="product-content">
+        <div className="product-header">
+          <Link to={`/pdp/${product.id}`} className="product-title-link">
+            <h3 className="product-title">{product.name}</h3>
           </Link>
-        </h3>
-        <p className="product-description">{product.description?.substring(0, 60)}...</p>
-        <div className="product-footer">
-          <span className="product-price">₹{product.price?.toFixed(2)}</span>
-          <button 
-            className={`add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}`} 
+          <div className="product-rating">
+            <div className="stars">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span key={star} className="material-icons star-icon">star</span>
+              ))}
+            </div>
+            <span className="rating-text">4.8 (120)</span>
+          </div>
+        </div>
+
+        <div className="product-price-section">
+          <span className="current-price">₹{product.price?.toLocaleString()}</span>
+        </div>
+
+        {!loadingStock && (
+          <div className={`stock-status-pill ${stockStatus.className}`}>
+            {stockStatus.text}: {stockInfo.stock}
+          </div>
+        )}
+
+        <div className="product-actions">
+          <button
+            className="action-btn buy-now-btn"
+            onClick={handleBuyNow}
+            disabled={isOutOfStock}
+          >
+            Buy Now
+          </button>
+          <button
+            className="action-btn add-cart-btn"
             onClick={handleAddToCart}
             disabled={isOutOfStock}
           >
-            {isOutOfStock ? 'Out of Stock' : 'Add to Cart'}
+            <span className="material-icons btn-icon">shopping_cart</span>
+            Add to Cart
           </button>
         </div>
       </div>

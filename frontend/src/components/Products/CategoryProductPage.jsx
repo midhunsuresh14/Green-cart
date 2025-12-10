@@ -16,7 +16,7 @@ const SORT_OPTIONS = [
 const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wishlistItems = [], user }) => {
   const { categoryKey } = useParams();
   const decodedCategoryKey = decodeURIComponent(categoryKey || '');
-  
+
   // UI state
   const [selectedSubcategory, setSelectedSubcategory] = useState('All');
   const [sortBy, setSortBy] = useState('popularity');
@@ -37,26 +37,26 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
   // Load categories and products
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
-        
+
         // Fetch categories
         const categoryData = await fetchCategories();
         if (isMounted) {
           setCategories(categoryData);
         }
-        
+
         // Fetch products
         const base = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
         const res = await fetch(`${base}/products`);
-        
+
         if (!res.ok) {
           throw new Error(`Failed to fetch products: ${res.status} ${res.statusText}`);
         }
-        
+
         const data = await res.json();
         if (isMounted) {
           setRemoteProducts(data);
@@ -75,17 +75,17 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
 
     loadData();
 
-    return () => { 
-      isMounted = false; 
+    return () => {
+      isMounted = false;
     };
   }, []);
 
   // Get current category data
   const currentCategory = categories.find(cat => cat.key === decodedCategoryKey) || null;
-  
+
   // Get subcategories for current category
   const subcategories = currentCategory?.children || [];
-  
+
   // Filter products based on category, subcategory, search query, and other filters
   const filteredProducts = useMemo(() => {
     let items = Array.isArray(remoteProducts) ? [...remoteProducts] : [];
@@ -103,7 +103,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      items = items.filter((p) => 
+      items = items.filter((p) =>
         (p.name && p.name.toLowerCase().includes(query)) ||
         (p.description && p.description.toLowerCase().includes(query)) ||
         (p.category && p.category.toLowerCase().includes(query)) ||
@@ -184,7 +184,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
   }
 
   return (
-    <motion.div 
+    <motion.div
       className="category-product-page"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -192,7 +192,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
     >
       <div className="max-w-7xl mx-auto">
         {/* Breadcrumb */}
-        <motion.nav 
+        <motion.nav
           className="category-breadcrumb"
           initial={{ y: -10, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -204,7 +204,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
         </motion.nav>
 
         {/* Header */}
-        <motion.header 
+        <motion.header
           className="category-header"
           initial={{ y: -20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
@@ -227,24 +227,11 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
           </div>
         </motion.header>
 
-        {/* Search Bar */}
-        <motion.div
-          className="search-section mb-6"
-          initial={{ y: -10, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        >
-          <SearchBar
-            placeholder={`Search in ${currentCategory?.name || decodedCategoryKey}...`}
-            onSearch={setSearchQuery}
-            className="max-w-md mx-auto"
-            size="medium"
-          />
-        </motion.div>
+
 
         <div className="category-layout">
           {/* Filters Sidebar */}
-          <motion.aside 
+          <motion.aside
             className="filters-sidebar"
             initial={{ x: -20, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
@@ -252,7 +239,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
           >
             <div className="filters-header">
               <h3>Filters</h3>
-              <button 
+              <button
                 className="toggle-filters-btn"
                 onClick={() => setIsMobileFiltersOpen(!isMobileFiltersOpen)}
               >
@@ -261,6 +248,17 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
             </div>
 
             <div className={`filters-content ${isMobileFiltersOpen ? 'open' : ''}`}>
+              {/* Search in Sidebar */}
+              <div className="filters-section">
+                <h4>Search Products</h4>
+                <SearchBar
+                  placeholder="Search products..."
+                  onSearch={setSearchQuery}
+                  className="w-full"
+                  size="small"
+                />
+              </div>
+
               {/* Subcategory Filter */}
               {subcategories.length > 0 && (
                 <div className="filters-section">
@@ -331,8 +329,8 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
               {/* Sort By */}
               <div className="filters-section">
                 <h4>Sort By</h4>
-                <select 
-                  value={sortBy} 
+                <select
+                  value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="sort-select"
                 >
@@ -345,7 +343,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
           </motion.aside>
 
           {/* Products Grid */}
-          <motion.section 
+          <motion.section
             className="products-area"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -353,7 +351,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
           >
             <AnimatePresence mode="wait">
               {filteredProducts.length === 0 ? (
-                <motion.div 
+                <motion.div
                   className="no-products"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -370,7 +368,7 @@ const CategoryProductPage = ({ onAddToCart, onViewDetails, onToggleWishlist, wis
                   </motion.button>
                 </motion.div>
               ) : (
-                <motion.div 
+                <motion.div
                   className="products-grid"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

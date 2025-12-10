@@ -247,9 +247,32 @@ export default function HomeMUI() {
                             <Box sx={{ 
                                 position: 'relative',
                                 overflow: 'hidden',
-                                height: 380,
-                                borderRadius: 3,
-                                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                                height: 400,
+                                width: '100%',
+                                maskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+                                WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%)',
+                                '&::before': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: '250px',
+                                    background: 'linear-gradient(to right, rgb(250, 250, 250) 0%, rgba(250, 250, 250, 0.95) 15%, rgba(250, 250, 250, 0.7) 40%, transparent 100%)',
+                                    zIndex: 2,
+                                    pointerEvents: 'none'
+                                },
+                                '&::after': {
+                                    content: '""',
+                                    position: 'absolute',
+                                    right: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: '250px',
+                                    background: 'linear-gradient(to left, rgb(250, 250, 250) 0%, rgba(250, 250, 250, 0.95) 15%, rgba(250, 250, 250, 0.7) 40%, transparent 100%)',
+                                    zIndex: 2,
+                                    pointerEvents: 'none'
+                                }
                             }}>
                                 <Stack 
                                     direction="row" 
@@ -268,75 +291,66 @@ export default function HomeMUI() {
                                                 transform: 'translateX(0)'
                                             },
                                             '100%': {
-                                                transform: `translateX(-${(slideshowProducts.length * 300) - 1200}px)`
+                                                transform: `translateX(-${(slideshowProducts.length * 320) - 1200}px)`
                                             }
                                         }
                                     }}
                                 >
                                     {[...slideshowProducts, ...slideshowProducts].map((product, index) => (
-                                        <Card 
-                                            key={`${product.id}-${index}`} 
-                                            sx={{ 
-                                                width: 280,
-                                                height: 350,
-                                                borderRadius: 3, 
-                                                boxShadow: 3, 
+                                        <Box
+                                            key={`${product.id}-${index}`}
+                                            component={RouterLink}
+                                            to={`/pdp/${product.id}`}
+                                            sx={{
+                                                width: 300,
+                                                height: 400,
+                                                borderRadius: 3,
+                                                overflow: 'hidden',
                                                 mx: 1,
-                                                display: 'flex',
-                                                flexDirection: 'column',
+                                                cursor: 'pointer',
+                                                position: 'relative',
                                                 transition: 'all 0.3s ease',
+                                                opacity: 0.9,
                                                 '&:hover': {
-                                                    transform: 'translateY(-8px)',
-                                                    boxShadow: '0 12px 24px rgba(0,0,0,0.15)'
+                                                    transform: 'scale(1.05)',
+                                                    boxShadow: '0 12px 24px rgba(0,0,0,0.2)',
+                                                    opacity: 1,
+                                                    zIndex: 1,
+                                                    '&::after': {
+                                                        opacity: 0.1
+                                                    }
+                                                },
+                                                '&::after': {
+                                                    content: '""',
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    right: 0,
+                                                    bottom: 0,
+                                                    background: 'linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.3) 100%)',
+                                                    opacity: 0,
+                                                    transition: 'opacity 0.3s ease',
+                                                    pointerEvents: 'none'
                                                 }
                                             }}
                                         >
-                                            <CardMedia
+                                            <Box
                                                 component="img"
-                                                height="180"
-                                                image={getPrimaryImageUrl(product)}
+                                                src={getPrimaryImageUrl(product)}
                                                 alt={product.name}
-                                                sx={{ objectFit: 'cover' }}
+                                                sx={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    objectFit: 'cover',
+                                                    display: 'block',
+                                                    filter: 'brightness(1)',
+                                                    transition: 'filter 0.3s ease'
+                                                }}
                                                 onError={(e) => {
                                                     e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=300&q=60';
                                                 }}
                                             />
-                                            <CardContent sx={{ 
-                                                pb: 2,
-                                                flexGrow: 1,
-                                                display: 'flex',
-                                                flexDirection: 'column'
-                                            }}>
-                                                <Typography variant="subtitle1" fontWeight={600} noWrap>
-                                                    {product.name}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary" noWrap sx={{ my: 1, flexGrow: 1 }}>
-                                                    {product.description}
-                                                </Typography>
-                                                <Stack direction="row" alignItems="center" spacing={1} sx={{ my: 1 }}>
-                                                    <Typography variant="body2" color="warning.main">
-                                                        ★ {product.rating || 0}
-                                                    </Typography>
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        ({product.reviews || 0} reviews)
-                                                    </Typography>
-                                                </Stack>
-                                                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                                    <Typography variant="h6" color="primary.main">
-                                                        {formatINR(product.price)}
-                                                    </Typography>
-                                                    <Button 
-                                                        component={RouterLink} 
-                                                        to={`/pdp/${product.id}`}
-                                                        variant="contained" 
-                                                        color="primary" 
-                                                        size="small"
-                                                    >
-                                                        View
-                                                    </Button>
-                                                </Stack>
-                                            </CardContent>
-                                        </Card>
+                                        </Box>
                                     ))}
                                 </Stack>
                             </Box>

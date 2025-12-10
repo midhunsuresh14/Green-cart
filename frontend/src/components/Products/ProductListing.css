@@ -29,9 +29,20 @@
   padding-bottom: 4rem; /* Extra space for footer */
 }
 
-/* Smooth scrolling */
+/* Smooth scrolling with performance optimizations */
 html {
   scroll-behavior: smooth;
+}
+
+/* Performance optimizations for scrolling */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.products-page {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Breadcrumb */
@@ -248,13 +259,16 @@ html {
   background: var(--gc-card);
   border: 1px solid var(--gc-gray-200);
   border-radius: 12px;
-  padding: 0.75rem 1rem;
+  padding: 1rem 1.25rem;
   box-shadow: var(--gc-shadow);
   margin-bottom: 1rem;
   position: sticky;
   top: 64px; /* Height of navbar */
   z-index: 100;
   transition: box-shadow 0.3s ease;
+  will-change: box-shadow;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .topbar.sticky {
@@ -262,16 +276,34 @@ html {
 }
 
 .topbar-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.topbar-section {
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
   align-items: center;
 }
 
+.topbar-section:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-section:last-child {
+  flex-shrink: 0;
+}
+
 .topbar-row {
   display: flex;
   gap: 0.75rem;
   align-items: center;
+  white-space: nowrap;
 }
 
 .topbar label {
@@ -326,6 +358,7 @@ html {
 .products-area {
   display: grid;
   gap: 1rem;
+  will-change: scroll-position;
 }
 
 .product-grid {
@@ -333,6 +366,7 @@ html {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.5rem;
   align-items: stretch; /* make grid items equal height */
+  contain: layout style paint;
 }
 
 /* Product card */
@@ -346,6 +380,8 @@ html {
   height: 100%; /* stretch to match grid row height */
   transition: transform 200ms ease, box-shadow 200ms ease;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  will-change: transform;
+  contain: layout style paint;
 }
 
 .product-card:hover {
@@ -777,6 +813,17 @@ html {
   justify-content: center;
 }
 
+.reset-btn {
+  background: var(--gc-gray-100);
+  color: var(--gc-text);
+  border-color: var(--gc-gray-300);
+}
+
+.reset-btn:hover {
+  background: var(--gc-gray-200);
+  border-color: var(--gc-gray-400);
+}
+
 .page-btn:hover {
   background: var(--gc-gray-150);
   border-color: var(--gc-gray-500);
@@ -838,7 +885,13 @@ html {
   }
 
   .topbar-controls {
+    grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  .topbar-section {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .checkbox-group {
@@ -861,8 +914,14 @@ html {
   }
 
   .topbar-controls {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .topbar-section {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    width: 100%;
     gap: 1rem;
   }
 
@@ -874,6 +933,10 @@ html {
   .topbar-row.checkbox-group {
     justify-content: flex-start;
     gap: 1.5rem;
+  }
+  
+  .topbar {
+    padding: 0.875rem 1rem;
   }
 
   .product-grid {

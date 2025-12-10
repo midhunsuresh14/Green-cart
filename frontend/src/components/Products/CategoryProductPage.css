@@ -39,12 +39,14 @@
 .search-section {
   display: flex;
   justify-content: center;
-  margin-bottom: 2rem;
+  margin-bottom: 3rem;
+  position: relative;
+  z-index: 10;
 }
 
 .search-section .search-bar {
   width: 100%;
-  max-width: 500px;
+  max-width: 600px;
 }
 
 .category-header-main {
@@ -55,9 +57,10 @@
 
 .category-header-main h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 800;
   color: #111827;
+  letter-spacing: -0.025em;
 }
 
 .category-header-main p {
@@ -78,43 +81,74 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.2rem;
   background: #2e7d32;
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-weight: 600;
+  font-size: 0.9rem;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
 }
 
 .reset-filters-btn:hover {
   background: #1b5e20;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(46, 125, 50, 0.3);
 }
 
 /* Layout */
 .category-layout {
   display: flex;
-  gap: 1.5rem;
+  gap: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 /* Filters Sidebar */
 .filters-sidebar {
   flex: 0 0 300px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border-radius: 20px;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.03);
   padding: 1.5rem;
   height: fit-content;
+  max-height: calc(100vh - 100px);
+  /* Ensure it fits in viewport */
+  overflow-y: auto;
+  /* Allow internal scrolling */
   position: sticky;
-  top: 1.5rem;
+  top: 84px;
+  /* Align nicely under fixed navbar (64px + 20px gap) */
+  transition: all 0.3s ease;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+/* Custom Scrollbar for Sidebar */
+.filters-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.filters-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.filters-sidebar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 20px;
 }
 
 .filters-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .filters-header h3 {
@@ -122,59 +156,65 @@
   font-size: 1.25rem;
   font-weight: 700;
   color: #111827;
-}
-
-.toggle-filters-btn {
-  display: none;
-  background: none;
-  border: none;
-  color: #6b7280;
-  cursor: pointer;
-  font-size: 1.25rem;
-}
-
-.filters-section {
-  margin-bottom: 1.5rem;
-}
-
-.filters-section:last-child {
-  margin-bottom: 0;
+  letter-spacing: -0.01em;
 }
 
 .filters-section h4 {
   margin: 0 0 1rem 0;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #374151;
+  color: #4b5563;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .subcategory-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
 }
 
 .subcategory-btn {
-  display: block;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   width: 100%;
-  text-align: left;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  background: transparent;
-  border: none;
-  color: #374151;
+  padding: 0.8rem 1.25rem;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #4b5563;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-weight: 500;
+  font-size: 0.95rem;
 }
 
 .subcategory-btn:hover {
-  background: #f3f4f6;
+  border-color: #2e7d32;
+  color: #2e7d32;
+  background: #f0fdf4;
+  transform: translateX(4px);
 }
 
 .subcategory-btn.active {
-  background: #e8f5e9;
-  color: #2e7d32;
-  font-weight: 600;
+  background: #2e7d32;
+  border-color: #2e7d32;
+  color: white;
+  box-shadow: 0 4px 12px rgba(46, 125, 50, 0.2);
+}
+
+.subcategory-btn::after {
+  content: '→';
+  opacity: 0;
+  transition: all 0.2s ease;
+  transform: translateX(-5px);
+}
+
+.subcategory-btn:hover::after,
+.subcategory-btn.active::after {
+  opacity: 1;
+  transform: translateX(0);
 }
 
 .price-range {
@@ -341,7 +381,7 @@
   .category-header-main h1 {
     font-size: 1.75rem;
   }
-  
+
   /* Ensure mobile product cards have proper image sizing */
   .product-card .product-image-container {
     height: 200px;

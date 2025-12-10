@@ -49,7 +49,7 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
 
   return (
     <>
-      <AppBar position="sticky" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
+      <AppBar position="fixed" color="inherit" elevation={0} sx={{ borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.paper', zIndex: (theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
           <Stack direction="row" spacing={1.5} alignItems="center" component={RouterLink} to="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: 'primary.main', color: 'primary.contrastText', display: 'grid', placeItems: 'center', fontWeight: 800 }}>G</Box>
@@ -60,10 +60,10 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
             {links.map((l) => (
               <Button key={l.to} component={RouterLink} to={l.to} color="inherit">{l.label}</Button>
             ))}
-            <IconButton 
-              onClick={() => onOpenCart && onOpenCart()} 
-              color="inherit" 
-              aria-label="Cart" 
+            <IconButton
+              onClick={() => onOpenCart && onOpenCart()}
+              color="inherit"
+              aria-label="Cart"
               sx={{ position: 'relative' }}
             >
               <ShoppingCartIcon />
@@ -114,9 +114,9 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
               )}
             </IconButton>
             {/* Add Feedback Icon Button */}
-            <IconButton 
-              onClick={() => onOpenFeedback && onOpenFeedback()} 
-              color="inherit" 
+            <IconButton
+              onClick={() => onOpenFeedback && onOpenFeedback()}
+              color="inherit"
               aria-label="Feedback"
             >
               <FeedbackIcon />
@@ -159,6 +159,7 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
           </IconButton>
         </Toolbar>
       </AppBar>
+      <Toolbar />
 
       <Drawer anchor="right" open={open} onClose={toggle(false)}>
         <Box sx={{ width: 280 }} role="presentation" onClick={toggle(false)}>
@@ -227,10 +228,10 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
 
       {/* Notifications Panel */}
       {user && (
-        <NotificationsPanel 
+        <NotificationsPanel
           user={user}
-          isOpen={notificationsOpen} 
-          onClose={closeNotifications} 
+          isOpen={notificationsOpen}
+          onClose={closeNotifications}
         />
       )}
     </>

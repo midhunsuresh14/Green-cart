@@ -72,11 +72,11 @@ const HerbalRemedies = () => {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#f8fdf8' }}>
-      {/* Hero Section - Removed the duplicate navbar */}
-      <section className="px-6 py-16" style={{ backgroundColor: '#7fb069' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#f5f7fa' }}>
+      {/* Hero Section */}
+      <section className="px-6 py-16" style={{ backgroundColor: '#2e7d32' }}>
         <div className="max-w-4xl mx-auto text-center text-white">
-          <h1 className="text-5xl font-light mb-4" style={{ fontFamily: 'serif' }}>
+          <h1 className="text-5xl font-bold mb-4">
             Herbal Remedies
           </h1>
           <p className="text-xl mb-8 opacity-90">
@@ -92,7 +92,7 @@ const HerbalRemedies = () => {
                 placeholder="Search remedies..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 rounded-full text-gray-700 text-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+                className="w-full pl-12 pr-4 py-4 rounded-full text-gray-700 text-lg focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 shadow-lg"
               />
             </div>
           </div>
@@ -100,7 +100,7 @@ const HerbalRemedies = () => {
       </section>
 
       {/* Category Filters */}
-      <section className="px-6 py-6" style={{ backgroundColor: '#f8fdf8' }}>
+      <section className="px-6 py-6" style={{ backgroundColor: '#f5f7fa' }}>
         <div className="max-w-6xl mx-auto">
           <div className="flex flex-wrap gap-3 justify-center">
             {categories.map((category) => {
@@ -112,9 +112,9 @@ const HerbalRemedies = () => {
                   className={`flex items-center gap-2 px-6 py-3 rounded-full font-medium transition-all duration-200 ${
                     isActive
                       ? 'text-white shadow-lg'
-                      : 'bg-white text-gray-700 hover:shadow-md border border-green-200 hover:border-green-300'
+                      : 'bg-white text-gray-700 hover:shadow-md border border-gray-200 hover:border-green-400'
                   }`}
-                  style={isActive ? { backgroundColor: '#7fb069' } : {}}
+                  style={isActive ? { backgroundColor: '#2e7d32' } : {}}
                 >
                   {category.name}
                 </button>
@@ -125,7 +125,7 @@ const HerbalRemedies = () => {
       </section>
 
       {/* Products Grid */}
-      <section className="px-6 py-8">
+      <section className="px-6 py-8" style={{ backgroundColor: '#f5f7fa' }}>
         <div className="max-w-6xl mx-auto">
           {loading ? (
             <div className="text-center py-12">
@@ -147,32 +147,55 @@ const HerbalRemedies = () => {
               <p className="text-gray-600">No remedies found. {searchQuery ? 'Try a different search term.' : 'Check back later for new remedies.'}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6" style={{ alignItems: 'stretch' }}>
               {filteredProducts.map((product) => (
                 <div
                   key={product.id}
-                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-lg transition-shadow duration-300"
+                  className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-200 flex flex-col"
+                  style={{ 
+                    transform: 'translateY(0)',
+                    height: '100%'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-8px)';
+                    e.currentTarget.style.borderColor = '#2e7d32';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.borderColor = '#e5e7eb';
+                  }}
                 >
-                  <div className="aspect-square overflow-hidden">
+                  <div className="aspect-square overflow-hidden bg-gray-100">
                     <img
                       src={product.image || 'https://via.placeholder.com/400x400?text=No+Image'}
                       alt={product.name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                      className="w-full h-full object-cover transition-transform duration-300"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'scale(1.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'scale(1)';
+                      }}
                     />
                   </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-gray-900 mb-1">
+                  <div className="p-5 flex flex-col flex-grow">
+                    <h3 className="font-semibold text-gray-900 mb-2 text-lg" style={{ minHeight: '3rem', lineHeight: '1.5' }}>
                       {product.name}
                     </h3>
                     {product.description && (
-                      <p className="text-sm text-gray-600 mb-4">
+                      <p className="text-sm text-gray-600 mb-4 flex-grow line-clamp-2" style={{ 
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}>
                         {product.description}
                       </p>
                     )}
                     <button
-                      onClick={() => handleViewRemedy(product.id)} // Update button to use handleViewRemedy
-                      className="w-full py-2 px-4 rounded-full font-medium text-white transition-colors duration-200 hover:opacity-90 shadow-md hover:shadow-lg"
-                      style={{ backgroundColor: '#7fb069' }}
+                      onClick={() => handleViewRemedy(product.id)}
+                      className="w-full py-2.5 px-4 rounded-lg font-medium text-white transition-all duration-200 hover:opacity-90 shadow-md hover:shadow-lg mt-auto"
+                      style={{ backgroundColor: '#2e7d32' }}
                     >
                       View Remedy
                     </button>

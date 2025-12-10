@@ -35,7 +35,17 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:login": "playwright test tests/login.spec.js",
+    "test:e2e:signup": "playwright test tests/signup.spec.js",
+    "test:e2e:cart": "playwright test tests/shopping-cart.spec.js",
+    "test:e2e:products": "playwright test tests/product-browsing.spec.js",
+    "test:e2e:wishlist": "playwright test tests/wishlist.spec.js",
+    "test:e2e:all": "playwright test tests/"
   },
   "eslintConfig": {
     "extends": [

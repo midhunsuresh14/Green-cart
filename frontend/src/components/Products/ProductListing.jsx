@@ -183,26 +183,36 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
   // Get all subcategories for the selected category
   const currentSubcategories = categories.find(cat => cat.key === selectedCategory)?.children || [];
 
-  // Scroll to top functionality
+  // Scroll to top functionality with throttling for performance
   const [showScrollTop, setShowScrollTop] = useState(false);
   const topbarRef = useRef(null);
+  const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
+    let ticking = false;
+    
     const handleScroll = () => {
-      const scrollPosition = window.scrollY;
-      setShowScrollTop(scrollPosition > 300);
-      
-      // Add sticky class to topbar when scrolled
-      if (topbarRef.current) {
-        if (scrollPosition > 100) {
-          topbarRef.current.classList.add('sticky');
-        } else {
-          topbarRef.current.classList.remove('sticky');
-        }
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const scrollPosition = window.scrollY;
+          setShowScrollTop(scrollPosition > 300);
+          
+          // Add sticky class to topbar when scrolled
+          if (topbarRef.current) {
+            if (scrollPosition > 100) {
+              topbarRef.current.classList.add('sticky');
+            } else {
+              topbarRef.current.classList.remove('sticky');
+            }
+          }
+          
+          ticking = false;
+        });
+        ticking = true;
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -363,54 +373,58 @@ export default function ProductListing({ onAddToCart, onViewDetails, onToggleWis
         </aside>
       )}
 
-      {/* Main content */}
+        {/* Main content */}
       <section className="products-area">
         <div className="topbar" ref={topbarRef}>
           <div className="topbar-controls">
-            <div className="topbar-row">
-              <label htmlFor="sort">Sort by</label>
-              <select id="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            </div>
+            <div className="topbar-section">
+              <div className="topbar-row">
+                <label htmlFor="sort">Sort by</label>
+                <select id="sort" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+                  {SORT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
 
-            <div className="topbar-row price-range">
-              <label htmlFor="price">Price up to</label>
-              <input
-                id="price"
-                type="range"
-                min="0"
-                max="1000"
-                step="50"
-                value={priceMax}
-                onChange={(e) => setPriceMax(Number(e.target.value))}
-              />
-              <span className="value">₹{priceMax}</span>
-            </div>
-
-            <div className="topbar-row checkbox-group">
-              <label>
+              <div className="topbar-row price-range">
+                <label htmlFor="price">Price up to</label>
                 <input
-                  type="checkbox"
-                  checked={filters.inStock}
-                  onChange={() => toggleFilter('inStock')}
+                  id="price"
+                  type="range"
+                  min="0"
+                  max="1000"
+                  step="50"
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(Number(e.target.value))}
                 />
-                In Stock
-              </label>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={filters.discount}
-                  onChange={() => toggleFilter('discount')}
-                />
-                Discount
-              </label>
+                <span className="value">₹{priceMax}</span>
+              </div>
             </div>
 
-            <div className="topbar-row">
-              <button className="page-btn" onClick={resetFilters}>Reset</button>
+            <div className="topbar-section">
+              <div className="topbar-row checkbox-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={filters.inStock}
+                    onChange={() => toggleFilter('inStock')}
+                  />
+                  In Stock
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={filters.discount}
+                    onChange={() => toggleFilter('discount')}
+                  />
+                  Discount
+                </label>
+              </div>
+
+              <div className="topbar-row">
+                <button className="page-btn reset-btn" onClick={resetFilters}>Reset</button>
+              </div>
             </div>
           </div>
         </div>
