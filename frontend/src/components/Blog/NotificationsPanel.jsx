@@ -8,16 +8,21 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
-    if (isOpen && user) {
+    if (isOpen && user && !authError) {
       fetchNotifications();
-      
-      // Poll for new notifications every 5 seconds
-      const interval = setInterval(fetchNotifications, 5000);
+
+      // Poll for new notifications every 5 seconds (only if no auth error)
+      const interval = setInterval(() => {
+        if (!authError) {
+          fetchNotifications();
+        }
+      }, 5000);
       return () => clearInterval(interval);
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, authError]);
 
   const fetchNotifications = async () => {
     try {
@@ -25,8 +30,19 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
       const response = await getBlogNotifications();
       setNotifications(response.notifications || []);
       setError(null);
+      setAuthError(false); // Reset auth error on success
     } catch (err) {
       console.error('Error fetching notifications:', err);
+
+      // Check if it's an authentication error
+      const errorMessage = err.message || err.toString();
+      if (errorMessage.includes('401') || errorMessage.includes('Token has expired') || errorMessage.includes('UNAUTHORIZED')) {
+        setError('Session expired. Please log in again.');
+        setAuthError(true); // Set auth error flag to stop polling
+        setNotifications([]);
+        return; // Exit early to prevent further retries
+      }
+
       setError('Failed to load notifications');
     } finally {
       setLoading(false);
@@ -36,7 +52,7 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
   const handleMarkAsRead = async (notifId) => {
     try {
       await markBlogNotificationRead(notifId);
-      setNotifications(notifications.map(notif => 
+      setNotifications(notifications.map(notif =>
         notif._id === notifId ? { ...notif, read: true } : notif
       ));
     } catch (err) {
@@ -49,7 +65,7 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
       // Mark all unread notifications as read
       const unreadNotifications = notifications.filter(n => !n.read);
       await Promise.all(unreadNotifications.map(notif => markBlogNotificationRead(notif._id)));
-      
+
       // Update the state to mark all as read
       setNotifications(notifications.map(notif => ({ ...notif, read: true })));
     } catch (err) {
@@ -148,7 +164,7 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
                 </Link>
                 <div className="notification-actions">
                   {!notification.read && (
-                    <button 
+                    <button
                       className="mark-read-btn"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -159,7 +175,7 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
                       <span className="material-icons">done</span>
                     </button>
                   )}
-                  <button 
+                  <button
                     className="delete-notification-btn"
                     onClick={(e) => {
                       e.stopPropagation();
@@ -180,9 +196,3 @@ const NotificationsPanel = ({ user, isOpen, onClose }) => {
 };
 
 export default NotificationsPanel;
-
-
-
-
-
-

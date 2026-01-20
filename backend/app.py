@@ -16,6 +16,7 @@ import redis
 import json
 import openai  # Add OpenAI import
 import base64
+import requests
 
 # Conditional import for cloudinary
 try:
@@ -44,7 +45,10 @@ except ImportError:
     cloudinary.api = MockApi()
 
 # Load environment variables
-load_dotenv()
+# Get the directory where this script is located
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(backend_dir, '.env')
+load_dotenv(env_path)  # Explicitly load from backend directory
 
 # Initialize Cloudinary only if available
 if CLOUDINARY_AVAILABLE:
@@ -181,6 +185,7 @@ notifications_collection = db.notifications
 otp_collection = db.otp_verifications
 categories_collection = db.categories
 remedy_categories_collection = db.remedy_categories
+crops_collection = db.crop_suitability
 
 # JWT Configuration
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'greencart-secret-key-2024-secure-jwt-token')
@@ -2328,6 +2333,183 @@ def upload_to_cloudinary():
         else:
             return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
+# Plant Identification Endpoint using PlantNet API
+@app.route('/api/plant/identify', methods=['POST'])
+def identify_plant():
+    try:
+        import requests
+        from io import BytesIO
+        
+        data = request.get_json()
+        
+        # Check if image data is provided
+        if not data or 'image' not in data:
+            return jsonify({'error': 'No image data provided'}), 400
+        
+        image_data = data['image']
+        
+        # Check if image data is base64 string
+        if not isinstance(image_data, str) or not image_data.startswith('data:image'):
+            return jsonify({'error': 'Invalid image format. Expected base64 string.'}), 400
+        
+        # Extract base64 data (remove data:image/...;base64, prefix)
+        base64_data = image_data.split(',')[1] if ',' in image_data else image_data
+        
+        # Decode base64 to bytes
+        try:
+            image_bytes = base64.b64decode(base64_data)
+        except Exception as e:
+            return jsonify({'error': f'Invalid base64 data: {str(e)}'}), 400
+        
+        # Get PlantNet API key from environment (REQUIRED)
+        plantnet_api_key = os.getenv('PLANTNET_API_KEY', '').strip()
+        
+        # Check if API key is provided
+        if not plantnet_api_key:
+            return jsonify({
+                'error': 'PlantNet API key is not configured. Please set PLANTNET_API_KEY in your environment variables. Get a free API key at https://my.plantnet.org/',
+                'status_code': 500
+            }), 500
+        
+        # Prepare PlantNet API request
+        # PlantNet API endpoint
+        plantnet_url = 'https://my-api.plantnet.org/v2/identify'
+        
+        # Use 'all' as the project (includes all available plant databases)
+        # You can also use specific projects like 'weurope', 'europe', 'usa', etc.
+        project = data.get('project', 'all')
+        
+        # Prepare multipart form data
+        files = {
+            'images': ('plant.jpg', BytesIO(image_bytes), 'image/jpeg')
+        }
+        
+        params = {
+            'include-related-images': 'false',
+            'no-reject': 'false',
+            'lang': 'en',
+            'type': 'kt',  # kt = kind of (plant type)
+            'api-key': plantnet_api_key  # API key as query parameter
+        }
+        
+        # Don't set Content-Type header - requests library will set it automatically
+        # with the correct boundary for multipart/form-data
+        headers = {}
+        
+        # Make request to PlantNet API
+        response = requests.post(
+            f'{plantnet_url}/{project}',
+            files=files,
+            params=params,
+            headers=headers,
+            timeout=30
+        )
+        
+        if response.status_code == 401:
+            error_msg = 'PlantNet API authentication failed. Please check your PLANTNET_API_KEY in environment variables.'
+            try:
+                error_data = response.json()
+                if 'message' in error_data:
+                    error_msg = f'Authentication error: {error_data["message"]}'
+            except:
+                pass
+            
+            return jsonify({
+                'error': error_msg,
+                'status_code': 401,
+                'help': 'Get a free API key at https://my.plantnet.org/'
+            }), 401
+        
+        if response.status_code != 200:
+            error_msg = f'PlantNet API error: {response.status_code}'
+            try:
+                error_data = response.json()
+                error_msg = error_data.get('message', error_data.get('error', error_msg))
+            except:
+                error_msg = response.text or error_msg
+            
+            return jsonify({
+                'error': error_msg,
+                'status_code': response.status_code
+            }), 500
+        
+        plantnet_data = response.json()
+        
+        # Debug: Print the response structure
+        print(f"PlantNet API response keys: {plantnet_data.keys() if isinstance(plantnet_data, dict) else 'Not a dict'}")
+        
+        # Process PlantNet response
+        results = []
+        if 'results' in plantnet_data and isinstance(plantnet_data['results'], list):
+            for result in plantnet_data['results'][:5]:  # Top 5 results
+                try:
+                    species = result.get('species', {})
+                    if not isinstance(species, dict):
+                        species = {}
+                    
+                    score = result.get('score', 0)
+                    if not isinstance(score, (int, float)):
+                        score = 0
+                    
+                    # Get common names and scientific name
+                    common_names = species.get('commonNames', [])
+                    if not isinstance(common_names, list):
+                        common_names = []
+                    
+                    scientific_name = species.get('scientificNameWithoutAuthor', '') or species.get('scientificName', '')
+                    scientific_name_full = species.get('scientificNameAuthorship', '') or species.get('scientificName', '')
+                    
+                    # Get genus and family - handle nested structures safely
+                    genus = ''
+                    family = ''
+                    
+                    genus_obj = species.get('genus', {})
+                    if isinstance(genus_obj, dict):
+                        genus = genus_obj.get('scientificNameWithoutAuthor', '') or genus_obj.get('scientificName', '')
+                    
+                    family_obj = species.get('family', {})
+                    if isinstance(family_obj, dict):
+                        family = family_obj.get('scientificNameWithoutAuthor', '') or family_obj.get('scientificName', '')
+                    
+                    results.append({
+                        'scientificName': scientific_name or 'Unknown',
+                        'scientificNameFull': scientific_name_full or scientific_name or 'Unknown',
+                        'commonNames': common_names[:3] if common_names else [],
+                        'genus': genus,
+                        'family': family,
+                        'confidence': round(float(score) * 100, 2) if score else 0.0,
+                        'score': float(score) if score else 0.0
+                    })
+                except Exception as e:
+                    print(f"Error processing result: {str(e)}")
+                    import traceback
+                    traceback.print_exc()
+                    continue  # Skip this result and continue with next
+        
+        if not results:
+            return jsonify({
+                'error': 'No plant species identified. Please try a clearer photo.',
+                'results': []
+            }), 200
+        
+        # Return formatted results
+        return jsonify({
+            'success': True,
+            'results': results,
+            'bestMatch': results[0] if results else None
+        }), 200
+        
+    except requests.exceptions.Timeout:
+        return jsonify({'error': 'Request timeout. Please try again.'}), 504
+    except requests.exceptions.RequestException as e:
+        print(f"PlantNet API request error: {str(e)}")
+        return jsonify({'error': f'Network error: {str(e)}'}), 500
+    except Exception as e:
+        import traceback
+        print(f"Plant identification error: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'error': f'Identification failed: {str(e)}'}), 500
+
 # Chatbot Endpoint with Mistral/OpenAI support
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot():
@@ -3550,6 +3732,249 @@ def admin_get_registrations(current_user=None):
             enriched_registrations.append(reg)
         
         return jsonify(enriched_registrations)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# --- Weather-Based Crop Recommendation ---
+
+OPENWEATHER_API_KEY = os.getenv('OPENWEATHERMAP_API_KEY')
+
+def get_current_season():
+    month = datetime.datetime.now().month
+    if 3 <= month <= 5: return "Spring"
+    if 6 <= month <= 8: return "Summer"
+    if 9 <= month <= 11: return "Monsoon"
+    return "Winter"
+
+def get_crop_ai_explanation(crop_name, weather_data, suitability):
+    mistral_key = os.getenv('MISTRAL_API_KEY')
+    temp = weather_data['main']['temp']
+    humidity = weather_data['main']['humidity']
+    
+    if not mistral_key:
+        return f"This crop is {suitability.lower()} for your current weather of {temp}°C and {humidity}% humidity."
+
+    try:
+        desc = weather_data['weather'][0]['description']
+        prompt = f"As a botanical expert for GreenCart, explain why {crop_name} is {suitability} for a climate with {temp}°C, {humidity}% humidity, and {desc} sky. Keep it under 2 sentences. Mention one specific growth benefit."
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'Authorization': f'Bearer {mistral_key}'
+        }
+        payload = {
+            'model': 'mistral-small-latest',
+            'messages': [{'role': 'user', 'content': prompt}],
+            'max_tokens': 100,
+            'temperature': 0.7
+        }
+        
+        response = requests.post('https://api.mistral.ai/v1/chat/completions', headers=headers, json=payload, timeout=5)
+        if response.status_code == 200:
+            return response.json()['choices'][0]['message']['content'].strip()
+    except Exception:
+        pass
+        
+    return f"Perfect for current conditions! {crop_name} thrives in this range of temperature and humidity."
+
+def get_dynamic_ai_suggestions(weather_data, current_season):
+    mistral_key = os.getenv('MISTRAL_API_KEY')
+    if not mistral_key:
+        return []
+    
+    temp = weather_data['main']['temp']
+    humidity = weather_data['main']['humidity']
+    desc = weather_data['weather'][0]['description']
+    city = weather_data.get('name', 'your area')
+
+    prompt = (
+        f"As a botanical expert for GreenCart, recommend 5 suitable crops for a garden in {city} "
+        f"where it is currently {temp}°C, {humidity}% humidity, and {desc} in {current_season} season. "
+        "Return the result ONLY as a JSON list of objects with these keys: "
+        "name, type (Vegetable/Fruit/Herb/Flower), description, suitability (Highly Suitable/Moderately Suitable), "
+        "care_tips (list), suitable_temp (object with min and max numbers), suitable_humidity (object with min and max numbers). "
+        "Keep it professional and scientifically accurate."
+    )
+
+    try:
+        headers = {'Content-Type': 'application/json', 'Authorization': f'Bearer {mistral_key}'}
+        payload = {
+            'model': 'mistral-small-latest',
+            'messages': [{'role': 'user', 'content': prompt}],
+            'response_format': {'type': 'json_object'}
+        }
+        res = requests.post('https://api.mistral.ai/v1/chat/completions', headers=headers, json=payload, timeout=8)
+        if res.status_code == 200:
+            content = res.json()['choices'][0]['message']['content'].strip()
+            import json
+            data = json.loads(content)
+            # Find the list in the JSON object (Mistral might wrap it in a key like 'crops' or 'recommendations')
+            for key in data:
+                if isinstance(data[key], list):
+                    return data[key]
+            return []
+    except Exception as e:
+        print(f"AI Suggestion Error: {e}")
+        pass
+    return []
+
+@app.route('/api/weather/recommend', methods=['GET'])
+def recommend_crops():
+    try:
+        lat = request.args.get('lat')
+        lon = request.args.get('lon')
+        city = request.args.get('city')
+        pincode = request.args.get('pincode')
+
+        # Always refresh key in case .env was updated
+        weather_key = os.getenv('OPENWEATHERMAP_API_KEY')
+
+        if not weather_key:
+            # Fallback for testing/demo if no API key is provided
+            weather_data = {
+                'main': {'temp': 28, 'humidity': 75},
+                'weather': [{'description': 'clear sky', 'icon': '01d'}],
+                'name': city or pincode or 'Mumbai'
+            }
+        else:
+            weather_url = ""
+            if lat and lon:
+                weather_url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={weather_key}&units=metric"
+            elif city:
+                weather_url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={weather_key}&units=metric"
+            elif pincode:
+                # Add ,in for Indian pincodes as the OWM zip param defaults to US
+                weather_url = f"https://api.openweathermap.org/data/2.5/weather?zip={pincode},in&appid={weather_key}&units=metric"
+            else:
+                return jsonify({'success': False, 'error': 'Location required'}), 400
+
+            weather_res = requests.get(weather_url, timeout=5)
+            if weather_res.status_code != 200:
+                # If pincode with ,in failed, try without it just in case
+                if pincode:
+                    fallback_url = f"https://api.openweathermap.org/data/2.5/weather?zip={pincode}&appid={weather_key}&units=metric"
+                    weather_res = requests.get(fallback_url, timeout=5)
+                
+                if weather_res.status_code != 200:
+                    try:
+                        owm_err = weather_res.json().get('message', 'Unknown provider error')
+                    except:
+                        owm_err = 'Could not parse error'
+                    
+                    return jsonify({
+                        'success': False, 
+                        'error': f'Weather API Error: {owm_err}',
+                        'details': f'Search for "{city or pincode}" failed with status {weather_res.status_code}'
+                    }), weather_res.status_code
+            
+            weather_data = weather_res.json()
+
+        temp = weather_data['main']['temp']
+        humidity = weather_data['main']['humidity']
+        current_season = get_current_season()
+        
+        # Recommendation Logic: Fuzzy matching with scoring system
+        # Fetch all crops to rank them (dataset is small enough)
+        all_crops = list(crops_collection.find())
+        recommended_crops = []
+        
+        for crop in all_crops:
+            crop['id'] = str(crop['_id'])
+            del crop['_id']
+            
+            score = 0
+            # Temperature checks
+            min_temp = crop.get('suitable_temp', {}).get('min', 0)
+            max_temp = crop.get('suitable_temp', {}).get('max', 100)
+            
+            if min_temp <= temp <= max_temp:
+                score += 40  # Perfect temp match
+            else:
+                # Penalty for deviation
+                diff = min(abs(temp - min_temp), abs(temp - max_temp))
+                if diff <= 5:
+                    score += 20  # Close enough
+                elif diff <= 10:
+                    score += 5   # Margin of error
+                else:
+                    score -= 20  # Unsuitable
+            
+            # Humidity checks
+            min_hum = crop.get('suitable_humidity', {}).get('min', 0)
+            max_hum = crop.get('suitable_humidity', {}).get('max', 100)
+            
+            if min_hum <= humidity <= max_hum:
+                score += 30  # Perfect humidity match
+            else:
+                diff = min(abs(humidity - min_hum), abs(humidity - max_hum))
+                if diff <= 10:
+                    score += 15
+                elif diff <= 20:
+                    score += 5
+                else:
+                    score -= 10
+
+            # Season checks (Bonus)
+            if current_season in crop.get('suitable_season', []):
+                score += 30
+            
+            # Final assessment based on score
+            if score >= 60:
+                crop['suitability'] = "Highly Suitable"
+                crop['suitability_score'] = score
+                recommended_crops.append(crop)
+            elif score >= 30:
+                crop['suitability'] = "Moderately Suitable"
+                crop['suitability_score'] = score
+                recommended_crops.append(crop)
+                
+        # Generate explanations for the top crops
+        for crop in recommended_crops:
+             crop['explanation'] = get_crop_ai_explanation(crop['name'], weather_data, crop['suitability'])
+
+        # If results are low, fetch dynamic AI suggestions
+        if len(recommended_crops) < 3:
+            ai_suggestions = get_dynamic_ai_suggestions(weather_data, current_season)
+            # Merge while avoiding duplicates
+            existing_names = {c['name'].lower() for c in recommended_crops}
+            for ai_crop in ai_suggestions:
+                if ai_crop.get('name') and ai_crop['name'].lower() not in existing_names:
+                    ai_crop['id'] = f"ai-{len(recommended_crops)}"
+                    ai_crop['is_ai_generated'] = True
+                    ai_crop['explanation'] = ai_crop.get('description', 'AI recommended for your unique climate.')
+                    # Assign a basic score for sorting
+                    ai_crop['suitability_score'] = 50 
+                    ai_crop['suitability'] = ai_crop.get('suitability', "Moderately Suitable")
+                    recommended_crops.append(ai_crop)
+
+        # Sort by suitability score
+        recommended_crops.sort(key=lambda x: x.get('suitability_score', 0), reverse=True)
+
+        return jsonify({
+            'success': True,
+            'weather': {
+                'temp': temp,
+                'humidity': humidity,
+                'city': weather_data.get('name'),
+                'description': weather_data['weather'][0]['description'],
+                'icon': weather_data['weather'][0]['icon'],
+                'season': current_season
+            },
+            'recommendations': recommended_crops
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/weather/crops', methods=['GET'])
+def get_all_crop_suitability():
+    try:
+        crops = list(crops_collection.find())
+        for crop in crops:
+            crop['id'] = str(crop['_id'])
+            del crop['_id']
+        return jsonify(crops)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

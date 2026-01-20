@@ -23,7 +23,7 @@ export default function HomeMUI() {
                 // Fetch categories
                 const categoryData = await api.listCategories();
                 setCategories(categoryData);
-                
+
                 // Fetch products
                 const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
                 const response = await fetch(`${apiBase}/products`);
@@ -120,14 +120,14 @@ export default function HomeMUI() {
                         Powerful tools to help you grow smarter and live greener.
                     </Typography>
                 </Stack>
-                
-                <Box 
-                    sx={{ 
+
+                <Box
+                    sx={{
                         display: 'grid',
-                        gridTemplateColumns: { 
+                        gridTemplateColumns: {
                             xs: '1fr',
                             md: 'repeat(2, 1fr)',
-                            lg: 'repeat(4, 1fr)' 
+                            lg: 'repeat(4, 1fr)'
                         },
                         gap: 3,
                         width: '100%'
@@ -137,12 +137,12 @@ export default function HomeMUI() {
                         icon: <CameraAltOutlined sx={{ fontSize: '3rem' }} color="success" />,
                         title: 'AI Plant Identification',
                         desc: 'Upload a photo and instantly identify plants with details on medicinal properties and care.',
-                        link: '/products'
+                        link: '/identify'
                     }, {
                         icon: <WbSunnyOutlined sx={{ fontSize: '3rem' }} color="warning" />,
                         title: 'Weather‑Based Suggestions',
                         desc: 'Personalized crop recommendations using your location\'s weather patterns.',
-                        link: '/products'
+                        link: '/crop-planner'
                     }, {
                         icon: <LocalPharmacyOutlined sx={{ fontSize: '3rem' }} color="error" />,
                         title: 'Herbal Remedies',
@@ -154,16 +154,16 @@ export default function HomeMUI() {
                         desc: 'Shop curated organic plants and herbal products, verified for quality.',
                         link: '/products'
                     }].map((f) => (
-                        <Paper 
+                        <Paper
                             key={f.title}
-                            variant="outlined" 
+                            variant="outlined"
                             onClick={() => navigate(f.link)}
-                            sx={{ 
-                                p: 3, 
-                                borderRadius: 3, 
+                            sx={{
+                                p: 3,
+                                borderRadius: 3,
                                 height: '100%',
-                                display: 'flex', 
-                                flexDirection: 'column', 
+                                display: 'flex',
+                                flexDirection: 'column',
                                 justifyContent: 'center',
                                 alignItems: 'center',
                                 cursor: 'pointer',
@@ -201,12 +201,12 @@ export default function HomeMUI() {
                             }}
                         >
                             <Stack spacing={2} alignItems="center" sx={{ position: 'relative', zIndex: 1 }}>
-                                <Box sx={{ 
-                                    p: 2, 
-                                    borderRadius: 2, 
+                                <Box sx={{
+                                    p: 2,
+                                    borderRadius: 2,
                                     bgcolor: 'grey.100',
-                                    display: 'flex', 
-                                    alignItems: 'center', 
+                                    display: 'flex',
+                                    alignItems: 'center',
                                     justifyContent: 'center',
                                     mb: 1
                                 }}>
@@ -233,7 +233,7 @@ export default function HomeMUI() {
                             Discover our handpicked selection of premium products
                         </Typography>
                     </Stack>
-                    
+
                     {loading ? (
                         <Stack direction="row" spacing={2} sx={{ overflowX: 'hidden', pb: 2 }}>
                             {Array.from({ length: 6 }).map((_, i) => (
@@ -244,7 +244,7 @@ export default function HomeMUI() {
                         <Typography color="error" textAlign="center">Failed to load products</Typography>
                     ) : slideshowProducts.length > 0 ? (
                         <>
-                            <Box sx={{ 
+                            <Box sx={{
                                 position: 'relative',
                                 overflow: 'hidden',
                                 height: 400,
@@ -274,10 +274,10 @@ export default function HomeMUI() {
                                     pointerEvents: 'none'
                                 }
                             }}>
-                                <Stack 
-                                    direction="row" 
+                                <Stack
+                                    direction="row"
                                     spacing={2}
-                                    sx={{ 
+                                    sx={{
                                         position: 'absolute',
                                         top: 0,
                                         left: 0,
@@ -356,13 +356,13 @@ export default function HomeMUI() {
                             </Box>
                             {/* Explore All Products Button */}
                             <Stack direction="row" justifyContent="center" sx={{ mt: 4 }}>
-                                <Button 
-                                    component={RouterLink} 
+                                <Button
+                                    component={RouterLink}
                                     to="/products"
-                                    variant="contained" 
-                                    color="primary" 
+                                    variant="contained"
+                                    color="primary"
                                     size="large"
-                                    sx={{ 
+                                    sx={{
                                         py: 1.5,
                                         px: 4,
                                         fontWeight: 600,
@@ -389,17 +389,17 @@ export default function HomeMUI() {
             <Box sx={{ py: 8, bgcolor: 'background.default' }}>
                 <Container maxWidth="lg">
                     <Stack spacing={4} alignItems="center" textAlign="center">
-                        <Chip 
-                            icon={<EventIcon />} 
-                            label="Events" 
-                            color="primary" 
-                            variant="outlined" 
-                            sx={{ 
+                        <Chip
+                            icon={<EventIcon />}
+                            label="Events"
+                            color="primary"
+                            variant="outlined"
+                            sx={{
                                 height: 32,
                                 '& .MuiChip-icon': {
                                     color: 'primary.main'
                                 }
-                            }} 
+                            }}
                         />
                         <Typography variant="h3" fontWeight={800} sx={{ color: 'text.primary' }}>
                             Explore Our Events
@@ -407,11 +407,11 @@ export default function HomeMUI() {
                         <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 720 }}>
                             Join our exciting events and workshops to learn more about sustainable agriculture and herbal wellness
                         </Typography>
-                        <Button 
-                            variant="contained" 
-                            color="primary" 
+                        <Button
+                            variant="contained"
+                            color="primary"
                             size="large"
-                            sx={{ 
+                            sx={{
                                 py: 1.5,
                                 px: 4,
                                 fontWeight: 600,

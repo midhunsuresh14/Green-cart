@@ -23,7 +23,7 @@ async function request(path, options = {}) {
     ...getAuthHeaders(),
     ...(options.headers || {}),
   };
-  
+
   const url = `${BASE_URL}${path}`;
   console.log('[API] Making request:', {
     method: options.method || 'GET',
@@ -31,24 +31,24 @@ async function request(path, options = {}) {
     headers,
     body: options.body
   });
-  
+
   try {
-    const res = await fetch(url, { 
-      ...options, 
+    const res = await fetch(url, {
+      ...options,
       headers,
       credentials: 'include' // Important for cookies if using sessions
     });
-    
+
     console.log(`[API] Response status: ${res.status} for ${path}`);
-    
+
     if (!res.ok) {
       const text = await res.text();
       console.error(`[API] Request failed: ${res.status}`, text);
       throw new Error(text || `Request failed: ${res.status}`);
     }
-    
+
     if (res.status === 204) return null;
-    
+
     const data = await res.json();
     console.log('[API] Response data:', data);
     return data;
@@ -77,7 +77,7 @@ export const api = {
       reader.onload = () => resolve(reader.result);
       reader.onerror = error => reject(error);
     });
-    
+
     // Send base64 string to backend
     const response = await fetch(`${BASE_URL}/cloudinary-upload`, {
       method: 'POST',
@@ -86,7 +86,7 @@ export const api = {
       },
       body: JSON.stringify({ image: base64 })
     });
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       try {
@@ -96,18 +96,18 @@ export const api = {
         throw new Error(errorText);
       }
     }
-    
+
     const result = await response.json();
-    
+
     // Check if the response has the expected structure
     if (!result.success) {
       throw new Error(result.error || 'Upload failed');
     }
-    
+
     if (!result.url) {
       throw new Error('Upload succeeded but no URL returned');
     }
-    
+
     return result;
   },
 
@@ -138,7 +138,7 @@ export const api = {
   createCategory: (data) => request('/categories', { method: 'POST', body: JSON.stringify(data) }),
   updateCategory: (id, data) => request(`/categories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteCategory: (id) => request(`/categories/${id}`, { method: 'DELETE' }),
-  
+
   // Subcategories
   createSubCategory: (data) => request('/subcategories', { method: 'POST', body: JSON.stringify(data) }),
   updateSubCategory: (id, data) => request(`/subcategories/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
@@ -171,19 +171,74 @@ export const api = {
   // User Notifications
   getUserNotifications: () => request('/notifications'),
   markUserNotificationRead: (id) => request(`/notifications/${id}/read`, { method: 'PUT' }),
-  
+
   // Admin Notifications
   adminNotifications: () => request('/admin/notifications'),
   markNotificationRead: (id) => request(`/admin/notifications/${id}/mark-read`, { method: 'PUT' }),
 
   // Chatbot
   chatbot: (messages) => request('/chatbot', { method: 'POST', body: JSON.stringify({ messages }) }),
-  
+
+  // Plant Identification
+  identifyPlant: async (imageFile) => {
+    // Convert file to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(imageFile);
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = error => reject(error);
+    });
+
+    // Send base64 string to backend
+    const response = await fetch(`${BASE_URL}/plant/identify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ image: base64 })
+    });
+
+    // Read response as text first (can only be read once)
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      let errorMessage = `Request failed with status ${response.status}`;
+      try {
+        // Try to parse as JSON
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.error || errorMessage;
+        // Include help text if available
+        if (errorData.help) {
+          errorMessage = `${errorMessage}. ${errorData.help}`;
+        }
+        // Create an error object
+        const error = new Error(errorMessage);
+        error.statusCode = response.status;
+        error.help = errorData.help;
+        throw error;
+      } catch (e) {
+        // If it's already our custom error, throw it
+        if (e instanceof Error && e.statusCode) {
+          throw e;
+        }
+        // If JSON parsing failed, use the raw text
+        throw new Error(responseText || errorMessage);
+      }
+    }
+
+    // Parse successful response as JSON
+    try {
+      return JSON.parse(responseText);
+    } catch (e) {
+      throw new Error('Invalid response format from server');
+    }
+  },
+
   // Feedback
   submitFeedback: (data) => request('/feedback', { method: 'POST', body: JSON.stringify(data) }),
   getFeedback: () => request('/admin/feedback'),
   updateFeedbackStatus: (id, status) => request(`/admin/feedback/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
-  
+
   // Blog
   getBlogPosts: (params = {}) => {
     const filtered = Object.fromEntries(
@@ -201,7 +256,7 @@ export const api = {
   updateBlogComment: (commentId, data) => request(`/blog/comments/${commentId}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteBlogComment: (commentId) => request(`/blog/comments/${commentId}`, { method: 'DELETE' }),
   adminDeleteBlogPost: (postId) => request(`/admin/blog/posts/${postId}`, { method: 'DELETE' }),
-  
+
   // Admin Blog Posts
   adminListBlogPosts: (params = {}) => {
     const filtered = Object.fromEntries(
@@ -210,13 +265,13 @@ export const api = {
     const query = new URLSearchParams(filtered).toString();
     return request(`/admin/blog/posts${query ? `?${query}` : ''}`);
   },
-  
+
   // Blog Notifications
   getBlogNotifications: () => request('/blog/notifications'),
   markBlogNotificationRead: (notifId) => request(`/blog/notifications/${notifId}/read`, { method: 'PUT' }),
   deleteBlogNotification: (notifId) => request(`/blog/notifications/${notifId}`, { method: 'DELETE' }),
   deleteAllBlogNotifications: () => request('/blog/notifications', { method: 'DELETE' }),
-  
+
   // My Blogs
   getMyBlogPosts: (params = {}) => {
     const filtered = Object.fromEntries(
@@ -225,7 +280,14 @@ export const api = {
     const query = new URLSearchParams(filtered).toString();
     return request(`/blog/posts/my${query ? `?${query}` : ''}`);
   },
-  
+
+  // Crop Recommendation
+  recommendCrops: (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    return request(`/weather/recommend?${query}`);
+  },
+  listCropsSuitability: () => request('/weather/crops'),
+
   // Auth helpers
   getAuthHeaders: getAuthHeaders
 };
@@ -270,6 +332,7 @@ export const markUserNotificationRead = api.markUserNotificationRead;
 export const adminNotifications = api.adminNotifications;
 export const markNotificationRead = api.markNotificationRead;
 export const chatbot = api.chatbot;
+export const identifyPlant = api.identifyPlant;
 export const submitFeedback = api.submitFeedback;
 export const getFeedback = api.getFeedback;
 export const updateFeedbackStatus = api.updateFeedbackStatus;
@@ -289,5 +352,7 @@ export const markBlogNotificationRead = api.markBlogNotificationRead;
 export const deleteBlogNotification = api.deleteBlogNotification;
 export const deleteAllBlogNotifications = api.deleteAllBlogNotifications;
 export const getMyBlogPosts = api.getMyBlogPosts;
+export const recommendCrops = api.recommendCrops;
+export const listCropsSuitability = api.listCropsSuitability;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;

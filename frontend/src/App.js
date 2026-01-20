@@ -26,6 +26,8 @@ import RemedyDetail from './components/HerbalRemedies/RemedyDetail';
 import PDPPage from './components/PDP/PDPPage.jsx';
 import ChatBot from './components/ChatBot'; // Import the ChatBot component
 import FeedbackModal from './components/Feedback/FeedbackModal'; // Import FeedbackModal
+import PlantIdentify from './components/Identify/PlantIdentify'; // Import PlantIdentify component
+import CropPlanner from './components/CropPlanner'; // Import CropPlanner component
 
 // Import the new components
 import CategoryFirstPage from './components/Products/CategoryFirstPage';
@@ -65,8 +67,8 @@ function Home() {
             <h1>GreenCart</h1>
             <h2>Grow Smart. Live Green.</h2>
             <p>
-              Discover, identify, and buy medicinal plants.<br/>
-              Get AI-powered crop suggestions and herbal remedies.<br/>
+              Discover, identify, and buy medicinal plants.<br />
+              Get AI-powered crop suggestions and herbal remedies.<br />
               Join the green revolution for a healthier tomorrow!
             </p>
             <div className="hero-buttons">
@@ -250,7 +252,7 @@ function App() {
   const saveCart = (items, currentUser = user) => {
     try {
       localStorage.setItem(getCartKey(currentUser), JSON.stringify(items || []));
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const normalizeProduct = (p) => {
@@ -317,7 +319,7 @@ function App() {
         // User is logged in - load their cart and merge any guest cart
         const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
         const current = JSON.parse(localStorage.getItem(userKey) || '[]');
-        
+
         // Only merge if there are guest items
         if (guest.length > 0) {
           const map = new Map();
@@ -396,10 +398,10 @@ function App() {
     if (user && cartItems.length > 0) {
       saveCart(cartItems, user);
     }
-    
+
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
+
     // Clear state immediately - don't move to guest cart
     setUser(null);
     setWishlistItems([]);
@@ -412,14 +414,14 @@ function App() {
     try {
       const productId = product.id || product._id;
       const requestedQty = product.quantity || 1;
-      
+
       const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
       const response = await fetch(`${apiBase}/products/${productId}/check-availability`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: requestedQty })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
@@ -476,7 +478,7 @@ function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: newQty })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
@@ -545,7 +547,7 @@ function App() {
       }
       try {
         localStorage.setItem(getWishlistKey(), JSON.stringify(updatedWishlist));
-      } catch (_) {}
+      } catch (_) { }
 
       // Show user feedback
       setToast({
@@ -578,7 +580,7 @@ function App() {
       const updatedWishlist = prev.filter((item) => String(item.id) !== idStr);
       try {
         localStorage.setItem(getWishlistKey(), JSON.stringify(updatedWishlist));
-      } catch (_) {}
+      } catch (_) { }
       return updatedWishlist;
     });
   };
@@ -598,12 +600,12 @@ function App() {
       {location.pathname.startsWith('/admin') ? (
         <AdminNavbar user={user} onLogout={handleLogout} />
       ) : (
-        <NavbarMUI 
-          user={user} 
-          onLogout={handleLogout} 
-          wishlistItems={wishlistItems} 
-          cartCount={cartItems.reduce((s,i)=>s+(i.quantity||1),0)} 
-          onOpenCart={()=>setIsCartOpen(true)} 
+        <NavbarMUI
+          user={user}
+          onLogout={handleLogout}
+          wishlistItems={wishlistItems}
+          cartCount={cartItems.reduce((s, i) => s + (i.quantity || 1), 0)}
+          onOpenCart={() => setIsCartOpen(true)}
           onOpenFeedback={handleOpenFeedback} // Pass feedback handler to navbar
         />
       )}
@@ -613,35 +615,35 @@ function App() {
           <Route path="/" element={<HomeMUI />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
           {/* Replace the existing products route with our new category-first route */}
-          <Route path="/products" element={<CategoryFirstPage 
+          <Route path="/products" element={<CategoryFirstPage
             user={user}
-            onAddToCart={handleAddToCart} 
+            onAddToCart={handleAddToCart}
             onViewDetails={(product) => {
               setSelectedProduct(product);
               navigate(`/pdp/${product.id}`);
-            }} 
-            onToggleWishlist={handleToggleWishlist} 
-            wishlistItems={wishlistItems} 
+            }}
+            onToggleWishlist={handleToggleWishlist}
+            wishlistItems={wishlistItems}
           />} />
           {/* Add the new category product page route */}
-          <Route path="/products/:categoryKey" element={<CategoryProductPage 
+          <Route path="/products/:categoryKey" element={<CategoryProductPage
             user={user}
-            onAddToCart={handleAddToCart} 
+            onAddToCart={handleAddToCart}
             onViewDetails={(product) => {
               setSelectedProduct(product);
               navigate(`/pdp/${product.id}`);
-            }} 
-            onToggleWishlist={handleToggleWishlist} 
-            wishlistItems={wishlistItems} 
+            }}
+            onToggleWishlist={handleToggleWishlist}
+            wishlistItems={wishlistItems}
           />} />
           <Route path="/categories" element={<React.Suspense fallback={<div />}> <CategoriesPageLazy /> </React.Suspense>} />
           <Route path="/categories/:categoryKey" element={<React.Suspense fallback={<div />}> <SubcategoriesPageLazy /> </React.Suspense>} />
-          <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w)=> String(w.id)===String(selectedProduct?.id))} />} />
+          <Route path="/product" element={<ProductDetail product={selectedProduct} onAddToCart={handleAddToCart} onBack={() => navigate(-1)} onToggleWishlist={handleToggleWishlist} isInWishlist={wishlistItems.some((w) => String(w.id) === String(selectedProduct?.id))} />} />
           <Route path="/pdp/:productId" element={
-            <PDPPage 
-              user={user} 
-              onAddToCart={handleAddToCart} 
-              onOpenCart={() => setIsCartOpen(true)} 
+            <PDPPage
+              user={user}
+              onAddToCart={handleAddToCart}
+              onOpenCart={() => setIsCartOpen(true)}
             />
           } />
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
@@ -652,12 +654,14 @@ function App() {
           <Route path="/orders/:orderId" element={<OrderDetails user={user} />} />
           <Route path="/remedies" element={<HerbalRemedies />} />
           <Route path="/remedies/:remedyId" element={<RemedyDetail />} />
-          
+          <Route path="/identify" element={<PlantIdentify />} />
+          <Route path="/crop-planner" element={<CropPlanner />} />
+
           {/* Event Routes */}
           <Route path="/events" element={<EventsPage user={user} />} />
           <Route path="/events/:eventId" element={<EventDetails user={user} />} />
           <Route path="/events/confirmation" element={<EventRegistrationConfirmation />} />
-          
+
           {/* Blog Routes */}
           <Route path="/blog" element={<BlogPage user={user} />} />
           <Route path="/blog/explore" element={<BlogPage user={user} />} />
@@ -665,7 +669,7 @@ function App() {
           <Route path="/blog/my" element={user ? <MyBlogs user={user} /> : <Navigate to="/login" />} />
           <Route path="/blog/edit/:id" element={user ? <EditPost user={user} /> : <Navigate to="/login" />} />
           <Route path="/blog/:id" element={<BlogPostDetail user={user} />} />
-          
+
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/dashboard" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
@@ -695,16 +699,16 @@ function App() {
 
       <CartDrawer
         open={isCartOpen}
-        onClose={()=>setIsCartOpen(false)}
+        onClose={() => setIsCartOpen(false)}
         items={cartItems}
         onUpdateQuantity={handleUpdateQuantity}
         onRemoveItem={handleRemoveItem}
-        onCheckout={()=>{ setIsCartOpen(false); navigate('/checkout'); }}
+        onCheckout={() => { setIsCartOpen(false); navigate('/checkout'); }}
       />
-      
+
       {/* ChatBot Component - Positioned to avoid overlapping with feedback button */}
       <ChatBot />
-      
+
       {/* Feedback Modal - Show when user clicks feedback icon in navbar */}
       <FeedbackModal
         isOpen={isFeedbackModalOpen}
