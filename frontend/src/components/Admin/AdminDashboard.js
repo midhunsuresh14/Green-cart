@@ -14,6 +14,7 @@ import StatsCards from './StatsCards';
 import RecentActivity from './RecentActivity';
 import TopProducts from './TopProducts';
 import QuickActions from './QuickActions';
+import AdminStaff from './AdminStaff';
 import {
   AppBar,
   Toolbar,
@@ -60,6 +61,7 @@ const sections = [
   { key: 'feedback', label: 'Feedback', icon: <FeedbackIcon /> },
   { key: 'blog-posts', label: 'Blog Posts', icon: <FeedbackIcon /> },
   { key: 'events', label: 'Events', icon: <FeedbackIcon /> },
+  { key: 'staff', label: 'Staff Management', icon: <PeopleAltIcon /> },
 ];
 
 export default function AdminDashboard({ user, onLogout }) {
@@ -112,10 +114,22 @@ export default function AdminDashboard({ user, onLogout }) {
               setActive(s.key);
               setMobileOpen(false);
             }}
-            sx={{ borderRadius: 2, mx: 1, mb: 0.5 }}
+            className={`admin-nav-item ${active === s.key ? 'active' : ''}`}
+            sx={{
+              borderRadius: '12px',
+              mx: 1.5,
+              mb: 1,
+              py: 1,
+              '&.Mui-selected': {
+                bgcolor: 'var(--admin-primary)',
+                color: 'white',
+                '&:hover': { bgcolor: 'var(--admin-primary)' },
+                '& .MuiListItemIcon-root': { color: 'white' }
+              }
+            }}
           >
-            <ListItemIcon sx={{ minWidth: 40 }}>{s.icon}</ListItemIcon>
-            <ListItemText primary={s.label} />
+            <ListItemIcon sx={{ minWidth: 40, color: active === s.key ? 'white' : 'inherit' }}>{s.icon}</ListItemIcon>
+            <ListItemText primary={s.label} primaryTypographyProps={{ fontWeight: 600, fontSize: '0.9rem' }} />
           </ListItemButton>
         ))}
       </List>
@@ -146,9 +160,9 @@ export default function AdminDashboard({ user, onLogout }) {
         sx={{
           borderBottom: '1px solid',
           borderColor: 'divider',
-          width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          bgcolor: 'background.paper',
+          bgcolor: 'rgba(255, 255, 255, 0.8)',
+          backdropFilter: 'blur(8px)',
         }}
       >
         <Toolbar sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
@@ -225,7 +239,7 @@ export default function AdminDashboard({ user, onLogout }) {
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
           p: { xs: 2, md: 3 },
-          pt: { xs: 10, md: 12 },
+          pt: { xs: 8, md: 9 },
         }}
       >
         {active === 'overview' && (
@@ -251,6 +265,7 @@ export default function AdminDashboard({ user, onLogout }) {
         {active === 'feedback' && (<AdminFeedback />)}
         {active === 'blog-posts' && (<AdminBlogPosts />)}
         {active === 'events' && (<EventManagement />)}
+        {active === 'staff' && (<AdminStaff />)}
       </Box>
     </Box>
   );

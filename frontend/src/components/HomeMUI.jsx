@@ -452,33 +452,123 @@ export default function HomeMUI() {
             </Box>
 
             {/* Footer */}
-            <Container maxWidth="lg" sx={{ py: 6 }}>
-                <Paper variant="outlined" sx={{ p: 3, borderRadius: 3 }}>
-                    <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
-                            <Typography variant="h6" fontWeight={800}>GreenCart</Typography>
-                            <Typography color="text.secondary" sx={{ mt: 1 }}>
-                                Your smart agriculture and herbal health platform. Grow smart, live green.
-                            </Typography>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Typography variant="subtitle1" fontWeight={700}>Quick Links</Typography>
-                            <Stack spacing={1} sx={{ mt: 1 }}>
-                                <Button component={RouterLink} to="/about" size="small">About</Button>
-                                <Button component={RouterLink} to="/contact" size="small">Contact</Button>
-                                <Button component={RouterLink} to="/products" size="small">Products</Button>
+            <Box sx={{ bgcolor: 'white', pt: 8, pb: 4, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Container maxWidth="lg">
+                    <Grid container spacing={6}>
+                        {/* Brand Column */}
+                        <Grid item xs={12} md={4}>
+                            <Stack spacing={2}>
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <Box sx={{ width: 32, height: 32, borderRadius: 1, bgcolor: 'primary.main', color: 'primary.contrastText', display: 'grid', placeItems: 'center', fontWeight: 800 }}>G</Box>
+                                    <Typography variant="h6" fontWeight={800} color="primary.main">GreenCart</Typography>
+                                </Stack>
+                                <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, maxWidth: 300 }}>
+                                    Your smart AI-powered agriculture and herbal health platform.
+                                    Empowering growers with technology and nature.
+                                </Typography>
                             </Stack>
                         </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Typography variant="subtitle1" fontWeight={700}>Contact</Typography>
-                            <Typography color="text.secondary" sx={{ mt: 1 }}>info@greencart.com</Typography>
-                            <Typography color="text.secondary">+91 98765 43210</Typography>
+
+                        {/* Quick Links */}
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Shop
+                            </Typography>
+                            <Stack spacing={1.5}>
+                                {['All Products', 'Medicinal Plants', 'Herbal Products'].map((item) => (
+                                    <Typography
+                                        key={item}
+                                        component={RouterLink}
+                                        to="/products"
+                                        variant="body2"
+                                        sx={{
+                                            textDecoration: 'none',
+                                            color: 'text.secondary',
+                                            '&:hover': { color: 'primary.main' },
+                                            transition: 'color 0.2s'
+                                        }}
+                                    >
+                                        {item}
+                                    </Typography>
+                                ))}
+                            </Stack>
+                        </Grid>
+
+                        {/* Services */}
+                        <Grid item xs={6} sm={4} md={3}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Our Tools
+                            </Typography>
+                            <Stack spacing={1.5}>
+                                {[
+                                    { name: 'Plant Identifier', to: '/identify' },
+                                    { name: 'Crop Recommendation', to: '/crop-planner' },
+                                    { name: 'Herbal Remedies', to: '/remedies' },
+                                    { name: 'Green Blog', to: '/blog' }
+                                ].map((item) => (
+                                    <Typography
+                                        key={item.name}
+                                        component={RouterLink}
+                                        to={item.to}
+                                        variant="body2"
+                                        sx={{
+                                            textDecoration: 'none',
+                                            color: 'text.secondary',
+                                            '&:hover': { color: 'primary.main' },
+                                            transition: 'color 0.2s'
+                                        }}
+                                    >
+                                        {item.name}
+                                    </Typography>
+                                ))}
+                            </Stack>
+                        </Grid>
+
+                        {/* Contact Column */}
+                        <Grid item xs={12} sm={4} md={3}>
+                            <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Contact
+                            </Typography>
+                            <Stack spacing={2}>
+                                <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <span className="material-icons" style={{ fontSize: '1rem' }}>email</span> info@greencart.com
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <span className="material-icons" style={{ fontSize: '1rem' }}>phone</span> +91 98765 43210
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <span className="material-icons" style={{ fontSize: '1rem' }}>location_on</span> GreenTech Park, Bangalore
+                                </Typography>
+                            </Stack>
                         </Grid>
                     </Grid>
-                    <Divider sx={{ my: 2 }} />
-                    <Typography variant="body2" color="text.secondary">© 2024 GreenCart. All rights reserved.</Typography>
-                </Paper>
-            </Container>
+
+                    <Divider sx={{ my: 4, borderColor: 'grey.100' }} />
+
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
+                        <Typography variant="caption" color="text.secondary">
+                            © 2024 GreenCart. All rights reserved.
+                        </Typography>
+                        <Stack direction="row" spacing={3}>
+                            {['About', 'Privacy', 'Terms', 'Help'].map((item) => (
+                                <Typography
+                                    key={item}
+                                    component={RouterLink}
+                                    to={`/${item.toLowerCase()}`}
+                                    variant="caption"
+                                    sx={{
+                                        textDecoration: 'none',
+                                        color: 'text.secondary',
+                                        '&:hover': { color: 'primary.main' }
+                                    }}
+                                >
+                                    {item}
+                                </Typography>
+                            ))}
+                        </Stack>
+                    </Stack>
+                </Container>
+            </Box>
         </Box>
     );
 }

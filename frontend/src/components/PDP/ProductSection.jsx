@@ -7,7 +7,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
   const [stockInfo, setStockInfo] = useState({ stock: 0, inStock: true });
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  
+
   // Helper function to resolve image URLs
   const resolveImageUrl = (src) => {
     if (!src) return null;
@@ -24,7 +24,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
   };
 
   // Create images array with proper URL resolution
-  const images = product.images && product.images.length > 0 
+  const images = product.images && product.images.length > 0
     ? product.images.map(img => resolveImageUrl(img) || img).filter(Boolean)
     : [getPrimaryImageUrl()];
 
@@ -32,12 +32,12 @@ export default function ProductSection({ product, onAddToCart, user }) {
   useEffect(() => {
     const fetchStockInfo = async () => {
       if (!product.id && !product._id) return;
-      
+
       try {
         const productId = product.id || product._id;
         const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
         const response = await fetch(`${apiBase}/products/${productId}/stock`);
-        
+
         if (response.ok) {
           const data = await response.json();
           setStockInfo(data);
@@ -53,7 +53,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
   // Check availability before changing quantity
   const checkAvailability = async (newQty) => {
     if (!product.id && !product._id) return true;
-    
+
     try {
       const productId = product.id || product._id;
       const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
@@ -62,7 +62,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: newQty })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         return data.available;
@@ -92,7 +92,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
       window.location.href = '/login';
       return;
     }
-    
+
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;
@@ -119,7 +119,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
       window.location.href = '/login';
       return;
     }
-    
+
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;
@@ -147,10 +147,10 @@ export default function ProductSection({ product, onAddToCart, user }) {
       {/* Left: images */}
       <div>
         <div className="aspect-square border rounded-xl bg-white grid place-items-center overflow-hidden">
-          <img 
-            src={images[selectedImage]} 
-            alt={product.name} 
-            className="object-contain max-h-full" 
+          <img
+            src={images[selectedImage]}
+            alt={product.name}
+            className="object-contain max-h-full"
             onError={(e) => {
               e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80';
             }}
@@ -158,10 +158,10 @@ export default function ProductSection({ product, onAddToCart, user }) {
         </div>
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {images.map((src, i) => (
-            <button key={i} onClick={() => setSelectedImage(i)} className={`h-16 w-16 flex-shrink-0 border rounded-lg overflow-hidden ${selectedImage===i?'ring-2 ring-green-600':''}`}>
-              <img 
-                src={src} 
-                alt="thumb" 
+            <button key={i} onClick={() => setSelectedImage(i)} className={`h-16 w-16 flex-shrink-0 border rounded-lg overflow-hidden ${selectedImage === i ? 'ring-2 ring-green-600' : ''}`}>
+              <img
+                src={src}
+                alt="thumb"
                 className="h-full w-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=80';
@@ -180,9 +180,8 @@ export default function ProductSection({ product, onAddToCart, user }) {
             {[1, 2, 3, 4, 5].map((star) => (
               <span
                 key={star}
-                className={`text-lg ${
-                  star <= Math.round(product.rating || 0) ? 'text-yellow-500' : 'text-gray-300'
-                }`}
+                className={`text-lg ${star <= Math.round(product.rating || 0) ? 'text-yellow-500' : 'text-gray-300'
+                  }`}
               >
                 ★
               </span>
@@ -190,7 +189,7 @@ export default function ProductSection({ product, onAddToCart, user }) {
           </div>
           <span className="text-gray-500">{product.rating || 0} ({product.reviews || 0} reviews)</span>
         </div>
-        
+
         {/* Stock Status */}
         <div className="mt-3">
           {stockInfo.inStock ? (
@@ -217,16 +216,16 @@ export default function ProductSection({ product, onAddToCart, user }) {
         </div>
 
         <div className="mt-4 flex items-center gap-2">
-          <button 
-            onClick={dec} 
+          <button
+            onClick={dec}
             disabled={qty <= 1}
             className="h-8 w-8 grid place-items-center border rounded disabled:opacity-50"
           >
             -
           </button>
           <div className="px-3 text-sm font-medium">{qty}</div>
-          <button 
-            onClick={inc} 
+          <button
+            onClick={inc}
             disabled={qty >= stockInfo.stock || !stockInfo.inStock}
             className="h-8 w-8 grid place-items-center border rounded disabled:opacity-50"
           >
@@ -237,22 +236,20 @@ export default function ProductSection({ product, onAddToCart, user }) {
 
         <div className="mt-4 flex gap-3">
           <button
-            className={`flex-1 rounded-lg py-2 font-semibold transition ${
-              stockInfo.inStock && !loading
+            className={`flex-1 rounded-lg py-2 font-semibold transition ${stockInfo.inStock && !loading
                 ? 'bg-green-600 text-white hover:bg-green-700'
                 : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+              }`}
             onClick={handleAddToCart}
             disabled={!stockInfo.inStock || loading}
           >
             {loading ? 'Adding...' : stockInfo.inStock ? 'Add to Cart' : 'Out of Stock'}
           </button>
-          <button 
-            className={`flex-1 border rounded-lg py-2 font-semibold transition ${
-              stockInfo.inStock && !loading
+          <button
+            className={`flex-1 border rounded-lg py-2 font-semibold transition ${stockInfo.inStock && !loading
                 ? 'border-green-600 text-green-700 hover:bg-green-50'
                 : 'border-gray-300 text-gray-500 cursor-not-allowed'
-            }`}
+              }`}
             disabled={!stockInfo.inStock || loading}
             onClick={handleBuyNow}
           >
@@ -265,7 +262,8 @@ export default function ProductSection({ product, onAddToCart, user }) {
           <div className="font-semibold mb-1">Offers & Gift Cards</div>
           <ul className="text-sm text-gray-700 list-disc pl-5">
             <li>Flat 10% off on orders above ₹999</li>
-            <li>Free delivery above ₹499</li>
+            <li>Free delivery above ₹499 (Standard)</li>
+            <li>₹49 delivery charge for orders below ₹499</li>
           </ul>
         </div>
 

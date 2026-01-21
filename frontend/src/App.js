@@ -11,7 +11,7 @@ import ProductListing from './components/Products/ProductListing';
 import ProductDetail from './components/Products/ProductDetail';
 import ShoppingCart from './components/Cart/ShoppingCart';
 import Checkout from './components/Checkout/Checkout';
-import UserProfile from './components/Profile/UserProfile';
+// import UserProfile from './components/Profile/UserProfile';
 import OrderDetails from './components/Profile/OrderDetails';
 import UserOrders from './components/Profile/UserOrders';
 import About from './components/Static/About';
@@ -44,6 +44,9 @@ import EventsPage from './components/Events/EventsPage';
 import EventDetails from './components/Events/EventDetails';
 import EventTicket from './components/Events/EventTicket';
 import EventRegistrationConfirmation from './components/Events/EventRegistrationConfirmation';
+// Staff Components
+import StoreManagerDashboard from './components/Staff/dashboards/StoreManagerDashboard';
+import DeliveryBoyDashboard from './components/Staff/dashboards/DeliveryBoyDashboard';
 
 // Lazy load category pages to keep bundle light
 const CategoriesPageLazy = React.lazy(() => import('./components/Products/CategoriesPage'));
@@ -597,23 +600,27 @@ function App() {
 
   return (
     <>
-      {location.pathname.startsWith('/admin') ? (
-        <AdminNavbar user={user} onLogout={handleLogout} />
-      ) : (
-        <NavbarMUI
-          user={user}
-          onLogout={handleLogout}
-          wishlistItems={wishlistItems}
-          cartCount={cartItems.reduce((s, i) => s + (i.quantity || 1), 0)}
-          onOpenCart={() => setIsCartOpen(true)}
-          onOpenFeedback={handleOpenFeedback} // Pass feedback handler to navbar
-        />
-      )}
+      {!(location.pathname.startsWith('/admin') ||
+        location.pathname.startsWith('/store-manager') ||
+        location.pathname.startsWith('/delivery-boy')) && (
+          <NavbarMUI
+            user={user}
+            onLogout={handleLogout}
+            wishlistItems={wishlistItems}
+            cartCount={cartItems.reduce((s, i) => s + (i.quantity || 1), 0)}
+            onOpenCart={() => setIsCartOpen(true)}
+            onOpenFeedback={handleOpenFeedback}
+          />
+        )}
+
+      {/* Staff Specific Navbars or Logic can go here if needed, but for now we rely on internal dashboard navs */}
 
       <main>
         <Routes>
           <Route path="/" element={<HomeMUI />} />
           <Route path="/admin" element={user && user.role === 'admin' ? <AdminDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+          <Route path="/store-manager" element={user && user.role === 'store_manager' ? <StoreManagerDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
+          <Route path="/delivery-boy" element={user && user.role === 'delivery_boy' ? <DeliveryBoyDashboard user={user} onLogout={handleLogout} /> : <Navigate to="/login" />} />
           {/* Replace the existing products route with our new category-first route */}
           <Route path="/products" element={<CategoryFirstPage
             user={user}
@@ -647,9 +654,9 @@ function App() {
             />
           } />
           <Route path="/cart" element={<ShoppingCart cartItems={cartItems} onUpdateQuantity={handleUpdateQuantity} onRemoveItem={handleRemoveItem} onClearCart={handleClearCart} />} />
-          <Route path="/checkout" element={<Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} />} />
+          <Route path="/checkout" element={user ? <Checkout cartItems={cartItems} onOrderComplete={handleOrderComplete} /> : <Navigate to="/login" state={{ from: '/checkout' }} />} />
           <Route path="/wishlist" element={<Wishlist wishlistItems={wishlistItems} onRemoveFromWishlist={handleRemoveFromWishlist} onAddToCart={handleAddToCart} onViewDetails={handleViewDetails} />} />
-          <Route path="/profile" element={<UserProfile user={user} wishlistItems={wishlistItems} />} />
+          {/* <Route path="/profile" element={<UserProfile user={user} wishlistItems={wishlistItems} />} /> */}
           <Route path="/orders" element={<UserOrders user={user} />} />
           <Route path="/orders/:orderId" element={<OrderDetails user={user} />} />
           <Route path="/remedies" element={<HerbalRemedies />} />

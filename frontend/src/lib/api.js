@@ -8,6 +8,15 @@ export const assetUrl = (path) => {
   return `${API_ORIGIN}${normalizedPath}`;
 };
 
+class ApiError extends Error {
+  constructor(message, status, data) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.data = data;
+  }
+}
+
 function getAuthHeaders() {
   try {
     const token = localStorage.getItem('token') || localStorage.getItem('firebaseIdToken');
@@ -43,8 +52,16 @@ async function request(path, options = {}) {
 
     if (!res.ok) {
       const text = await res.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // Not JSON
+      }
+
       console.error(`[API] Request failed: ${res.status}`, text);
-      throw new Error(text || `Request failed: ${res.status}`);
+      const errorMessage = data?.error || text || `Request failed: ${res.status}`;
+      throw new ApiError(errorMessage, res.status, data);
     }
 
     if (res.status === 204) return null;
@@ -123,6 +140,8 @@ export const api = {
   updateOrderStatus: (id, status) => request(`/orders/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   createOrder: (payload) => request('/orders/create', { method: 'POST', body: JSON.stringify(payload) }),
   verifyPayment: (payload) => request('/orders/verify', { method: 'POST', body: JSON.stringify(payload) }),
+  listDeliveryOrders: (type = 'active') => request(`/delivery/orders?type=${type}`),
+  markOrderDelivered: (id) => request(`/delivery/orders/${id}/deliver`, { method: 'POST' }),
 
   // Inventory alerts
   lowStock: (threshold) => request(`/admin/low-stock${threshold ? `?threshold=${encodeURIComponent(threshold)}` : ''}`),
@@ -132,6 +151,7 @@ export const api = {
   updateUserRole: (id, role) => request(`/users/${id}/role`, { method: 'PUT', body: JSON.stringify({ role }) }),
   toggleUserActive: (id, active) => request(`/users/${id}/active`, { method: 'PUT', body: JSON.stringify({ active }) }),
   deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
+  createStaff: (data) => request('/admin/create-staff', { method: 'POST', body: JSON.stringify(data) }),
 
   // Categories
   listCategories: () => request('/categories'),
@@ -310,6 +330,7 @@ export const listUsers = api.listUsers;
 export const updateUserRole = api.updateUserRole;
 export const toggleUserActive = api.toggleUserActive;
 export const deleteUser = api.deleteUser;
+export const createStaff = api.createStaff;
 export const listCategories = api.listCategories;
 export const createCategory = api.createCategory;
 export const updateCategory = api.updateCategory;
@@ -354,5 +375,7 @@ export const deleteAllBlogNotifications = api.deleteAllBlogNotifications;
 export const getMyBlogPosts = api.getMyBlogPosts;
 export const recommendCrops = api.recommendCrops;
 export const listCropsSuitability = api.listCropsSuitability;
+export const listDeliveryOrders = api.listDeliveryOrders;
+export const markOrderDelivered = api.markOrderDelivered;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;

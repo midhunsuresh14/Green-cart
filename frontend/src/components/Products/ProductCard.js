@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const formatINR = (value) => {
   if (value == null) return '';
@@ -7,6 +8,7 @@ const formatINR = (value) => {
 };
 
 const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist, user }) => {
+  const navigate = useNavigate();
   const [stockInfo, setStockInfo] = useState({ stock: product.stock || 0, inStock: (product.stock || 0) > 0 });
   const [loadingStock, setLoadingStock] = useState(false);
 
@@ -19,13 +21,13 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
   useEffect(() => {
     const fetchStockInfo = async () => {
       if (!product.id && !product._id) return;
-      
+
       setLoadingStock(true);
       try {
         const productId = product.id || product._id;
         const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
         const response = await fetch(`${apiBase}/products/${productId}/stock`);
-        
+
         if (response.ok) {
           const data = await response.json();
           setStockInfo({
@@ -65,7 +67,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
       window.location.href = '/login';
       return;
     }
-    
+
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;
@@ -80,7 +82,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: 1 })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
@@ -98,14 +100,14 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
   // Handle wishlist toggle with authentication check
   const handleToggleWishlist = (e) => {
     e.stopPropagation();
-    
+
     // Check if user is logged in
     if (!user) {
       // Redirect to login page
       window.location.href = '/login';
       return;
     }
-    
+
     const btn = e.currentTarget;
     btn.classList.remove('wishlist-anim');
     // Force reflow to restart animation
@@ -163,18 +165,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
               onClick={() => onViewDetails && onViewDetails(product)}
             >
               <span className="material-icons">visibility</span>
-              <span>View</span>
-            </button>
-            <button
-              className={`overlay-btn primary ${!stockInfo.inStock ? 'disabled' : ''}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleAddToCart();
-              }}
-              disabled={!stockInfo.inStock}
-            >
-              <span className="material-icons">shopping_cart</span>
-              <span>Add</span>
+              <span>View Details</span>
             </button>
           </div>
         </div>
@@ -224,14 +215,19 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
             disabled={!stockInfo.inStock}
           >
             <span className="material-icons">shopping_cart</span>
-            <span>{stockInfo.inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+            <span>Add to Cart</span>
           </button>
           <button
-            className={"add-to-wishlist-btn " + (isInWishlist ? 'active' : '')}
-            onClick={handleToggleWishlist}
+            className={`buy-now-btn ${!stockInfo.inStock ? 'disabled' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart();
+              navigate('/checkout');
+            }}
+            disabled={!stockInfo.inStock}
           >
-            <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
-            <span>{isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}</span>
+            <span className="material-icons">bolt</span>
+            <span>Buy Now</span>
           </button>
         </div>
       </div>

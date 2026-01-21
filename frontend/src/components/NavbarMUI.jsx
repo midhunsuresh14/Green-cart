@@ -322,7 +322,7 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
                   </Avatar>
                 </IconButton>
                 <Menu anchorEl={profileEl} open={Boolean(profileEl)} onClose={closeProfile} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }}>
-                  <MenuItem component={RouterLink} to="/profile" onClick={closeProfile}>Profile</MenuItem>
+                  {/* <MenuItem component={RouterLink} to="/profile" onClick={closeProfile}>Profile</MenuItem> */}
                   <MenuItem onClick={() => { closeProfile(); onLogout && onLogout(); }}>
                     <LogoutIcon fontSize="small" style={{ marginRight: 8 }} /> Logout
                   </MenuItem>
@@ -422,7 +422,7 @@ export default function NavbarMUI({ user, onLogout, wishlistItems = [], cartCoun
           <Box sx={{ p: 2 }}>
             {user ? (
               <Stack spacing={1}>
-                <Button startIcon={<PersonIcon />} component={RouterLink} to="/profile" color="inherit">Profile</Button>
+                {/* <Button startIcon={<PersonIcon />} component={RouterLink} to="/profile" color="inherit">Profile</Button> */}
                 <Button startIcon={<LogoutIcon />} variant="contained" color="primary" onClick={onLogout}>Logout</Button>
               </Stack>
             ) : (

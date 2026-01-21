@@ -44,6 +44,8 @@ function Login({ user, setUser }) {
       const parsed = JSON.parse(userData);
       setUser(parsed);
       if (parsed?.role === 'admin') navigate('/admin');
+      else if (parsed?.role === 'store_manager') navigate('/store-manager');
+      else if (parsed?.role === 'delivery_boy') navigate('/delivery-boy');
       else navigate('/');
     }
   }, [navigate, setUser]);
@@ -83,7 +85,7 @@ function Login({ user, setUser }) {
     setErrors((prev) => ({ ...prev, [name]: message }));
   };
 
-  
+
 
   const validateForm = () => {
     const newErrors = {};
@@ -116,6 +118,8 @@ function Login({ user, setUser }) {
         localStorage.setItem('user', JSON.stringify(data.user));
         setUser(data.user);
         if (data.user?.role === 'admin') navigate('/admin');
+        else if (data.user?.role === 'store_manager') navigate('/store-manager');
+        else if (data.user?.role === 'delivery_boy') navigate('/delivery-boy');
         else navigate('/');
       } else {
         setErrors({ submit: data.error || 'Login failed. Please try again.' });
@@ -160,6 +164,8 @@ function Login({ user, setUser }) {
           localStorage.setItem('user', JSON.stringify(data.user));
           setUser(data.user);
           if (data.user?.role === 'admin') navigate('/admin');
+          else if (data.user?.role === 'store_manager') navigate('/store-manager');
+          else if (data.user?.role === 'delivery_boy') navigate('/delivery-boy');
           else navigate('/');
         } else {
           const fallbackUser = { ...userData, role: 'user' };
@@ -185,7 +191,12 @@ function Login({ user, setUser }) {
     }
   };
 
-  if (user) return <Navigate to={user?.role === 'admin' ? '/admin' : '/'} />;
+  if (user) {
+    if (user.role === 'admin') return <Navigate to="/admin" />;
+    if (user.role === 'store_manager') return <Navigate to="/store-manager" />;
+    if (user.role === 'delivery_boy') return <Navigate to="/delivery-boy" />;
+    return <Navigate to="/" />;
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', background: 'linear-gradient(135deg,#F7FAF8,#EEF7F1)' }}>
@@ -290,7 +301,7 @@ function Login({ user, setUser }) {
                   Continue with Google
                 </Button>
 
-                
+
               </Stack>
             </Box>
 

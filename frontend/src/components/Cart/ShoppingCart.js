@@ -42,7 +42,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
       try {
         const saved = localStorage.getItem('cart');
         if (saved) setCart(JSON.parse(saved));
-      } catch {}
+      } catch { }
     }
   }, [cartItems]);
 
@@ -50,7 +50,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
   useEffect(() => {
     try {
       localStorage.setItem('cart', JSON.stringify(cart));
-    } catch {}
+    } catch { }
   }, [cart]);
 
   const handleQuantityChange = async (itemId, newQuantity) => {
@@ -67,7 +67,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ quantity: newQuantity })
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         if (!data.available) {
@@ -96,29 +96,37 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
     return cart.reduce((total, item) => total + (item.finalPrice * item.quantity), 0);
   };
 
+  const calculateDiscount = () => {
+    const subtotal = calculateSubtotal();
+    return subtotal > 999 ? subtotal * 0.10 : 0;
+  };
+
   const calculateShipping = () => {
     const subtotal = calculateSubtotal();
-    if (subtotal >= 100) return 0; // Free shipping over ₹100
-    if (subtotal >= 50) return 5.99; // Reduced shipping
-    return 9.99; // Standard shipping
+    if (subtotal >= 499) return 0; // Free shipping over ₹499
+    return 49; // Standard shipping ₹49
   };
 
   const calculateTax = () => {
-    return calculateSubtotal() * 0.08; // 8% tax
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    return (subtotal - discount) * 0.08; // 8% tax on discounted total
   };
 
   const calculateTotal = () => {
-    return calculateSubtotal() + calculateShipping() + calculateTax();
+    const subtotal = calculateSubtotal();
+    const discount = calculateDiscount();
+    const shipping = calculateShipping();
+    const tax = calculateTax();
+    return subtotal - discount + shipping + tax;
   };
 
   const getShippingMessage = () => {
     const subtotal = calculateSubtotal();
-    if (subtotal >= 100) {
+    if (subtotal >= 499) {
       return "🎉 You qualify for FREE shipping!";
-    } else if (subtotal >= 50) {
-      return `Add $${(100 - subtotal).toFixed(2)} more for FREE shipping!`;
     } else {
-      return `Add $${(50 - subtotal).toFixed(2)} more for reduced shipping!`;
+      return `Add ₹${(499 - subtotal).toFixed(0)} more for FREE shipping!`;
     }
   };
 
@@ -129,7 +137,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
           <div className="cart-header">
             <h1>Your Shopping Cart</h1>
           </div>
-          
+
           <div className="empty-cart">
             <div className="empty-cart-content">
               <span className="material-icons">shopping_cart</span>
@@ -159,7 +167,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
           <div className="cart-items">
             <div className="cart-items-header">
               <h2>Items</h2>
-              <button 
+              <button
                 className="clear-cart-btn"
                 onClick={handleClearCart}
               >
@@ -172,8 +180,8 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
               {cart.map((item) => (
                 <div key={`${item.id}-${item.selectedSize?.name || 'default'}`} className="cart-item">
                   <div className="item-image">
-                    <img 
-                      src={resolveImageUrl(item.images?.[0] || item.image || item.imageUrl)} 
+                    <img
+                      src={resolveImageUrl(item.images?.[0] || item.image || item.imageUrl)}
                       alt={item.name}
                     />
                   </div>
@@ -199,7 +207,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                   <div className="item-quantity">
                     <label>Quantity</label>
                     <div className="quantity-controls">
-                      <button 
+                      <button
                         className="quantity-btn"
                         onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
                         disabled={item.quantity <= 1}
@@ -207,7 +215,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                         <span className="material-icons">remove</span>
                       </button>
                       <span className="quantity-value">{item.quantity}</span>
-                      <button 
+                      <button
                         className="quantity-btn"
                         onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
                         disabled={item.quantity >= 10}
@@ -225,14 +233,14 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                   </div>
 
                   <div className="item-actions">
-                    <button 
+                    <button
                       className="remove-btn"
                       onClick={() => handleRemoveItem(item.id)}
                       title="Remove item"
                     >
                       <span className="material-icons">delete</span>
                     </button>
-                    <button 
+                    <button
                       className="wishlist-btn"
                       title="Move to wishlist"
                     >
@@ -248,30 +256,37 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
           <div className="order-summary">
             <div className="summary-card">
               <h2>Order Summary</h2>
-              
+
               <div className="summary-details">
                 <div className="summary-row">
                   <span>Subtotal ({cart.length} items)</span>
-                  <span>${calculateSubtotal().toFixed(2)}</span>
+                  <span>₹{calculateSubtotal().toFixed(2)}</span>
                 </div>
-                
+
+                {calculateDiscount() > 0 && (
+                  <div className="summary-row text-green-600 font-medium">
+                    <span>Discount (10% Off)</span>
+                    <span>-₹{calculateDiscount().toFixed(2)}</span>
+                  </div>
+                )}
+
                 <div className="summary-row">
                   <span>Shipping</span>
                   <span>
-                    {calculateShipping() === 0 ? 'FREE' : `$${calculateShipping().toFixed(2)}`}
+                    {calculateShipping() === 0 ? 'FREE' : `₹${calculateShipping().toFixed(2)}`}
                   </span>
                 </div>
-                
+
                 <div className="summary-row">
                   <span>Tax</span>
-                  <span>${calculateTax().toFixed(2)}</span>
+                  <span>₹{calculateTax().toFixed(2)}</span>
                 </div>
-                
+
                 <div className="summary-divider"></div>
-                
+
                 <div className="summary-row total">
                   <span>Total</span>
-                  <span>${calculateTotal().toFixed(2)}</span>
+                  <span>₹{calculateTotal().toFixed(2)}</span>
                 </div>
               </div>
 
@@ -285,7 +300,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                   <span className="material-icons">shopping_cart</span>
                   Proceed to Checkout
                 </button>
-                
+
                 <button className="continue-shopping-btn" onClick={() => navigate('/products')}>
                   <span className="material-icons">arrow_back</span>
                   Continue Shopping

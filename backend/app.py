@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_file, send_from_directory, make_response
+from flask import Flask, request, jsonify, send_file, send_from_directory, make_response, g
 from flask_cors import CORS
 from flask_mail import Mail, Message
 from pymongo import MongoClient
@@ -309,6 +309,10 @@ def verify_otp(email, otp):
 # Auth helpers
 
 def get_current_user():
+    # If already found in this request context, return it
+    if hasattr(g, 'current_user'):
+        return g.current_user
+        
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
         return None
@@ -319,20 +323,70 @@ def get_current_user():
         if not user_id:
             return None
         user = users_collection.find_one({'_id': ObjectId(user_id)})
+        if user:
+            g.current_user = user
         return user
-    except Exception:
+    except Exception as e:
+        print(f"Auth error in get_current_user: {str(e)}")
         return None
 
 
 def login_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header:
+            return jsonify({'success': False, 'error': 'Token is missing'}), 401
+        
+        if not auth_header.startswith('Bearer '):
+            return jsonify({'success': False, 'error': 'Invalid token format'}), 401
+            
+        token = auth_header.split(' ', 1)[1]
+        try:
+            decoded = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])
+            user_id = decoded.get('user_id')
+            if not user_id:
+                return jsonify({'success': False, 'error': 'Invalid token payload'}), 401
+            
+            user = users_collection.find_one({'_id': ObjectId(user_id)})
+            if not user:
+                return jsonify({'success': False, 'error': 'User not found'}), 401
+            
+            # Store in g for subsequent calls to get_current_user() in the same request
+            g.current_user = user
+            return f(*args, **kwargs)
+            
+        except jwt.ExpiredSignatureError:
+            return jsonify({'success': False, 'error': 'Token has expired'}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({'success': False, 'error': 'Invalid token'}), 401
+        except Exception as e:
+            print(f"Unexpected auth error: {str(e)}")
+            return jsonify({'success': False, 'error': f'Authentication error: {str(e)}'}), 401
+    return wrapper
+
+
+def store_manager_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
         user = get_current_user()
         if not user:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        if user.get('role') not in ['admin', 'store_manager']:
+            return jsonify({'success': False, 'error': 'Forbidden: Store Managers only'}), 403
         return f(*args, **kwargs)
     return wrapper
 
+def delivery_boy_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        user = get_current_user()
+        if not user:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+        if user.get('role') not in ['admin', 'delivery_boy']:
+            return jsonify({'success': False, 'error': 'Forbidden: Delivery Boys only'}), 403
+        return f(*args, **kwargs)
+    return wrapper
 
 def admin_required(f):
     @wraps(f)
@@ -707,9 +761,15 @@ def resend_otp():
 def login():
     try:
         data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+            
         email = data.get('email')
         password = data.get('password')
         
+        if not email or not password:
+            return jsonify({'success': False, 'error': 'Email and password are required'}), 400
+            
         # Find user by email
         user = users_collection.find_one({'email': email})
         if not user:
@@ -719,7 +779,14 @@ def login():
             }), 401
         
         # Check password
-        if not check_password_hash(user['password'], password):
+        user_password = user.get('password')
+        if not user_password:
+             return jsonify({
+                'success': False,
+                'error': 'User account is not properly configured (missing password)'
+            }), 401
+
+        if not check_password_hash(user_password, password):
             return jsonify({
                 'success': False,
                 'error': 'Invalid email or password'
@@ -738,18 +805,21 @@ def login():
             'user': {
                 'id': str(user['_id']),
                 'email': user['email'],
-                'name': user['name'],
-                'phone': user['phone'],
+                'name': user.get('name'),
+                'phone': user.get('phone'),
                 'role': user.get('role', 'user')
             },
             'token': token
         }), 200
         
     except Exception as e:
-        print(f"Login error: {e}") # Add more detailed logging
+        import traceback
+        error_msg = f"Login error: {str(e)}"
+        print(error_msg)
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': str(e)
+            'error': error_msg
         }), 400
 
 @app.route('/api/user/<user_id>', methods=['GET'])
@@ -1322,7 +1392,7 @@ def serve_uploads(filename):
 
 # Orders endpoints (basic list and status update)
 @app.route('/api/orders', methods=['GET'])
-@admin_required
+@store_manager_required
 def list_orders():
     try:
         # Get query parameters for filtering
@@ -1417,8 +1487,45 @@ def admin_stats():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/orders/<order_id>/status', methods=['PUT'])
+@app.route('/api/admin/create-staff', methods=['POST'])
 @admin_required
+def create_staff():
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        password = data.get('password')
+        name = data.get('name')
+        role = data.get('role')
+        
+        if not email or not password or not name or not role:
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+            
+        if role not in ['store_manager', 'delivery_boy']:
+            return jsonify({'success': False, 'error': 'Invalid role for staff creation'}), 400
+            
+        # Check if user exists
+        if users_collection.find_one({'email': email}):
+            return jsonify({'success': False, 'error': 'Email already exists'}), 400
+            
+        # Create staff user
+        hashed_password = generate_password_hash(password)
+        user_doc = {
+            'name': name,
+            'email': email,
+            'password': hashed_password,
+            'role': role,
+            'created_at': datetime.datetime.utcnow(),
+            'active': True
+        }
+        
+        users_collection.insert_one(user_doc)
+        return jsonify({'success': True, 'message': f'Staff member {name} created successfully as {role}'}), 201
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/orders/<order_id>/status', methods=['PUT'])
+@store_manager_required
 def update_order_status(order_id):
     try:
         data = request.get_json()
@@ -1456,6 +1563,70 @@ def update_order_status(order_id):
             }
             notifications_collection.insert_one(notification)
         
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+# Delivery endpoints
+@app.route('/api/delivery/orders', methods=['GET'])
+@delivery_boy_required
+def list_delivery_orders():
+    try:
+        # Get list type: 'active' (default) or 'history'
+        list_type = request.args.get('type', 'active')
+        
+        if list_type == 'history':
+            query = {'deliveryStatus': 'Delivered'}
+        else:
+            # Active orders are those confirmed or shipped/out for delivery
+            query = {'deliveryStatus': {'$in': ['Confirmed', 'Shipped']}}
+            
+        items = []
+        # Sort history by delivery time if available, otherwise creation time
+        sort_field = 'delivered_at' if list_type == 'history' else 'created_at'
+        
+        for o in orders_collection.find(query).sort(sort_field, -1).limit(50):
+            items.append({
+                'id': str(o['_id']),
+                'customerName': o.get('userName'),
+                'customerEmail': o.get('userEmail'),
+                'customerPhone': o.get('userPhone'),
+                'address': o.get('address', o.get('shippingAddress', {})),
+                'totalAmount': float(o.get('total', 0)),
+                'deliveryStatus': o.get('deliveryStatus', 'Pending'),
+                'createdAt': o.get('created_at'),
+                'deliveredAt': o.get('delivered_at'),
+            })
+        return jsonify(items)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/delivery/orders/<order_id>/deliver', methods=['POST'])
+@delivery_boy_required
+def mark_order_delivered(order_id):
+    try:
+        result = orders_collection.update_one(
+            {'_id': ObjectId(order_id)},
+            {'$set': {'deliveryStatus': 'Delivered', 'delivered_at': datetime.datetime.utcnow()}}
+        )
+        if result.matched_count == 0:
+            return jsonify({'error': 'Order not found'}), 404
+            
+        # Send notification
+        order = orders_collection.find_one({'_id': ObjectId(order_id)})
+        user_id = order.get('userId')
+        if user_id:
+            notification = {
+                'userId': user_id,
+                'title': f'Order #{order_id[:8]} Delivered',
+                'message': 'Your order has been delivered successfully. Thank you for shopping with us!',
+                'type': 'order_status',
+                'relatedId': order_id,
+                'read': False,
+                'createdAt': datetime.datetime.utcnow()
+            }
+            notifications_collection.insert_one(notification)
+            
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -1929,6 +2100,25 @@ def create_order():
         # Debug logging
         print(f"DEBUG: Order created with ID: {result.inserted_id}")
         
+        payment_method = data.get('paymentMethod', 'razorpay')
+        
+        if payment_method == 'cod':
+            # Update order for COD
+            orders_collection.update_one(
+                {'_id': result.inserted_id},
+                {'$set': {
+                    'status': 'confirmed',
+                    'paymentStatus': 'Cash on Delivery',
+                    'paymentMethod': 'cod'
+                }}
+            )
+            return jsonify({
+                'orderId': str(result.inserted_id),
+                'status': 'success',
+                'paymentMethod': 'cod',
+                'message': 'Order placed successfully (Cash on Delivery)'
+            }), 201
+
         # Create Razorpay order
         rzp_order_id = None
         amount_paise = int(total_amount * 100)
@@ -1940,16 +2130,12 @@ def create_order():
                     'receipt': str(result.inserted_id),
                     'payment_capture': 1,
                 }
-                try:
-                    # Use getattr to safely access the order attribute
-                    order = getattr(razorpay_client, 'order', None)
-                    if order and hasattr(order, 'create'):
-                        rzp_order = order.create(rzp_order_data)
-                        rzp_order_id = rzp_order.get('id')
-                    else:
-                        return jsonify({'error': 'Razorpay order creation not available'}), 500
-                except Exception as e:
-                    return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
+                order = getattr(razorpay_client, 'order', None)
+                if order and hasattr(order, 'create'):
+                    rzp_order = order.create(rzp_order_data)
+                    rzp_order_id = rzp_order.get('id')
+                else:
+                    return jsonify({'error': 'Razorpay order creation not available'}), 500
             except Exception as e:
                 return jsonify({'error': f'Failed to create Razorpay order: {str(e)}'}), 500
         else:
@@ -1963,7 +2149,6 @@ def create_order():
         
         print(f"DEBUG: Razorpay order ID saved: {rzp_order_id}")
 
-        # Return order for Razorpay payment processing
         return jsonify({
             'orderId': str(result.inserted_id),
             'razorpayKeyId': RAZORPAY_KEY_ID,
@@ -2189,12 +2374,18 @@ def get_admin_notifications():
     try:
         notifications = list(notifications_collection.find().sort('created_at', -1).limit(50))
         
-        # Convert ObjectId to string for JSON serialization
         for notification in notifications:
             notification['_id'] = str(notification['_id'])
-            notification['created_at'] = notification['created_at'].isoformat()
+            created_at = notification.get('created_at')
+            if created_at and hasattr(created_at, 'isoformat'):
+                notification['created_at'] = created_at.isoformat()
+            else:
+                notification['created_at'] = None
         
-        return jsonify(notifications)
+        return jsonify({
+            'success': True,
+            'notifications': notifications
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -3747,18 +3938,27 @@ def get_current_season():
     if 9 <= month <= 11: return "Monsoon"
     return "Winter"
 
-def get_crop_ai_explanation(crop_name, weather_data, suitability):
+def get_batch_crop_explanations(crops_list, weather_data):
     mistral_key = os.getenv('MISTRAL_API_KEY')
+    if not mistral_key:
+        return {}
+
     temp = weather_data['main']['temp']
     humidity = weather_data['main']['humidity']
+    desc = weather_data['weather'][0]['description']
     
-    if not mistral_key:
-        return f"This crop is {suitability.lower()} for your current weather of {temp}°C and {humidity}% humidity."
+    # Construct a bulk prompt
+    crops_str = ", ".join([f"{c['name']} ({c['suitability']})" for c in crops_list])
+    
+    prompt = (
+        f"As a botanical expert for GreenCart, explain why these plants are suitable "
+        f"for a climate with {temp}°C, {humidity}% humidity, and {desc}. "
+        f"Plants: {crops_str}. "
+        "Return the result ONLY as a JSON object where keys are the exact plant names given and values are short 1-sentence growth benefits. "
+        "Example format: {\"Tomato\": \"Thrives in the warm temperature...\", \"Spinach\": \"...\"}"
+    )
 
     try:
-        desc = weather_data['weather'][0]['description']
-        prompt = f"As a botanical expert for GreenCart, explain why {crop_name} is {suitability} for a climate with {temp}°C, {humidity}% humidity, and {desc} sky. Keep it under 2 sentences. Mention one specific growth benefit."
-        
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {mistral_key}'
@@ -3766,17 +3966,21 @@ def get_crop_ai_explanation(crop_name, weather_data, suitability):
         payload = {
             'model': 'mistral-small-latest',
             'messages': [{'role': 'user', 'content': prompt}],
-            'max_tokens': 100,
+            'response_format': {'type': 'json_object'},
+            'max_tokens': 300,
             'temperature': 0.7
         }
         
-        response = requests.post('https://api.mistral.ai/v1/chat/completions', headers=headers, json=payload, timeout=5)
+        response = requests.post('https://api.mistral.ai/v1/chat/completions', headers=headers, json=payload, timeout=8)
         if response.status_code == 200:
-            return response.json()['choices'][0]['message']['content'].strip()
-    except Exception:
-        pass
+            content = response.json()['choices'][0]['message']['content'].strip()
+            import json
+            return json.loads(content)
+    except Exception as e:
+        print(f"Batch AI Explanation Error: {e}")
+        return {}
         
-    return f"Perfect for current conditions! {crop_name} thrives in this range of temperature and humidity."
+    return {}
 
 def get_dynamic_ai_suggestions(weather_data, current_season):
     mistral_key = os.getenv('MISTRAL_API_KEY')
@@ -3920,18 +4124,55 @@ def recommend_crops():
                 score += 30
             
             # Final assessment based on score
-            if score >= 60:
-                crop['suitability'] = "Highly Suitable"
+            # Final assessment based on score
+            if score >= 30:
+                crop['score'] = score
                 crop['suitability_score'] = score
-                recommended_crops.append(crop)
-            elif score >= 30:
-                crop['suitability'] = "Moderately Suitable"
-                crop['suitability_score'] = score
+                
+                if score >= 60:
+                    crop['suitability'] = "Highly Suitable"
+                else:
+                    crop['suitability'] = "Moderately Suitable"
+
+                # Check directly if a matching product exists
+                product = products_collection.find_one({
+                    'name': {'$regex': f'{crop["name"]}', '$options': 'i'},
+                    'category': 'Seeds'
+                })
+                
+                if product:
+                    crop['productId'] = str(product['_id'])
+                    crop['isAvailable'] = int(product.get('stock', 0)) > 0
+                else:
+                    crop['productId'] = None
+                    crop['isAvailable'] = False
+
                 recommended_crops.append(crop)
                 
-        # Generate explanations for the top crops
-        for crop in recommended_crops:
-             crop['explanation'] = get_crop_ai_explanation(crop['name'], weather_data, crop['suitability'])
+        # Generate explanations for the top crops (Batch Request)
+        if recommended_crops:
+            # Prepare list for batch request
+            crops_to_explain = [
+                {'name': c['name'], 'suitability': c['suitability']} 
+                for c in recommended_crops[:5] # Limit to top 5 to avoid token limits
+            ]
+            
+            # Batch AI Call
+            try:
+                processed_explanations = get_batch_crop_explanations(crops_to_explain, weather_data)
+                
+                # specific explanations to crops
+                for crop in recommended_crops:
+                    if crop['name'] in processed_explanations:
+                        crop['explanation'] = processed_explanations[crop['name']]
+                    else:
+                         # Fallback if AI missed one
+                        crop['explanation'] = f"Best suited for {crop['suitability']} growth in current {weather_data['main']['temp']}°C conditions."
+            except Exception as e:
+                print(f"Batch AI Error: {e}")
+                # Global fallback
+                for crop in recommended_crops:
+                    crop['explanation'] = f"Compatible with current {weather_data['main']['temp']}°C temperature and humid conditions."
 
         # If results are low, fetch dynamic AI suggestions
         if len(recommended_crops) < 3:

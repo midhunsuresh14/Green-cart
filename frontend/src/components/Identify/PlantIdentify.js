@@ -151,22 +151,32 @@ const PlantIdentify = () => {
   const startCamera = async () => {
     try {
       let stream;
+      // Detect if device is mobile
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+      const constraints = {
+        video: isMobile ? { facingMode: { ideal: 'environment' } } : true
+      };
+
       try {
-        // Try back camera first
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
-        });
+        console.log("Attempting to start camera with constraints:", constraints);
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
       } catch (err) {
-        console.warn('Back camera not available, falling back to default:', err);
-        // Fallback to any available camera
+        console.warn('Initial camera access failed, falling back to default:', err);
+        // Final fallback: just try to get any video stream
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
       }
 
       setCameraStream(stream);
       setShowCamera(true);
+      setError(null);
     } catch (err) {
       console.error('Error accessing camera:', err);
-      setError('Unable to access camera. Please ensure you have given permission.');
+      let msg = 'Unable to access camera. ';
+      if (err.name === 'NotAllowedError') msg += 'Please ensure you have given permission.';
+      else if (err.name === 'NotFoundError') msg += 'No camera found on this device.';
+      else msg += 'Please ensure no other application is using it.';
+      setError(msg);
     }
   };
 

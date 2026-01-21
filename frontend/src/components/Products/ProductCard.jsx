@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './ProductCard.css';
 
 const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist }) => {
+  const navigate = useNavigate();
   const [stockInfo, setStockInfo] = useState({ stock: product.stock || 0, inStock: (product.stock || 0) > 0 });
   const [loadingStock, setLoadingStock] = useState(false);
 
@@ -107,9 +108,8 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
 
   // Handle Buy Now
   const handleBuyNow = () => {
-    onAddToCart(product);
-    // You might want to navigate to checkout here
-    // navigate('/checkout'); 
+    handleAddToCart();
+    navigate('/checkout');
   };
 
   return (
@@ -137,14 +137,6 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           <Link to={`/pdp/${product.id}`} className="product-title-link">
             <h3 className="product-title">{product.name}</h3>
           </Link>
-          <div className="product-rating">
-            <div className="stars">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <span key={star} className="material-icons star-icon">star</span>
-              ))}
-            </div>
-            <span className="rating-text">4.8 (120)</span>
-          </div>
         </div>
 
         <div className="product-price-section">
@@ -157,21 +149,28 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, is
           </div>
         )}
 
-        <div className="product-actions">
+        <div className="product-actions-row">
           <button
-            className="action-btn buy-now-btn"
-            onClick={handleBuyNow}
+            className={`add-to-cart-btn ${isOutOfStock ? 'disabled' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart();
+            }}
             disabled={isOutOfStock}
           >
-            Buy Now
+            <span className="material-icons">shopping_cart</span>
+            <span>Add to Cart</span>
           </button>
           <button
-            className="action-btn add-cart-btn"
-            onClick={handleAddToCart}
+            className={`buy-now-btn ${isOutOfStock ? 'disabled' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleBuyNow();
+            }}
             disabled={isOutOfStock}
           >
-            <span className="material-icons btn-icon">shopping_cart</span>
-            Add to Cart
+            <span className="material-icons">bolt</span>
+            <span>Buy Now</span>
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback, memo } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const formatINR = (value) => {
   if (value == null) return '';
@@ -47,8 +48,8 @@ const LazyImage = memo(({ src, alt, className, onError }) => {
   }, [onError]);
 
   return (
-    <div 
-      ref={imgRef} 
+    <div
+      ref={imgRef}
       className={`${className} ${hasLoaded ? 'loaded' : 'loading'}`}
     >
       {shouldLoad ? (
@@ -58,27 +59,27 @@ const LazyImage = memo(({ src, alt, className, onError }) => {
           onLoad={handleImageLoad}
           onError={handleError}
           loading="lazy"
-          style={{ 
-            width: '100%', 
-            height: '100%', 
-            objectFit: 'cover', 
-            opacity: hasLoaded ? 1 : 0, 
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            opacity: hasLoaded ? 1 : 0,
             transition: 'opacity 0.3s ease',
             display: 'block'
           }}
         />
       ) : (
-        <div style={{ 
-          width: '100%', 
-          height: '100%', 
+        <div style={{
+          width: '100%',
+          height: '100%',
           backgroundColor: '#f0f0f0',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <div style={{ 
-            width: '24px', 
-            height: '24px', 
+          <div style={{
+            width: '24px',
+            height: '24px',
             border: '3px solid #f3f3f3',
             borderTop: '3px solid #2e7d32',
             borderRadius: '50%',
@@ -99,6 +100,7 @@ const ImageStyles = `
 `;
 
 const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWishlist, isInWishlist, user }) => {
+  const navigate = useNavigate();
   // Use stock information directly from the product data
   const stockInfo = {
     stock: product.stock || 0,
@@ -129,28 +131,28 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
 
     // Use the correct image field from the product data
     const imageUrl = resolveImageUrl(product.imageUrl || product.image);
-    console.log('Product image URL resolution:', { 
-      productId: product.id, 
+    console.log('Product image URL resolution:', {
+      productId: product.id,
       productName: product.name,
-      originalImageUrl: product.imageUrl, 
-      originalImage: product.image, 
-      resolvedUrl: imageUrl 
+      originalImageUrl: product.imageUrl,
+      originalImage: product.image,
+      resolvedUrl: imageUrl
     });
-    
+
     return imageUrl || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=80';
   }, [product.imageUrl, product.image]);
 
   // Memoized event handlers to prevent recreation on every render
   const handleAddToCart = useCallback(async (e) => {
     e.stopPropagation();
-    
+
     // Check if user is logged in
     if (!user) {
       // Redirect to login page
       window.location.href = '/login';
       return;
     }
-    
+
     if (!stockInfo.inStock) {
       alert('This product is currently out of stock');
       return;
@@ -161,14 +163,14 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
 
   const handleToggleWishlist = useCallback((e) => {
     e.stopPropagation();
-    
+
     // Check if user is logged in
     if (!user) {
       // Redirect to login page
       window.location.href = '/login';
       return;
     }
-    
+
     const btn = e.currentTarget;
     btn.classList.remove('wishlist-anim');
     // Force reflow to restart animation
@@ -193,7 +195,7 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
     const style = document.createElement('style');
     style.textContent = ImageStyles;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -244,14 +246,6 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
               <span className="material-icons">visibility</span>
               <span>View Details</span>
             </button>
-            <button
-              className={`overlay-btn primary ${!stockInfo.inStock ? 'disabled' : ''}`}
-              onClick={handleAddToCart}
-              disabled={!stockInfo.inStock}
-            >
-              <span className="material-icons">shopping_cart</span>
-              <span>Add to Cart</span>
-            </button>
           </div>
         </div>
       </div>
@@ -300,14 +294,19 @@ const OptimizedProductCard = ({ product, onAddToCart, onViewDetails, onToggleWis
             disabled={!stockInfo.inStock}
           >
             <span className="material-icons">shopping_cart</span>
-            <span>{stockInfo.inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+            <span>Add to Cart</span>
           </button>
           <button
-            className={"add-to-wishlist-btn " + (isInWishlist ? 'active' : '')}
-            onClick={handleToggleWishlist}
+            className={`buy-now-btn ${!stockInfo.inStock ? 'disabled' : ''}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAddToCart(e);
+              navigate('/checkout');
+            }}
+            disabled={!stockInfo.inStock}
           >
-            <span className="material-icons">{isInWishlist ? 'favorite' : 'favorite_border'}</span>
-            <span>{isInWishlist ? 'In Wishlist' : 'Add to Wishlist'}</span>
+            <span className="material-icons">bolt</span>
+            <span>Buy Now</span>
           </button>
         </div>
       </div>

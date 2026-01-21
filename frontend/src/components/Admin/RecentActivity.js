@@ -25,7 +25,7 @@ export default function RecentActivity() {
     (async () => {
       try {
         setLoading(true);
-        
+
         // Fetch low stock items
         const lowStockRes = await api.lowStock();
         if (mounted) setLow(lowStockRes || { items: [], count: 0, threshold: 10 });
@@ -39,7 +39,7 @@ export default function RecentActivity() {
 
         if (mounted) {
           const recentActivities = [];
-          
+
           // Add stock notifications
           if (notificationsRes.notifications) {
             notificationsRes.notifications.slice(0, 3).forEach(notif => {
@@ -84,7 +84,7 @@ export default function RecentActivity() {
               .filter(user => user.created_at)
               .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
               .slice(0, 2);
-            
+
             recentUsers.forEach(user => {
               const timeAgo = getTimeAgo(user.created_at);
               recentActivities.push({
@@ -125,9 +125,19 @@ export default function RecentActivity() {
   };
 
   return (
-    <Card elevation={0} sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'background.paper' }}>
-      <CardHeader title={<Typography variant="h6" fontWeight={800}>Recent Activity</Typography>} subheader={<Typography variant="body2" color="success.main">Latest updates from your store</Typography>} />
-      <CardContent>
+    <Card elevation={0} sx={{
+      borderRadius: 4,
+      border: '1px solid var(--admin-border)',
+      bgcolor: 'var(--admin-surface)',
+      boxShadow: 'var(--admin-shadow)',
+      overflow: 'hidden'
+    }}>
+      <CardHeader
+        title={<Typography variant="h6" fontWeight={800} sx={{ color: 'var(--admin-text-primary)' }}>Recent Activity</Typography>}
+        subheader={<Typography variant="body2" color="success.main" sx={{ fontWeight: 500 }}>Latest updates from your store</Typography>}
+        sx={{ borderBottom: '1px solid var(--admin-border)', bgcolor: 'rgba(255,255,255,0.5)' }}
+      />
+      <CardContent sx={{ p: 3 }}>
         {loading && <Typography variant="body2">Loading low-stock…</Typography>}
         {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -178,18 +188,18 @@ export default function RecentActivity() {
                       secondary={<Typography variant="caption" color="text.secondary">{activity.time}</Typography>}
                       sx={{ flex: 1, minWidth: 0 }}
                     />
-                    <Chip 
-                      size="small" 
-                      label={activity.status} 
-                      color={activity.color} 
-                      variant="outlined" 
-                      sx={{ 
-                        px: 0.5, 
+                    <Chip
+                      size="small"
+                      label={activity.status}
+                      color={activity.color}
+                      variant="outlined"
+                      sx={{
+                        px: 0.5,
                         fontSize: '0.7rem',
                         height: '20px',
                         flexShrink: 0,
                         ml: 1
-                      }} 
+                      }}
                     />
                   </Stack>
                 </ListItem>
