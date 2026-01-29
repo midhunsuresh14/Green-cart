@@ -53,13 +53,13 @@ load_dotenv(env_path)  # Explicitly load from backend directory
 # Initialize Cloudinary only if available
 if CLOUDINARY_AVAILABLE:
     try:
-        cloud_name = os.getenv('CLOUD_NAME')
-        api_key = os.getenv('CLOUD_API_KEY')
-        api_secret = os.getenv('CLOUD_API_SECRET')
+        cloud_name = os.getenv('CLOUD_NAME', '').strip()
+        api_key = os.getenv('CLOUD_API_KEY', '').strip()
+        api_secret = os.getenv('CLOUD_API_SECRET', '').strip()
         
         # Check if all required environment variables are set
         if not cloud_name or not api_key or not api_secret:
-            print("Warning: Cloudinary environment variables not set. Please check your .env file.")
+            print("Warning: Cloudinary environment variables not set. Please check your .env file or Vercel environment variables.")
             CLOUDINARY_AVAILABLE = False
         else:
             cloudinary.config(
