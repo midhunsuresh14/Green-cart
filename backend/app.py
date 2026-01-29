@@ -1761,7 +1761,7 @@ def delete_remedy(remedy_id):
 
 ALLOWED_MODEL_EXTENSIONS = {'.glb', '.gltf', '.usdz'}
 
-@app.route('/api/upload', methods=['POST'])
+@app.route('/api/admin/model-upload', methods=['POST'])
 @admin_required
 def upload_file():
     try:
