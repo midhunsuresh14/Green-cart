@@ -14,11 +14,6 @@ const ModelUpload = ({
         const file = e.target.files[0];
         if (!file) return;
 
-        if (file.size > 4.5 * 1024 * 1024) {
-            alert('File size too large. For deployment on Vercel, files must be under 4.5MB. Please optimize your 3D model.');
-            return;
-        }
-
         if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf') && !file.name.toLowerCase().endsWith('.usdz')) {
             alert('Please upload a .glb, .gltf, or .usdz file');
             return;
@@ -50,11 +45,7 @@ const ModelUpload = ({
             }
         } catch (error) {
             console.error('Model upload failed:', error);
-            if (error.name === 'TypeError' && error.message === 'Failed to fetch') {
-                alert('Upload failed: Server connection blocked or timed out. This could be due to a CORS policy or the file being too large for a serverless environment (Vercel limit is 4.5MB).');
-            } else {
-                alert(`Upload failed: ${error.message}`);
-            }
+            alert(`Upload failed: ${error.message}`);
         } finally {
             setUploading(false);
         }

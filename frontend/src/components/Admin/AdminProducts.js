@@ -132,27 +132,9 @@ export default function AdminProducts() {
 
   return (
     <Box>
-      <Box className="panel-header" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box className="panel-header">
         <h2>Products</h2>
-        <Stack direction="row" spacing={2}>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={async () => {
-              try {
-                await api.clearCache();
-                setToast({ open: true, message: 'Cache cleared successfully', severity: 'success' });
-              } catch (e) {
-                setToast({ open: true, message: 'Cache clear failed: ' + e.message, severity: 'error' });
-              }
-            }}
-          >
-            Clear Model Cache
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>
-            Add Product
-          </Button>
-        </Stack>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={onAdd}>Add Product</Button>
       </Box>
       {error && <div className="badge warning">{error}</div>}
       <Box sx={{ mb: 1 }}>

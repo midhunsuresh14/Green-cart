@@ -9,20 +9,21 @@ try:
     db = client['greencart']
     products = db.products
     
-    # Find all Areca Palm products
-    print("--- Searching for 'Areca Palm' ---")
-    cursor = products.find({"name": {"$regex": "Areca Palm", "$options": "i"}})
+    # Find all snake plants
+    print("--- Searching for 'Snake Plant' ---")
+    cursor = products.find({"name": {"$regex": "Snake Plant", "$options": "i"}})
     for p in cursor:
         print(f"ID: {p['_id']} | Name: {p['name']} | AR URL: {p.get('arModelUrl', 'NOT SET')}")
 
-    # Check for ANY product with arModelUrl set
-    print("\n--- All products with arModelUrl ---")
-    cursor = products.find({"arModelUrl": {"$exists": True, "$ne": ""}})
-    count = 0
-    for p in cursor:
-        print(f"ID: {p['_id']} | Name: {p['name']} | AR URL: {p['arModelUrl']}")
-        count += 1
-    if count == 0:
+    # Check if ANY product has arModelUrl set
+    print("\n--- Checking for ANY product with arModelUrl ---")
+    any_ar = products.find_one({"arModelUrl": {"$exists": True, "$ne": ""}})
+    if any_ar:
+        print(f"Found product with AR: {any_ar['name']}")
+        print(f"ID: {any_ar['_id']}")
+        print(f"URL: {any_ar['arModelUrl']}")
+    else:
         print("No products found with arModelUrl set.")
+        
 except Exception as e:
     print(f"Error: {e}")
