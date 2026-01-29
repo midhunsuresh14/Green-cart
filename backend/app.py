@@ -432,6 +432,10 @@ def token_required(f):
             return jsonify({'success': False, 'error': f'Authentication error: {str(e)}'}), 401
     return wrapper
 
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
+
 @app.route('/')
 def home():
     return 'GreenCart Flask Backend Running!'
