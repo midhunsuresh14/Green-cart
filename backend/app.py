@@ -901,6 +901,7 @@ def admin_list_products():
                     'stock': int(p.get('stock', 0)),
                     'imageUrl': image_url,
                     'image': image_url,  # Ensure both fields are present
+                    'arModelUrl': p.get('arModelUrl', ''),
                 }
                 print(f"DEBUG: Admin Product {doc['id']} image_url: {image_url}") # Debug log
                 if not q or q in (doc['name'] or '').lower() or q in (doc['category'] or '').lower() or q in (doc['subcategory'] or '').lower():
@@ -934,6 +935,7 @@ def admin_create_product():
             'stock': int(data.get('stock', 0)),
             'imageUrl': image_url,
             'image': image_url,
+            'arModelUrl': data.get('arModelUrl', ''),
             'created_at': datetime.datetime.utcnow(),
         }
         # validations
@@ -967,6 +969,7 @@ def admin_update_product(product_id):
             'stock': int(data.get('stock', 0)),
             'imageUrl': image_url,
             'image': image_url,
+            'arModelUrl': data.get('arModelUrl', ''),
         }
         if not update['name'] or not update['category'] or update['price'] <= 0 or update['stock'] < 0:
             return jsonify({'error': 'Validation failed'}), 400
@@ -1033,6 +1036,7 @@ def public_list_products():
                     'stock': int(p.get('stock', 0)),
                     'imageUrl': image_url,
                     'image': image_url,  # Ensure both fields are present
+                    'arModelUrl': p.get('arModelUrl', ''),
                 })
             except Exception as item_e:
                 print(f"Error processing product {p.get('_id')}: {item_e}")
@@ -1085,6 +1089,7 @@ def get_product_by_id(product_id):
             'stock': int(product.get('stock', 0)),
             'imageUrl': image_url,
             'image': image_url,  # Ensure both fields are present
+            'arModelUrl': product.get('arModelUrl', ''),
             'rating': product.get('rating', 0),
             'reviews': product.get('reviews', 0),
             'images': product.get('images', [image_url])  # Ensure we have an images array
@@ -1753,6 +1758,78 @@ def delete_remedy(remedy_id):
         return '', 204
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+ALLOWED_MODEL_EXTENSIONS = {'.glb', '.gltf', '.usdz'}
+
+@app.route('/api/upload', methods=['POST'])
+@admin_required
+def upload_file():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        
+        file = request.files['file']
+        
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+            
+        if file:
+            # Check extension
+            filename = secure_filename(file.filename)
+            ext = os.path.splitext(filename)[1].lower()
+            
+            is_image = ext in ALLOWED_IMAGE_EXTENSIONS
+            is_model = ext in ALLOWED_MODEL_EXTENSIONS
+            
+            if not (is_image or is_model):
+                return jsonify({'error': 'File type not allowed. Allowed types: Images and 3D Models (.glb, .gltf, .usdz)'}), 400
+            
+            # Generate unique filename
+            unique_filename = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
+            
+            if CLOUDINARY_AVAILABLE and is_image:
+                # Upload images to Cloudinary
+                try:
+                    # Reset pointer to start of file
+                    file.stream.seek(0)
+                    result = cloudinary.uploader.upload(
+                        file,
+                        folder="greencart/uploads",
+                        public_id=os.path.splitext(unique_filename)[0]
+                    )
+                    return jsonify({
+                        'success': True,
+                        'url': result.get('secure_url'),
+                        'public_id': result.get('public_id')
+                    })
+                except Exception as e:
+                    print(f"Cloudinary upload failed: {e}. Falling back to local storage.")
+                    # Fallback to local storage below
+            
+            # Local storage (for models or fallback)
+            file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            
+            # Ensure upload directory exists
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            
+            # Reset pointer to start of file before saving
+            file.stream.seek(0)
+            file.save(file_path)
+            
+            # Return relative URL
+            local_url = f"/uploads/{unique_filename}"
+            return jsonify({
+                'success': True,
+                'url': local_url
+            })
+            
+    except Exception as e:
+        print(f"Upload error: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/uploads/<path:filename>')
+def serve_upload(filename):
+    return send_from_directory(UPLOAD_DIR, filename)
 
 @app.route('/api/remedies/bulk-upload', methods=['POST'])
 @admin_required

@@ -215,7 +215,7 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
             (Demo: Using a sample 3D model)
           </p>
           <ARView
-            modelUrl="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+            modelUrl={displayProduct.arModelUrl || "https://modelviewer.dev/shared-assets/models/Astronaut.glb"}
             poster={getPrimaryImageUrl(displayProduct)}
             alt={`3D model of ${displayProduct.name}`}
           />

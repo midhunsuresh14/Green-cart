@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../lib/api';
 import ImageUpload from '../UI/ImageUpload';
+import ModelUpload from '../UI/ModelUpload';
 import {
   Box,
   Button,
@@ -35,7 +36,7 @@ export default function AdminProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [q, setQ] = useState('');
-  const [form, setForm] = useState({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
+  const [form, setForm] = useState({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '', arModelUrl: '' });
   const [imagePreview, setImagePreview] = useState(null);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
@@ -52,23 +53,24 @@ export default function AdminProducts() {
     }
   }
 
-  useEffect(() => { load(); // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load(); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   function onEdit(p) {
-    setForm({ id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '', price: p.price, stock: p.stock, description: p.description || '', imageUrl: p.imageUrl || '' });
+    setForm({ id: p.id, name: p.name, category: p.category, subcategory: p.subcategory || '', price: p.price, stock: p.stock, description: p.description || '', imageUrl: p.imageUrl || '', arModelUrl: p.arModelUrl || '' });
     setImagePreview(p.imageUrl || null);
     setOpen(true);
   }
 
   function onAdd() {
-    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
+    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '', arModelUrl: '' });
     setImagePreview(null);
     setOpen(true);
   }
 
   function resetForm() {
-    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '' });
+    setForm({ id: null, name: '', category: '', subcategory: '', price: '', stock: '', description: '', imageUrl: '', arModelUrl: '' });
     setImagePreview(null);
   }
 
@@ -93,8 +95,9 @@ export default function AdminProducts() {
         stock: stockNum,
         description: form.description,
         imageUrl: form.imageUrl,
+        arModelUrl: form.arModelUrl,
       };
-      
+
       if (form.id) {
         await api.updateProduct(form.id, payload);
         setToast({ open: true, message: 'Product updated', severity: 'success' });
@@ -103,7 +106,7 @@ export default function AdminProducts() {
         setToast({ open: true, message: 'Product created', severity: 'success' });
       }
       // Signal other tabs/pages to refresh product list
-      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) {}
+      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) { }
       resetForm();
       setOpen(false);
       await load();
@@ -119,7 +122,7 @@ export default function AdminProducts() {
       await api.deleteProduct(id);
       setToast({ open: true, message: 'Product deleted', severity: 'success' });
       // Signal other tabs/pages to refresh product list
-      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) {}
+      try { localStorage.setItem('products:updated', String(Date.now())); } catch (_) { }
       await load();
     } catch (e) {
       setError(e.message);
@@ -217,11 +220,16 @@ export default function AdminProducts() {
             </Stack>
             <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} fullWidth />
             <TextField label="Image URL" placeholder="or use upload below" value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} fullWidth />
-            <ImageUpload 
+            <ImageUpload
               onImageUpload={(url) => setForm({ ...form, imageUrl: url || '' })}
               label="Product Image"
               previewUrl={imagePreview}
               setPreviewUrl={setImagePreview}
+            />
+            <TextField label="3D Model URL" placeholder="or use upload below" value={form.arModelUrl} onChange={(e) => setForm({ ...form, arModelUrl: e.target.value })} fullWidth />
+            <ModelUpload
+              setValue={(url) => setForm(prev => ({ ...prev, arModelUrl: url || '' }))}
+              value={form.arModelUrl}
             />
           </Stack>
         </DialogContent>
