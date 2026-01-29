@@ -86,12 +86,14 @@ ALLOWED_ORIGINS = [
     "https://greencart-admin.onrender.com" # Adding another common pattern
 ]
 
+# Standard CORS setup
 CORS(
     app,
-    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
+    origins=ALLOWED_ORIGINS,
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires", "Accept", "X-Requested-With"],
-    supports_credentials=True
+    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires", "Accept", "X-Requested-With", "X-Auth-Token"],
+    supports_credentials=True,
+    expose_headers=["Content-Range", "X-Total-Count"]
 )
 
 # Email configuration
@@ -104,31 +106,31 @@ app.config['MAIL_DEFAULT_SENDER'] = (os.getenv('EMAIL_FROM_NAME', 'GreenCart'), 
 
 mail = Mail(app)
 
-# Simplified CORS helper that works with credentials
+# Helper to ensure CORS headers on all responses, including those not caught by flask-cors
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
     if not origin:
         return response
-        
+    
+    # Check if origin is in our allowed list or matches patterns
     origin_clean = origin.rstrip('/')
     is_allowed = False
-    if "onrender.com" in origin_clean or "vercel.app" in origin_clean or "localhost" in origin_clean or "127.0.0.1" in origin_clean:
+    
+    # Allow all Render, Vercel, and local origins
+    if any(domain in origin_clean for domain in ["onrender.com", "vercel.app", "localhost", "127.0.0.1"]):
         is_allowed = True
     else:
-        for o in ALLOWED_ORIGINS:
-            if origin_clean == o.rstrip('/') or origin_clean.startswith(o.rstrip('/')):
+        for allowed in ALLOWED_ORIGINS:
+            if origin_clean == allowed.rstrip('/'):
                 is_allowed = True
                 break
-            
+                
     if is_allowed:
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-        if request.method == "OPTIONS":
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, Accept, X-Requested-With'
-            response.headers['Access-Control-Max-Age'] = '3600'
-    else:
-        print(f"CORS BLOCK: Origin {origin} not in allowed list")
+        # Avoid duplicating headers if flask-cors already added them
+        if 'Access-Control-Allow-Origin' not in response.headers:
+            response.headers['Access-Control-Allow-Origin'] = origin
+        if 'Access-Control-Allow-Credentials' not in response.headers:
+            response.headers['Access-Control-Allow-Credentials'] = 'true'
             
     response.headers['Vary'] = 'Origin'
     return response
@@ -137,10 +139,8 @@ def add_cors_headers(response):
 def after_request(response):
     return add_cors_headers(response)
 
-@app.before_request
-def handle_preflight():
-    if request.method == "OPTIONS":
-        return add_cors_headers(make_response())
+# Removed manual handle_preflight as it conflicts with flask-cors
+# flask-cors handles OPTIONS requests automatically if not intercepted.
 
 @app.route('/api/admin/clear-cache', methods=['POST'])
 @admin_required
