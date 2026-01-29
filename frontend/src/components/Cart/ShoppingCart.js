@@ -209,7 +209,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                     <div className="quantity-controls">
                       <button
                         className="quantity-btn"
-                        onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                        onClick={() => handleQuantityChange(item.id, Number(item.quantity) - 1)}
                         disabled={item.quantity <= 1}
                       >
                         <span className="material-icons">remove</span>
@@ -217,7 +217,7 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
                       <span className="quantity-value">{item.quantity}</span>
                       <button
                         className="quantity-btn"
-                        onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                        onClick={() => handleQuantityChange(item.id, Number(item.quantity) + 1)}
                         disabled={item.quantity >= 10}
                       >
                         <span className="material-icons">add</span>

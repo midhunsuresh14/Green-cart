@@ -5,6 +5,7 @@ import ProductSection from './ProductSection.jsx';
 import Recommendations from './Recommendations.jsx';
 import Reviews from './Reviews.jsx';
 import FooterPDP from './FooterPDP.jsx';
+import ARView from './ARView.jsx'; // Import ARView component
 
 const sampleProduct = {
   id: 'p1',
@@ -92,17 +93,17 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
         console.log('Calling api.listProductsPublic with:', `/${productId}`);
         const productData = await api.listProductsPublic(`/${productId}`);
         console.log('API Response:', productData);
-        
+
         if (productData) {
           console.log('Product data received:', productData);
           setDisplayProduct(productData);
           setProductRating(productData.rating || 0);
           setReviewCount(productData.reviews || 0);
-          
+
           // Add this product to recently viewed
           console.log('Adding product to recently viewed');
           addRecentlyViewed(productData);
-          
+
           // Update the recently viewed display
           const updatedRecentlyViewed = getRecentlyViewed();
           console.log('Updated recently viewed:', updatedRecentlyViewed);
@@ -121,10 +122,10 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
           description: 'Product details could not be loaded. This is a sample product description.'
         };
         setDisplayProduct(fallbackProduct);
-        
+
         // Add fallback product to recently viewed
         addRecentlyViewed(fallbackProduct);
-        
+
         // Update the recently viewed display
         const updatedRecentlyViewed = getRecentlyViewed();
         setRecentProducts(updatedRecentlyViewed.filter(p => p.id !== fallbackProduct.id)); // Exclude current product
@@ -135,7 +136,7 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
 
     fetchProduct();
   }, [productId]);
-  
+
   // Initialize rating from reviews when component mounts
   useEffect(() => {
     if (displayProduct.rating !== undefined) {
@@ -185,31 +186,50 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
     ...displayProduct,
     rating: productRating,
     reviews: reviewCount,
-    images: displayProduct.images && displayProduct.images.length > 0 
-      ? displayProduct.images 
+    images: displayProduct.images && displayProduct.images.length > 0
+      ? displayProduct.images
       : [
-          displayProduct.imageUrl || displayProduct.image || displayProduct.image_path || 
-          displayProduct.imagePath || displayProduct.thumbnail || displayProduct.photo || 
-          displayProduct.photoUrl || displayProduct.url || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=60'
-        ]
+        displayProduct.imageUrl || displayProduct.image || displayProduct.image_path ||
+        displayProduct.imagePath || displayProduct.thumbnail || displayProduct.photo ||
+        displayProduct.photoUrl || displayProduct.url || 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=800&q=60'
+      ]
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ProductSection 
-        product={productWithImages} 
+      <ProductSection
+        product={productWithImages}
         user={user}
-        onAddToCart={(p) => { onAddToCart && onAddToCart(p); onOpenCart && onOpenCart(); }} 
+        onAddToCart={(p) => { onAddToCart && onAddToCart(p); onOpenCart && onOpenCart(); }}
       />
+
+      {/* AR View Demo Section */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="bg-white rounded-2xl p-6 border border-green-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="material-icons text-green-600">view_in_ar</span>
+            <h2 className="text-lg font-bold text-gray-900">View in Your Space</h2>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Not sure if this plant fits your spot? Use our Augmented Reality feature to see it in your room!
+            (Demo: Using a sample 3D model)
+          </p>
+          <ARView
+            modelUrl="https://modelviewer.dev/shared-assets/models/Astronaut.glb"
+            poster={getPrimaryImageUrl(displayProduct)}
+            alt={`3D model of ${displayProduct.name}`}
+          />
+        </div>
+      </section>
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <h3 className="text-base font-semibold mb-2">About the Product</h3>
         <p className="text-sm text-gray-700 bg-white border rounded-xl p-4">{displayProduct.description || "Feed your plants effortlessly with nutrient-rich sticks designed for flowering and green foliage. Easy to use, slow-release nutrition for thriving indoor and outdoor plants."}</p>
       </section>
 
-      <Recommendations 
-        currentProductId={displayProduct.id} 
-        onAdd={(p)=>{ onAddToCart && onAddToCart({ ...p, quantity: 1 }); onOpenCart && onOpenCart(); }} 
+      <Recommendations
+        currentProductId={displayProduct.id}
+        onAdd={(p) => { onAddToCart && onAddToCart({ ...p, quantity: 1 }); onOpenCart && onOpenCart(); }}
       />
 
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -229,9 +249,9 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
           ) : recentProducts.length > 0 ? (
             recentProducts.map((product) => (
               <div key={product.id} className="border rounded-xl overflow-hidden bg-white">
-                <img 
-                  alt={product.name} 
-                  src={getPrimaryImageUrl(product)} 
+                <img
+                  alt={product.name}
+                  src={getPrimaryImageUrl(product)}
                   className="h-32 w-full object-cover"
                   onError={(e) => {
                     e.currentTarget.src = 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?auto=format&fit=crop&w=400&q=60';
@@ -251,8 +271,8 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
         </div>
       </section>
 
-      <Reviews 
-        productId={displayProduct.id || displayProduct._id} 
+      <Reviews
+        productId={displayProduct.id || displayProduct._id}
         user={user}
         onRatingUpdate={handleRatingUpdate}
       />
@@ -260,10 +280,10 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <h2 className="text-lg font-bold mb-2">From Happy Plant Parents</h2>
         <div className="grid md:grid-cols-3 gap-3">
-          {[1,2,3].map((i)=> (
+          {[1, 2, 3].map((i) => (
             <div key={i} className="p-4 border rounded-xl bg-white">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-green-600 text-white grid place-items-center">{String.fromCharCode(64+i)}</div>
+                <div className="w-8 h-8 rounded-full bg-green-600 text-white grid place-items-center">{String.fromCharCode(64 + i)}</div>
                 <div className="font-medium">Customer {i}</div>
               </div>
               <p className="text-sm text-gray-700">Amazing experience! Fast delivery and healthy plants. Packaging was great and the plants are thriving.</p>

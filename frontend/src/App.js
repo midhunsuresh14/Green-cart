@@ -342,12 +342,12 @@ function App() {
           setCartItems(merged);
         } else {
           // No guest cart to merge, just load user's cart
-          setCartItems(current);
+          setCartItems(current.map(i => ({ ...i, quantity: Number(i.quantity) || 1 })));
         }
       } else {
         // No user logged in - load guest cart only
         const guest = JSON.parse(localStorage.getItem(guestKey) || '[]');
-        setCartItems(guest);
+        setCartItems(guest.map(i => ({ ...i, quantity: Number(i.quantity) || 1 })));
       }
     } catch (_) {
       setCartItems([]);
@@ -447,7 +447,7 @@ function App() {
         const updated = [...prev];
         updated[existingIndex] = {
           ...updated[existingIndex],
-          quantity: (updated[existingIndex].quantity || 1) + (product.quantity || 1),
+          quantity: (Number(updated[existingIndex].quantity) || 1) + (Number(product.quantity) || 1),
           finalPrice: product.finalPrice || product.price,
         };
         saveCart(updated);
@@ -457,7 +457,7 @@ function App() {
         ...prev,
         {
           ...product,
-          quantity: product.quantity || 1,
+          quantity: Number(product.quantity) || 1,
           finalPrice: product.finalPrice || product.price,
         },
       ];
@@ -492,7 +492,7 @@ function App() {
           });
           // Update to maximum available quantity
           setCartItems((prev) => {
-            const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: data.maxAvailable } : item));
+            const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: Number(data.maxAvailable) } : item));
             saveCart(next);
             return next;
           });
@@ -504,7 +504,7 @@ function App() {
     }
 
     setCartItems((prev) => {
-      const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: newQty } : item));
+      const next = prev.map((item) => (item.id === itemId ? { ...item, quantity: Number(newQty) } : item));
       saveCart(next);
       return next;
     });
@@ -607,7 +607,7 @@ function App() {
             user={user}
             onLogout={handleLogout}
             wishlistItems={wishlistItems}
-            cartCount={cartItems.reduce((s, i) => s + (i.quantity || 1), 0)}
+            cartCount={cartItems.length}
             onOpenCart={() => setIsCartOpen(true)}
             onOpenFeedback={handleOpenFeedback}
           />

@@ -1,7 +1,11 @@
 import React from 'react';
-import { Box, Container, Typography, Grid, Paper, Stack, Card, CardContent, Avatar, Chip } from '@mui/material';
 import { motion } from 'framer-motion';
+import { Leaf, Bot, Eye, Search, Sun, Shield, Dna, ArrowRight, Sprout } from 'lucide-react';
 import { aboutData } from './AboutData';
+
+const iconMap = {
+  Leaf, Bot, Eye, Search, Sun, Shield, Dna
+};
 
 const fadeUp = {
   hidden: { opacity: 0, y: 30 },
@@ -16,336 +20,203 @@ export default function About() {
   const { hero, mission, values, stats, team } = aboutData;
 
   return (
-    <Box sx={{ bgcolor: 'background.default', minHeight: '100vh', py: { xs: 2, md: 4 } }}>
-      {/* Hero Section */}
-      <Box
-        sx={{
-          position: 'relative',
-          py: { xs: 6, md: 10 },
-          background: 'linear-gradient(135deg, rgba(76, 175, 80, 0.08) 0%, rgba(129, 199, 132, 0.05) 100%)',
-          borderRadius: { xs: 0, md: 4 },
-          mx: { xs: 0, md: 2 },
-          mb: 8,
-          border: '1px solid',
-          borderColor: 'rgba(76, 175, 80, 0.1)',
-        }}
-      >
-        <Container maxWidth="lg">
-          <motion.div initial="hidden" animate="show" variants={stagger}>
-            <Stack spacing={4} alignItems="center" textAlign="center">
-              <motion.div variants={fadeUp}>
-                <Typography variant="h2" fontWeight={900} sx={{
-                  fontSize: { xs: '2.5rem', md: '4rem' },
-                  background: 'linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  mb: 1
-                }}>
-                  {hero.title}
-                </Typography>
-                <Box sx={{ width: 80, height: 4, bgcolor: 'primary.main', mx: 'auto', borderRadius: 2 }} />
-              </motion.div>
-              <motion.div variants={fadeUp}>
-                <Typography variant="h5" color="text.secondary" sx={{ maxWidth: 850, lineHeight: 1.6, fontWeight: 400 }}>
-                  {hero.subtitle}
-                </Typography>
-              </motion.div>
-              <motion.div variants={fadeUp}>
-                <Stack direction="row" spacing={2} flexWrap="wrap" justifyContent="center" gap={2}>
-                  {hero.chips.map((chip, i) => (
-                    <Chip key={i} label={chip.label} color={chip.color} sx={{ fontWeight: 700, px: 1, height: 40, borderRadius: 2 }} />
-                  ))}
-                </Stack>
-              </motion.div>
-            </Stack>
-          </motion.div>
-        </Container>
-      </Box>
+    <div className="min-h-screen bg-[#FDFCF8] font-sans text-slate-800">
 
-      <Container maxWidth="lg">
+      {/* Hero Section */}
+      <div className="relative bg-[#E8F5E9] rounded-b-[3rem] pt-24 pb-20 px-6 overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+        <div className="max-w-5xl mx-auto text-center relative z-10">
+          <motion.div initial="hidden" animate="show" variants={stagger} className="flex flex-col items-center">
+            <motion.div variants={fadeUp}>
+              <h1 className="text-5xl md:text-7xl font-black text-[#2F6C4E] mb-6 tracking-tight">
+                {hero.title}
+              </h1>
+            </motion.div>
+
+            <motion.div variants={fadeUp}>
+              <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed mb-10">
+                {hero.subtitle}
+              </p>
+            </motion.div>
+
+            <motion.div variants={fadeUp} className="flex flex-wrap justify-center gap-4">
+              {hero.chips.map((chip, i) => {
+                const Icon = iconMap[chip.icon] || Sprout;
+                return (
+                  <div key={i} className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold shadow-sm ${chip.color === 'green' ? 'bg-[#2F6C4E] text-white' :
+                      chip.color === 'blue' ? 'bg-blue-600 text-white' :
+                        'bg-amber-500 text-white'
+                    }`}>
+                    <Icon className="w-5 h-5" />
+                    <span>{chip.label}</span>
+                  </div>
+                );
+              })}
+            </motion.div>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-20">
         {/* Mission Section */}
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={stagger}>
-          <Box sx={{ mb: 12 }}>
-            <Grid container spacing={8} alignItems="center">
-              <Grid item xs={12} md={6}>
-                <motion.div variants={fadeUp}>
-                  <Typography variant="overline" color="primary" fontWeight={800} sx={{ letterSpacing: 2 }}>
-                    Purpose Driven
-                  </Typography>
-                  <Typography variant="h3" fontWeight={800} gutterBottom sx={{ mt: 1, mb: 3 }}>
-                    {mission.title}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.1rem', lineHeight: 1.8, mb: 3 }}>
-                    {mission.p1}
-                  </Typography>
-                  <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.1rem', lineHeight: 1.8 }}>
-                    {mission.p2}
-                  </Typography>
-                </motion.div>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <motion.div variants={fadeUp}>
-                  <Box
-                    sx={{
-                      position: 'relative',
-                      '&::after': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 20,
-                        left: 20,
-                        right: -20,
-                        bottom: -20,
-                        border: '2px solid',
-                        borderColor: 'primary.light',
-                        borderRadius: 4,
-                        zIndex: -1
-                      }
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={mission.image}
-                      alt="Our Mission"
-                      sx={{
-                        width: '100%',
-                        height: { xs: 300, md: 400 },
-                        objectFit: 'cover',
-                        borderRadius: 4,
-                        boxShadow: '0 20px 40px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                  </Box>
-                </motion.div>
-              </Grid>
-            </Grid>
-          </Box>
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={stagger}
+          className="mb-32"
+        >
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+            <div className="flex-1">
+              <motion.div variants={fadeUp}>
+                <div className="inline-block px-4 py-1.5 bg-green-100 text-[#2F6C4E] font-bold rounded-full text-sm uppercase tracking-wider mb-6">
+                  Our Mission
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-8 leading-tight">
+                  {mission.title}
+                </h2>
+                <p className="text-lg text-slate-600 mb-6 leading-relaxed">
+                  {mission.p1}
+                </p>
+                <p className="text-lg text-slate-600 leading-relaxed font-medium">
+                  {mission.p2}
+                </p>
+              </motion.div>
+            </div>
+            <div className="flex-1 w-full">
+              <motion.div variants={fadeUp} className="relative">
+                <div className="absolute inset-0 bg-[#2F6C4E] rounded-[2.5rem] rotate-3 opacity-20 transform translate-x-4 translate-y-4"></div>
+                <img
+                  src={mission.image}
+                  alt="Our Mission"
+                  className="relative w-full h-[400px] md:h-[500px] object-cover rounded-[2.5rem] shadow-2xl"
+                />
+              </motion.div>
+            </div>
+          </div>
         </motion.div>
 
         {/* Values Section */}
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={stagger}>
-          <Box sx={{ mb: 12 }}>
-            <motion.div variants={fadeUp}>
-              <Typography variant="h3" fontWeight={900} textAlign="center" gutterBottom sx={{ color: 'grey.900', mb: 2 }}>
-                Our Core Values
-              </Typography>
-              <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 8, maxWidth: 650, mx: 'auto', fontSize: '1.1rem', lineHeight: 1.6 }}>
-                Integrity, innovation, and impact are at the heart of GreenCart.
-              </Typography>
-            </motion.div>
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={stagger}
+          className="mb-32"
+        >
+          <motion.div variants={fadeUp} className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">Our Core Values</h2>
+            <p className="text-xl text-slate-500 max-w-2xl mx-auto">
+              Integrity, innovation, and impact are at the heart of everything we do at GreenCart.
+            </p>
+          </motion.div>
 
-            <Grid container spacing={4} justifyContent="center" alignItems="stretch">
-              {values.map((value, index) => (
-                <Grid item xs={12} sm={6} md={3} key={index} sx={{ display: 'flex' }}>
-                  <motion.div
-                    variants={fadeUp}
-                    whileHover={{ y: -12, scale: 1.02 }}
-                    style={{ width: '100%', display: 'flex' }}
-                  >
-                    <Card sx={{
-                      width: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      borderRadius: 5,
-                      border: '1px solid',
-                      borderColor: 'rgba(76, 175, 80, 0.1)',
-                      background: 'rgba(255, 255, 255, 0.9)',
-                      backdropFilter: 'blur(10px)',
-                      transition: 'all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
-                      '&:hover': {
-                        boxShadow: '0 30px 60px rgba(76, 175, 80, 0.15)',
-                        borderColor: 'primary.light',
-                        background: '#fff'
-                      }
-                    }}>
-                      <CardContent sx={{ p: 4, textAlign: 'center', flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Box sx={{
-                          mb: 4,
-                          fontSize: 44,
-                          width: 84,
-                          height: 84,
-                          bgcolor: 'success.50',
-                          color: 'success.main',
-                          borderRadius: '24px',
-                          display: 'grid',
-                          placeItems: 'center',
-                          boxShadow: '0 8px 20px rgba(76, 175, 80, 0.12)'
-                        }}>
-                          {value.icon}
-                        </Box>
-                        <Typography variant="h6" fontWeight={800} gutterBottom sx={{ color: 'grey.900', mb: 1.5 }}>
-                          {value.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.8, fontSize: '0.95rem' }}>
-                          {value.description}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {values.map((value, index) => {
+              const Icon = iconMap[value.icon] || Search;
+              return (
+                <motion.div
+                  key={index}
+                  variants={fadeUp}
+                  className="group bg-white p-8 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50 hover:shadow-2xl hover:shadow-[#2F6C4E]/10 hover:-translate-y-2 transition-all duration-300"
+                >
+                  <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <Icon className="w-8 h-8 text-[#2F6C4E]" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-4">{value.title}</h3>
+                  <p className="text-slate-500 leading-relaxed">
+                    {value.description}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
         </motion.div>
 
-        {/* Stats Section */}
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={stagger}>
-          <Box sx={{
-            mb: 12,
-            py: { xs: 6, md: 10 },
-            background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)',
-            borderRadius: { xs: 4, md: 10 },
-            color: 'white',
-            boxShadow: '0 30px 70px rgba(27, 94, 32, 0.25)',
-            position: 'relative',
-            overflow: 'hidden'
-          }}>
-            <Box sx={{
-              position: 'absolute',
-              top: '-50%',
-              right: '-10%',
-              width: '60%',
-              height: '200%',
-              background: 'radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)',
-              zIndex: 0
-            }} />
-            <Grid container spacing={4} justifyContent="center" textAlign="center" sx={{ position: 'relative', zIndex: 1 }}>
+        {/* Stats Section (Pill Shape) */}
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={fadeUp}
+          className="mb-32"
+        >
+          <div className="bg-[#2F6C4E] rounded-[3rem] px-8 py-16 md:py-20 shadow-2xl shadow-green-900/30 text-white relative overflow-hidden">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4 relative z-10 text-center">
               {stats.map((stat, index) => (
-                <Grid item xs={6} md={3} key={index}>
-                  <motion.div variants={fadeUp}>
-                    <Typography variant="h2" fontWeight={900} sx={{ mb: 1, fontSize: { xs: '2.5rem', md: '4.5rem' }, letterSpacing: -1 }}>
-                      {stat.number}
-                    </Typography>
-                    <Typography variant="subtitle1" sx={{ opacity: 0.9, fontWeight: 700, letterSpacing: 2, textTransform: 'uppercase', fontSize: '0.85rem' }}>
-                      {stat.label}
-                    </Typography>
-                  </motion.div>
-                </Grid>
+                <div key={index} className="flex flex-col items-center justify-center">
+                  <span className="text-4xl md:text-6xl font-black mb-2">{stat.number}</span>
+                  <span className="text-sm md:text-base font-bold uppercase tracking-widest opacity-80">{stat.label}</span>
+                </div>
               ))}
-            </Grid>
-          </Box>
+            </div>
+          </div>
         </motion.div>
 
         {/* Team Section */}
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={stagger}>
-          <Box sx={{ mb: 12 }}>
-            <motion.div variants={fadeUp}>
-              <Typography variant="h3" fontWeight={900} textAlign="center" gutterBottom sx={{ color: 'grey.900' }}>
-                The Green Team
-              </Typography>
-              <Typography variant="body1" color="text.secondary" textAlign="center" sx={{ mb: 8, maxWidth: 650, mx: 'auto', fontSize: '1.1rem' }}>
-                Meet the visionaries making sustainable agriculture a reality for everyone.
-              </Typography>
-            </motion.div>
-            <Grid container spacing={6} justifyContent="center">
-              {team.map((member, index) => (
-                <Grid item xs={12} sm={8} md={5} lg={4} key={index}>
-                  <motion.div variants={fadeUp} whileHover={{ y: -10 }}>
-                    <Card sx={{
-                      textAlign: 'center',
-                      p: { xs: 5, md: 7 },
-                      height: '100%',
-                      borderRadius: 10,
-                      border: '1px solid',
-                      borderColor: 'grey.100',
-                      background: '#fff',
-                      transition: 'all 0.4s ease',
-                      '&:hover': {
-                        boxShadow: '0 50px 100px rgba(0,0,0,0.08)',
-                        borderColor: 'success.light'
-                      }
-                    }}>
-                      <Avatar
-                        src={member.avatar}
-                        sx={{
-                          width: 120,
-                          height: 120,
-                          mx: 'auto',
-                          mb: 3,
-                          border: '4px solid',
-                          borderColor: 'primary.light',
-                          boxShadow: '0 10px 20px rgba(0,0,0,0.1)'
-                        }}
-                      />
-                      <Typography variant="h5" fontWeight={800} gutterBottom>
-                        {member.name}
-                      </Typography>
-                      <Typography variant="subtitle1" color="primary.main" fontWeight={700} sx={{ mb: 2, textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: 1.5 }}>
-                        {member.role}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-                        {member.bio}
-                      </Typography>
-                    </Card>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={stagger}
+          className="mb-32"
+        >
+          <motion.div variants={fadeUp} className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-6">The Green Team</h2>
+            <p className="text-xl text-slate-500 max-w-2xl mx-auto">
+              Meet the visionaries making sustainable agriculture a reality for everyone.
+            </p>
+          </motion.div>
+
+          <div className="flex justify-center">
+            {team.map((member, index) => (
+              <motion.div
+                key={index}
+                variants={fadeUp}
+                className="bg-white p-10 rounded-[3rem] shadow-xl shadow-slate-200/50 border border-slate-100 max-w-2xl w-full text-center"
+              >
+                <img
+                  src={member.avatar}
+                  alt={member.name}
+                  className="w-32 h-32 rounded-full mx-auto mb-6 object-cover border-4 border-green-50 shadow-lg"
+                />
+                <h3 className="text-3xl font-black text-slate-900 mb-2">{member.name}</h3>
+                <div className="text-[#2F6C4E] font-bold tracking-widest uppercase mb-6">{member.role}</div>
+                <p className="text-lg text-slate-600 leading-relaxed">
+                  {member.bio}
+                </p>
+              </motion.div>
+            ))}
+          </div>
         </motion.div>
 
-        {/* Call to Action */}
-        <motion.div initial="hidden" whileInView="show" viewport={{ once: true }} variants={fadeUp}>
-          <Paper
-            sx={{
-              p: { xs: 4, md: 8 },
-              textAlign: 'center',
-              background: 'linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%)',
-              color: 'white',
-              borderRadius: 6,
-              overflow: 'hidden',
-              position: 'relative'
-            }}
-          >
-            <Box sx={{ position: 'relative', zIndex: 1 }}>
-              <Typography variant="h3" fontWeight={900} gutterBottom sx={{ fontSize: { xs: '1.8rem', md: '3rem' } }}>
-                Ready to Start Your Green Journey?
-              </Typography>
-              <Typography variant="h6" sx={{ mb: 5, opacity: 0.9, fontWeight: 400, maxWidth: 700, mx: 'auto' }}>
+        {/* Call to Action Footer */}
+        <motion.div
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={fadeUp}
+        >
+          <div className="bg-[#1B4332] rounded-[3rem] p-12 md:p-20 text-center text-white relative overflow-hidden">
+            <div className="relative z-10 max-w-4xl mx-auto">
+              <h2 className="text-4xl md:text-5xl font-black mb-6">Ready to Start Your Green Journey?</h2>
+              <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
                 Join thousands of plant enthusiasts who trust GreenCart for their sustainable gardening needs.
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} justifyContent="center">
-                <Box
-                  component="a"
-                  href="/products"
-                  sx={{
-                    px: 6,
-                    py: 2,
-                    bgcolor: 'white',
-                    color: '#1b5e20',
-                    borderRadius: 3,
-                    textDecoration: 'none',
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    '&:hover': { bgcolor: 'grey.100', transform: 'scale(1.05)' }
-                  }}
-                >
+              </p>
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <a href="/products" className="px-8 py-4 bg-white text-[#1B4332] rounded-2xl font-black text-lg hover:bg-green-50 transition-colors shadow-lg">
                   Explore Catalog
-                </Box>
-                <Box
-                  component="a"
-                  href="/remedies"
-                  sx={{
-                    px: 6,
-                    py: 2,
-                    border: '2px solid white',
-                    color: 'white',
-                    borderRadius: 3,
-                    textDecoration: 'none',
-                    fontWeight: 800,
-                    fontSize: '1.1rem',
-                    transition: 'all 0.2s',
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.1)', transform: 'scale(1.05)' }
-                  }}
-                >
+                </a>
+                <a href="/remedies" className="px-8 py-4 bg-transparent border-2 border-white/30 text-white rounded-2xl font-bold text-lg hover:bg-white/10 transition-colors">
                   Discover Remedies
-                </Box>
-              </Stack>
-            </Box>
-          </Paper>
+                </a>
+              </div>
+            </div>
+          </div>
         </motion.div>
-      </Container>
-    </Box>
+
+      </div>
+    </div>
   );
 }
 

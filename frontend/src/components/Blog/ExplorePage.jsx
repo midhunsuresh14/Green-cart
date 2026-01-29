@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Search, Filter, TrendingUp, ThumbsUp, Clock, ChevronRight, X } from 'lucide-react';
 import { getBlogPosts, likeBlogPost } from '../../lib/api';
 import BlogPost from './BlogPost';
 import './Blog.css';
@@ -12,7 +12,7 @@ const ExplorePage = ({ user, onLike, onPostUpdated }) => {
   const [error, setError] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [sortBy, setSortBy] = useState('latest'); // latest, most_liked, trending
+  const [sortBy, setSortBy] = useState('latest');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ const ExplorePage = ({ user, onLike, onPostUpdated }) => {
         sortBy: sortBy !== 'latest' ? sortBy : undefined,
         search: searchQuery || undefined
       };
-      
+
       const response = await getBlogPosts(params);
       setPosts(response.posts);
       setTotalPages(response.pages);
@@ -50,23 +50,22 @@ const ExplorePage = ({ user, onLike, onPostUpdated }) => {
       navigate('/login');
       return;
     }
-    
+
     try {
       const response = await likeBlogPost(postId);
-      const newLikedState = response.liked; // Use the liked status from the response
-      const likesDelta = newLikedState ? 1 : -1; // Increment if liked, decrement if unliked
-      
-      setPosts(posts.map(post => 
-        post._id === postId 
-          ? { 
-              ...post, 
-              likes: post.likes + likesDelta, 
-              liked: newLikedState 
-            }
+      const newLikedState = response.liked;
+      const likesDelta = newLikedState ? 1 : -1;
+
+      setPosts(posts.map(post =>
+        post._id === postId
+          ? {
+            ...post,
+            likes: post.likes + likesDelta,
+            liked: newLikedState
+          }
           : post
       ));
-      
-      // Also update the parent if provided
+
       if (onLike) {
         onLike(postId, currentLikes + likesDelta, !newLikedState);
       }
@@ -80,178 +79,152 @@ const ExplorePage = ({ user, onLike, onPostUpdated }) => {
     window.scrollTo(0, 0);
   };
 
-  const handleSortChange = (newSort) => {
-    setSortBy(newSort);
-    setCurrentPage(1);
-  };
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    setCurrentPage(1);
-    fetchPosts();
-  };
-
-  if (loading) {
-    return (
-      <div className="explore-content">
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading blog posts...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="explore-content">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-          <h3 className="text-lg font-medium text-red-800">Error loading blog posts</h3>
-          <p className="mt-2 text-red-600">{error}</p>
-          <button 
-            onClick={fetchPosts}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="explore-content">
-      {/* Search and Filters */}
-      <div className="mb-8 bg-white rounded-xl shadow-md p-6">
-        <form onSubmit={handleSearch} className="mb-6">
-          <div className="flex">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search blogs..."
-              className="flex-grow px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            />
-            <button
-              type="submit"
-              className="px-6 py-2 bg-green-600 text-white rounded-r-lg hover:bg-green-700 transition-colors"
-            >
-              Search
-            </button>
+    <div className="explore-content space-y-12">
+      {/* Search and Filter Section */}
+      <div className="bg-white rounded-[2.5rem] p-8 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+        <div className="grid lg:grid-cols-12 gap-8 items-center">
+          {/* Search Bar */}
+          <div className="lg:col-span-12 xl:col-span-5">
+            <div className="relative group">
+              <div className="absolute inset-0 bg-green-200/20 blur-xl rounded-[2rem] transform scale-105 transition-all duration-300 group-hover:bg-green-300/30"></div>
+              <form onSubmit={(e) => { e.preventDefault(); setCurrentPage(1); }} className="relative bg-white p-2 rounded-[2rem] shadow-sm border border-slate-200 flex items-center gap-2 focus-within:border-green-500 focus-within:ring-4 focus-within:ring-green-500/10 transition-all">
+                <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center shrink-0 ml-1 text-slate-400">
+                  <Search className="w-5 h-5" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search articles, topics..."
+                  className="flex-1 bg-transparent border-none outline-none text-slate-800 text-lg placeholder:text-slate-400 font-medium px-2 h-12"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </form>
+            </div>
           </div>
-        </form>
 
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          {/* Category Filter */}
-          <div className="flex flex-wrap gap-2">
-            {categories.map((category) => (
-              <button
-                key={category}
-                onClick={() => {
-                  setSelectedCategory(category);
+          {/* Categories & Sort */}
+          <div className="lg:col-span-12 xl:col-span-7 flex flex-col md:flex-row gap-6 items-center justify-between">
+            {/* Categories */}
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start flex-1">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => {
+                    setSelectedCategory(category);
+                    setCurrentPage(1);
+                  }}
+                  className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all duration-300 active:scale-95 ${selectedCategory === category
+                      ? 'bg-[#2F6C4E] text-white shadow-lg shadow-green-900/20'
+                      : 'bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700'
+                    }`}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative min-w-[180px]">
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value);
                   setCurrentPage(1);
                 }}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                  selectedCategory === category
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
+                className="w-full appearance-none bg-white border border-slate-200 text-slate-700 font-bold py-3 pl-4 pr-10 rounded-2xl cursor-pointer hover:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20 transition-all"
               >
-                {category}
-              </button>
-            ))}
-          </div>
-
-          {/* Sort Options */}
-          <div className="flex items-center space-x-2">
-            <span className="text-gray-700 font-medium">Sort by:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => handleSortChange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-            >
-              <option value="latest">Latest</option>
-              <option value="most_liked">Most Liked</option>
-              <option value="trending">Trending</option>
-            </select>
+                <option value="latest">Latest Stories</option>
+                <option value="most_liked">Most Liked</option>
+                <option value="trending">Trending Now</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <Filter className="w-4 h-4" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Blog Posts */}
-      {posts.length === 0 ? (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">
-            <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-            </svg>
+      {/* Content Area */}
+      {loading ? (
+        <div className="py-20 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-[3px] border-slate-100 border-t-[#2F6C4E]"></div>
+          <p className="mt-4 text-slate-400 font-medium animate-pulse">Curating fresh stories...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 rounded-[2rem] p-8 text-center border border-red-100 max-w-2xl mx-auto">
+          <p className="text-red-600 font-medium mb-4">{error}</p>
+          <button
+            onClick={fetchPosts}
+            className="px-6 py-2 bg-red-600 text-white rounded-xl font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/20"
+          >
+            Retry Loading
+          </button>
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-[2.5rem] border-2 border-dashed border-slate-200">
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 text-slate-300">
+            <Search className="w-10 h-10" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No blog posts found</h3>
-          <p className="text-gray-500">
-            Try adjusting your search or filter criteria
+          <h3 className="text-xl font-bold text-slate-800 mb-2">No stories found</h3>
+          <p className="text-slate-500 max-w-md mx-auto">
+            We couldn't find any articles matching your search. Try different keywords or browse all categories.
           </p>
         </div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {posts.map((post, index) => (
-              <motion.div
-                key={post._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.1 }}
-              >
-                <BlogPost 
-                  post={post} 
-                  user={user}
-                  onLike={handleLike}
-                  onPostUpdated={onPostUpdated || fetchPosts}
-                />
-              </motion.div>
-            ))}
+            <AnimatePresence mode="popLayout">
+              {posts.map((post, index) => (
+                <motion.div
+                  key={post._id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.4, delay: index * 0.05 }}
+                >
+                  <BlogPost
+                    post={post}
+                    user={user}
+                    onLike={handleLike}
+                    onPostUpdated={onPostUpdated || fetchPosts}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center mt-12">
-              <nav className="flex items-center space-x-2">
+            <div className="flex justify-center pt-8">
+              <nav className="inline-flex bg-white p-2 rounded-2xl shadow-lg shadow-slate-200/50 border border-slate-100 gap-2">
                 <button
                   onClick={() => handlePageChange(currentPage - 1)}
                   disabled={currentPage === 1}
-                  className={`px-4 py-2 rounded-md ${
-                    currentPage === 1
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                  }`}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
                 >
                   Previous
                 </button>
-                
-                {[...Array(totalPages)].map((_, i) => {
-                  const page = i + 1;
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => handlePageChange(page)}
-                      className={`px-4 py-2 rounded-md ${
-                        currentPage === page
-                          ? 'bg-green-600 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                })}
-                
+
+                <div className="flex items-center gap-1 px-4">
+                  <span className="text-slate-800 font-black">{currentPage}</span>
+                  <span className="text-slate-400 font-medium">/</span>
+                  <span className="text-slate-400 font-medium">{totalPages}</span>
+                </div>
+
                 <button
                   onClick={() => handlePageChange(currentPage + 1)}
                   disabled={currentPage === totalPages}
-                  className={`px-4 py-2 rounded-md ${
-                    currentPage === totalPages
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                  }`}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:hover:bg-transparent transition-all"
                 >
                   Next
                 </button>

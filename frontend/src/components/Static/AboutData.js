@@ -3,9 +3,9 @@ export const aboutData = {
         title: "About GreenCart",
         subtitle: "Empowering the next generation of sustainable farmers and herbal health enthusiasts through AI-powered insights and a verified marketplace.",
         chips: [
-            { label: "🌿 Sustainable", color: "success" },
-            { label: "🤖 AI-Driven", color: "primary" },
-            { label: "📱 Modern Farming", color: "secondary" }
+            { label: "Sustainable", icon: "Leaf", color: "green" },
+            { label: "AI-Driven", icon: "Bot", color: "blue" },
+            { label: "Visionary", icon: "Eye", color: "amber" }
         ]
     },
     mission: {
@@ -16,22 +16,22 @@ export const aboutData = {
     },
     values: [
         {
-            icon: '🔍',
+            icon: 'Search',
             title: 'Precision ID',
             description: 'Our AI models are trained on thousands of plant species to provide instant, reliable identification for care and harvesting.'
         },
         {
-            icon: '🌤️',
+            icon: 'Sun',
             title: 'Climate Insight',
             description: 'Integrating real-time weather data to provide scientifically backed crop suggestions based on your specific location.'
         },
         {
-            icon: '🔒',
+            icon: 'Shield',
             title: 'Trust & Quality',
             description: 'Every seller on GreenCart is vetted, and every product is verified to ensure it meets our strictly organic standards.'
         },
         {
-            icon: '🧬',
+            icon: 'Dna',
             title: 'Herbal Science',
             description: 'Combining traditional knowledge with modern research to provide safe, natural remedies for common ailments.'
         }
@@ -45,7 +45,7 @@ export const aboutData = {
     team: [
         {
             name: 'Visionary Founders',
-            role: 'Core Team',
+            role: 'The Green Team',
             bio: 'A multidisciplinary team of software engineers, agronomists, and botanical researchers dedicated to agricultural tech innovation.',
             avatar: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=200&h=200&fit=crop'
         }
