@@ -90,9 +90,8 @@ CORS(
     app,
     resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
-    supports_credentials=True,
-    vary_header=True
+    allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires", "Accept", "X-Requested-With"],
+    supports_credentials=True
 )
 
 # Email configuration
@@ -105,32 +104,31 @@ app.config['MAIL_DEFAULT_SENDER'] = (os.getenv('EMAIL_FROM_NAME', 'GreenCart'), 
 
 mail = Mail(app)
 
-# Robust CORS helper
+# Simplified CORS helper that works with credentials
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
     if not origin:
         return response
         
-    # Standardize origin (remove trailing slash)
-    clean_origin = origin.rstrip('/')
-    
-    # Check if origin is allowed
-    is_allowed = clean_origin in [o.rstrip('/') for o in ALLOWED_ORIGINS]
-    
-    if not is_allowed:
-        # Check for subdomain/prefix matches if exact match fails
-        for allowed in ALLOWED_ORIGINS:
-            if clean_origin.startswith(allowed.rstrip('/')):
+    origin_clean = origin.rstrip('/')
+    is_allowed = False
+    if "onrender.com" in origin_clean or "vercel.app" in origin_clean or "localhost" in origin_clean or "127.0.0.1" in origin_clean:
+        is_allowed = True
+    else:
+        for o in ALLOWED_ORIGINS:
+            if origin_clean == o.rstrip('/') or origin_clean.startswith(o.rstrip('/')):
                 is_allowed = True
                 break
-                
+            
     if is_allowed:
         response.headers['Access-Control-Allow-Origin'] = origin
         response.headers['Access-Control-Allow-Credentials'] = 'true'
-        # For preflight or errors, we might need these
         if request.method == "OPTIONS":
             response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, Accept'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, Accept, X-Requested-With'
+            response.headers['Access-Control-Max-Age'] = '3600'
+    else:
+        print(f"CORS BLOCK: Origin {origin} not in allowed list")
             
     response.headers['Vary'] = 'Origin'
     return response
