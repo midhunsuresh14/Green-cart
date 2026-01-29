@@ -1770,12 +1770,12 @@ ALLOWED_MODEL_EXTENSIONS = {'.glb', '.gltf', '.usdz'}
 def upload_file():
     try:
         if 'file' not in request.files:
-            return jsonify({'error': 'No file part'}), 400
+            return jsonify({'success': False, 'error': 'No file part'}), 400
         
         file = request.files['file']
         
         if file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
+            return jsonify({'success': False, 'error': 'No selected file'}), 400
             
         if file:
             # Check extension
@@ -1786,19 +1786,21 @@ def upload_file():
             is_model = ext in ALLOWED_MODEL_EXTENSIONS
             
             if not (is_image or is_model):
-                return jsonify({'error': 'File type not allowed. Allowed types: Images and 3D Models (.glb, .gltf, .usdz)'}), 400
+                return jsonify({'success': False, 'error': 'File type not allowed. Allowed types: Images and 3D Models (.glb, .gltf, .usdz)'}), 400
             
             # Generate unique filename
             unique_filename = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
             
-            if CLOUDINARY_AVAILABLE and (is_image or is_model):
+            # check if we are on Vercel
+            is_vercel = os.getenv('VERCEL') == '1'
+            
+            if CLOUDINARY_AVAILABLE:
                 # Upload to Cloudinary
                 try:
                     # Reset pointer to start of file
                     file.stream.seek(0)
                     
-                    # For models, we might need 'raw' or 'auto' resource type
-                    # 'auto' usually detects it correctly, but 'raw' is safer for binary non-image files like GLB
+                    # For models, use 'raw' resource type to preserve file format
                     resource_type = 'raw' if is_model else 'image'
                     
                     result = cloudinary.uploader.upload(
@@ -1813,14 +1815,29 @@ def upload_file():
                         'public_id': result.get('public_id')
                     })
                 except Exception as e:
-                    print(f"Cloudinary upload failed: {e}. Falling back to local storage.")
-                    # Fallback to local storage below
+                    print(f"Cloudinary upload failed: {e}")
+                    if is_vercel:
+                        return jsonify({
+                            'success': False, 
+                            'error': f'Cloudinary upload failed: {str(e)}. Please check your environment variables.'
+                        }), 500
+                    # For local dev, we can still fall back
+                    print("Falling back to local storage for development.")
             
-            # Local storage (for models or fallback)
+            # Local storage (only if not on Vercel)
+            if is_vercel:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Cloudinary is not configured or failed. Persistent storage is required for uploads on Vercel.'
+                }), 500
+
             file_path = os.path.join(UPLOAD_DIR, unique_filename)
             
             # Ensure upload directory exists
-            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            try:
+                os.makedirs(UPLOAD_DIR, exist_ok=True)
+            except Exception as e:
+                return jsonify({'success': False, 'error': f'Failed to create upload directory: {str(e)}'}), 500
             
             # Reset pointer to start of file before saving
             file.stream.seek(0)
@@ -1835,7 +1852,8 @@ def upload_file():
             
     except Exception as e:
         print(f"Upload error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/uploads/<path:filename>')
 def serve_upload(filename):
