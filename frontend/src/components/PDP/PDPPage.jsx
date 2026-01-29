@@ -198,8 +198,16 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
   // Helper to resolve model URL
   const resolveModelUrl = (url) => {
     if (!url) return null;
+    console.log('[AR Debug] Raw model URL:', url);
     if (url.startsWith('http')) return url;
-    if (url.startsWith('/')) return `${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${url}`;
+    if (url.startsWith('/')) {
+      const baseUrl = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
+      // If the URL is a local upload path, we need the backend root, not the /api part
+      const backendRoot = baseUrl.replace(/\/api\/?$/, '');
+      const resolved = `${backendRoot}${url}`;
+      console.log('[AR Debug] Resolved local model URL:', resolved);
+      return resolved;
+    }
     return url;
   };
 

@@ -3,6 +3,8 @@ import React, { useRef } from 'react';
 const ARView = ({ modelUrl, poster, alt = "3D Model of the plant" }) => {
     const modelViewerRef = useRef(null);
 
+    console.log('[ARView Debug] modelUrl provided:', modelUrl);
+
     if (!modelUrl) return null;
 
     const handleARClick = () => {

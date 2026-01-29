@@ -75,17 +75,20 @@ else:
     print("Cloudinary library not available, using mock implementation")
 
 app = Flask(__name__)
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://greencart-frontend-r7zs.onrender.com",
+    "https://green-cart-pi-sepia.vercel.app",
+    "https://greencart-admin.onrender.com" # Adding another common pattern
+]
+
 CORS(
     app,
-    origins=[
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://greencart-frontend-r7zs.onrender.com",
-        "https://green-cart-pi-sepia.vercel.app"
-    ],
+    resources={r"/*": {"origins": ALLOWED_ORIGINS}},
     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization", "Cache-Control", "Pragma", "Expires"],
     supports_credentials=True,
@@ -102,63 +105,62 @@ app.config['MAIL_DEFAULT_SENDER'] = (os.getenv('EMAIL_FROM_NAME', 'GreenCart'), 
 
 mail = Mail(app)
 
-# Custom CORS decorator to ensure proper headers
+# Robust CORS helper
 def add_cors_headers(response):
     origin = request.headers.get('Origin')
-    allowed_origins = [
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://greencart-frontend-r7zs.onrender.com",
-        "https://green-cart-pi-sepia.vercel.app"
-    ]
+    if not origin:
+        return response
+        
+    # Standardize origin (remove trailing slash)
+    clean_origin = origin.rstrip('/')
     
-    if origin in allowed_origins:
-        response.headers['Access-Control-Allow-Origin'] = origin
-    elif origin and any(origin.startswith(allowed) for allowed in allowed_origins):
-        response.headers['Access-Control-Allow-Origin'] = origin
-    else:
-        # Fallback to the first allowed origin if none match
-        response.headers['Access-Control-Allow-Origin'] = "https://greencart-frontend-r7zs.onrender.com"
+    # Check if origin is allowed
+    is_allowed = clean_origin in [o.rstrip('/') for o in ALLOWED_ORIGINS]
     
-    response.headers['Access-Control-Allow-Credentials'] = 'true'
-    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires'
+    if not is_allowed:
+        # Check for subdomain/prefix matches if exact match fails
+        for allowed in ALLOWED_ORIGINS:
+            if clean_origin.startswith(allowed.rstrip('/')):
+                is_allowed = True
+                break
+                
+    if is_allowed:
+        response.headers['Access-Control-Allow-Origin'] = origin
+        response.headers['Access-Control-Allow-Credentials'] = 'true'
+        # For preflight or errors, we might need these
+        if request.method == "OPTIONS":
+            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
+            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Cache-Control, Pragma, Expires, Accept'
+            
     response.headers['Vary'] = 'Origin'
     return response
 
-# Apply the CORS headers to all responses
 @app.after_request
 def after_request(response):
     return add_cors_headers(response)
 
-# Handle preflight OPTIONS requests
 @app.before_request
 def handle_preflight():
     if request.method == "OPTIONS":
-        response = make_response()
-        origin = request.headers.get('Origin', '*')
-        allowed_origins = [
-            "http://localhost:3000",
-            "http://localhost:3001",
-            "http://127.0.0.1:3000",
-            "http://localhost:5173",
-            "http://127.0.0.1:5173",
-            "https://greencart-frontend-r7zs.onrender.com",
-            "https://green-cart-pi-sepia.vercel.app"
-        ]
-        
-        if origin in allowed_origins or origin == '*':
-            response.headers.add("Access-Control-Allow-Origin", origin)
-        else:
-            response.headers.add("Access-Control-Allow-Origin", "https://greencart-frontend-r7zs.onrender.com")
-            
-        response.headers.add('Access-Control-Allow-Headers', "Content-Type, Authorization, Cache-Control, Pragma, Expires")
-        response.headers.add('Access-Control-Allow-Methods', "GET, POST, PUT, DELETE, OPTIONS")
-        response.headers.add('Access-Control-Allow-Credentials', "true")
-        return response
+        return add_cors_headers(make_response())
+
+@app.route('/api/admin/clear-cache', methods=['POST'])
+@admin_required
+def manual_clear_cache():
+    clear_products_cache()
+    return jsonify({'success': True, 'message': 'Cache cleared successfully'})
+
+def clear_products_cache():
+    """Clear all products-related cache keys from Redis"""
+    if redis_client:
+        try:
+            # Clear common keys
+            keys = redis_client.keys("products_list_*")
+            if keys:
+                redis_client.delete(*keys)
+                print(f"Cleared {len(keys)} product cache keys from Redis")
+        except Exception as e:
+            print(f"Error clearing Redis cache: {e}")
 
 # File uploads (local dev) - serve from /uploads
 # In serverless environments, we need to handle this differently
@@ -946,6 +948,7 @@ def admin_create_product():
         if not doc['name'] or not doc['category'] or doc['price'] <= 0 or doc['stock'] < 0:
             return jsonify({'error': 'Validation failed'}), 400
         res = products_collection.insert_one(doc)
+        clear_products_cache()
         return jsonify({'id': str(res.inserted_id)}), 201
     except Exception as e:
         return jsonify({'error': str(e)}), 400
@@ -978,6 +981,7 @@ def admin_update_product(product_id):
         if not update['name'] or not update['category'] or update['price'] <= 0 or update['stock'] < 0:
             return jsonify({'error': 'Validation failed'}), 400
         products_collection.update_one({'_id': ObjectId(product_id)}, {'$set': update})
+        clear_products_cache()
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'error': str(e)}), 400

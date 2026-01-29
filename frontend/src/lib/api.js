@@ -308,6 +308,9 @@ export const api = {
   },
   listCropsSuitability: () => request('/weather/crops'),
 
+  // Cache Management
+  clearCache: () => request('/admin/clear-cache', { method: 'POST' }),
+
   // Auth helpers
   getAuthHeaders: getAuthHeaders
 };
@@ -377,5 +380,6 @@ export const recommendCrops = api.recommendCrops;
 export const listCropsSuitability = api.listCropsSuitability;
 export const listDeliveryOrders = api.listDeliveryOrders;
 export const markOrderDelivered = api.markOrderDelivered;
+export const clearCache = api.clearCache;
 // Rename the export to avoid naming conflict
 export const getAuthHeadersFunction = getAuthHeaders;
