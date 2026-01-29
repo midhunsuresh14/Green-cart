@@ -1791,15 +1791,21 @@ def upload_file():
             # Generate unique filename
             unique_filename = f"{datetime.datetime.now().strftime('%Y%m%d%H%M%S')}_{filename}"
             
-            if CLOUDINARY_AVAILABLE and is_image:
-                # Upload images to Cloudinary
+            if CLOUDINARY_AVAILABLE and (is_image or is_model):
+                # Upload to Cloudinary
                 try:
                     # Reset pointer to start of file
                     file.stream.seek(0)
+                    
+                    # For models, we might need 'raw' or 'auto' resource type
+                    # 'auto' usually detects it correctly, but 'raw' is safer for binary non-image files like GLB
+                    resource_type = 'raw' if is_model else 'image'
+                    
                     result = cloudinary.uploader.upload(
                         file,
                         folder="greencart/uploads",
-                        public_id=os.path.splitext(unique_filename)[0]
+                        public_id=os.path.splitext(unique_filename)[0],
+                        resource_type=resource_type
                     )
                     return jsonify({
                         'success': True,
