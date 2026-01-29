@@ -195,6 +195,14 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
       ]
   };
 
+  // Helper to resolve model URL
+  const resolveModelUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('/')) return `${process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000'}${url}`;
+    return url;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <ProductSection
@@ -215,7 +223,7 @@ export default function PDPPage({ onAddToCart, onOpenCart, user }) {
             (Demo: Using a sample 3D model)
           </p>
           <ARView
-            modelUrl={displayProduct.arModelUrl || "https://modelviewer.dev/shared-assets/models/Astronaut.glb"}
+            modelUrl={resolveModelUrl(displayProduct.arModelUrl) || "https://modelviewer.dev/shared-assets/models/Astronaut.glb"}
             poster={getPrimaryImageUrl(displayProduct)}
             alt={`3D model of ${displayProduct.name}`}
           />
