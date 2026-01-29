@@ -1819,16 +1819,20 @@ def upload_file():
                     if is_vercel:
                         return jsonify({
                             'success': False, 
-                            'error': f'Cloudinary upload failed: {str(e)}. Please check your environment variables.'
+                            'error': f'Cloudinary upload failed: {str(e)}. Please check your Cloudinary environment variables (CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET).'
                         }), 500
                     # For local dev, we can still fall back
                     print("Falling back to local storage for development.")
             
             # Local storage (only if not on Vercel)
             if is_vercel:
+                error_msg = 'Cloudinary is not configured or failed. Persistent storage is required for uploads on Vercel.'
+                if not CLOUDINARY_AVAILABLE:
+                    error_msg = 'Cloudinary library is not available in the production environment. Please ensure it is in requirements.txt.'
+                
                 return jsonify({
                     'success': False, 
-                    'error': 'Cloudinary is not configured or failed. Persistent storage is required for uploads on Vercel.'
+                    'error': error_msg
                 }), 500
 
             file_path = os.path.join(UPLOAD_DIR, unique_filename)
@@ -2585,7 +2589,7 @@ def upload_to_cloudinary():
     try:
         # Check if Cloudinary is available
         if not CLOUDINARY_AVAILABLE:
-            return jsonify({'error': 'Cloudinary is not configured. Please set up Cloudinary credentials in .env file.'}), 500
+            return jsonify({'error': 'Cloudinary library not installed or environment variables (CLOUD_NAME, CLOUD_API_KEY, CLOUD_API_SECRET) are missing.'}), 500
         
         # Get JSON data from request
         data = request.get_json()
