@@ -1,0 +1,56 @@
+export const Theme = {
+    colors: {
+        primary: '#4CAF50',
+        primaryDark: '#388E3C',
+        primaryLight: '#C8E6C9',
+        secondary: '#8BC34A',
+        accent: '#FFC107',
+        background: '#F9F9F9',
+        surface: '#FFFFFF',
+        text: '#333333',
+        textLight: '#757575',
+        error: '#f44336',
+        success: '#4CAF50',
+        border: '#E0E0E0',
+        overlay: 'rgba(0,0,0,0.5)',
+    },
+    spacing: {
+        xs: 4,
+        s: 8,
+        m: 16,
+        l: 24,
+        xl: 32,
+        xxl: 40,
+    },
+    borderRadius: {
+        s: 4,
+        m: 8,
+        l: 16,
+        xl: 24,
+        round: 9999,
+    },
+    typography: {
+        h1: { fontSize: 32, fontWeight: 'bold' },
+        h2: { fontSize: 24, fontWeight: 'bold' },
+        h3: { fontSize: 20, fontWeight: '600' },
+        body: { fontSize: 16, fontWeight: 'normal' },
+        caption: { fontSize: 14, fontWeight: 'normal' },
+        small: { fontSize: 12, fontWeight: 'normal' },
+    },
+    shadows: {
+        small: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 2,
+        },
+        medium: {
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 4,
+        },
+    }
+};

@@ -32,13 +32,13 @@ test.describe('Login Functionality', () => {
     // Verify page title and heading
     await expect(page.locator('text=Welcome Back')).toBeVisible();
     await expect(page.locator('text=Sign in to your GreenCart account')).toBeVisible();
-    
+
     // Verify form elements are present
     await expect(page.locator('input[name="email"]')).toBeVisible();
     await expect(page.locator('input[name="password"]')).toBeVisible();
     await expect(page.locator('button:has-text("Sign In")')).toBeVisible();
     await expect(page.locator('button:has-text("Continue with Google")')).toBeVisible();
-    
+
     // Verify links are present
     await expect(page.locator('a:has-text("Forgot password?")')).toBeVisible();
     await expect(page.locator('a:has-text("Create one here")')).toBeVisible();
@@ -49,18 +49,18 @@ test.describe('Login Functionality', () => {
     const emailInput = page.locator('input[name="email"]');
     await emailInput.focus();
     await emailInput.blur();
-    
+
     // Check for validation error
     await expect(page.locator('text=Email is required')).toBeVisible();
   });
 
   test('should show validation error for invalid email format', async ({ page }) => {
     const emailInput = page.locator('input[name="email"]');
-    
+
     // Enter invalid email
     await emailInput.fill(invalidEmail);
     await emailInput.blur();
-    
+
     // Check for validation error
     await expect(page.locator('text=Please enter a valid email address')).toBeVisible();
   });
@@ -70,18 +70,18 @@ test.describe('Login Functionality', () => {
     const passwordInput = page.locator('input[name="password"]');
     await passwordInput.focus();
     await passwordInput.blur();
-    
+
     // Check for validation error
     await expect(page.locator('text=Password is required')).toBeVisible();
   });
 
   test('should show validation error for password less than 6 characters', async ({ page }) => {
     const passwordInput = page.locator('input[name="password"]');
-    
+
     // Enter short password
     await passwordInput.fill('12345');
     await passwordInput.blur();
-    
+
     // Check for validation error
     await expect(page.locator('text=Password must be at least 6 characters')).toBeVisible();
   });
@@ -89,22 +89,22 @@ test.describe('Login Functionality', () => {
   test('should toggle password visibility', async ({ page }) => {
     const passwordInput = page.locator('input[name="password"]');
     const toggleButton = page.locator('button[aria-label="toggle password visibility"]');
-    
+
     // Enter password
     await passwordInput.fill('testpassword123');
-    
+
     // Initially password should be hidden (type="password")
     await expect(passwordInput).toHaveAttribute('type', 'password');
-    
+
     // Click toggle button
     await toggleButton.click();
-    
+
     // Password should now be visible (type="text")
     await expect(passwordInput).toHaveAttribute('type', 'text');
-    
+
     // Click toggle again
     await toggleButton.click();
-    
+
     // Password should be hidden again
     await expect(passwordInput).toHaveAttribute('type', 'password');
   });
@@ -125,15 +125,16 @@ test.describe('Login Functionality', () => {
     // Fill in valid email format but wrong credentials
     await page.locator('input[name="email"]').fill('wrong@example.com');
     await page.locator('input[name="password"]').fill(invalidPassword);
-    
+
     // Submit form
     await page.locator('button:has-text("Sign In")').click();
-    
+
     // Wait for error message - Material-UI Alert component with role="alert"
-    // The error text should be visible in the alert
+    // Use getByRole and filter to uniquely identify the message and take the first match if multiple appear
     await expect(
-      page.locator('[role="alert"]:has-text("Invalid email or password")')
-        .or(page.locator('text=Invalid email or password'))
+      page.getByRole('alert')
+        .filter({ hasText: 'Invalid email or password' })
+        .first()
     ).toBeVisible({ timeout: 5000 });
   });
 
@@ -166,28 +167,28 @@ test.describe('Login Functionality', () => {
     // Fill in credentials
     await page.locator('input[name="email"]').fill(validEmail);
     await page.locator('input[name="password"]').fill(validPassword);
-    
+
     // Submit form
     const submitButton = page.locator('button:has-text("Sign In")');
     await submitButton.click();
-    
+
     // Check for loading state immediately after clicking
     // The button should show "Signing in..." text and be disabled
     // Wait a bit for the state to update
     await page.waitForTimeout(100);
-    
+
     // Check for loading text - the button text changes to "Signing in..."
     const loadingText = page.locator('text=Signing in...');
-    
+
     // Also check if button is disabled (it should be)
     const submitButtonAfterClick = page.locator('button[type="submit"]');
-    
+
     // At least the loading text should be visible
     await expect(loadingText).toBeVisible({ timeout: 1000 });
-    
+
     // Button should be disabled during loading
     await expect(submitButtonAfterClick).toBeDisabled();
-    
+
     // Wait for the route to complete
     await routeFulfilled;
   });
@@ -216,23 +217,23 @@ test.describe('Login Functionality', () => {
     // Fill in valid credentials
     await page.locator('input[name="email"]').fill(validEmail);
     await page.locator('input[name="password"]').fill(validPassword);
-    
+
     // Submit form
     await page.locator('button:has-text("Sign In")').click();
-    
+
     // Wait for navigation to home page
     await page.waitForURL('**/', { timeout: 5000 });
-    
+
     // Verify we're on the home page
     expect(page.url()).toContain('/');
-    
+
     // Verify user data is stored in localStorage
     const token = await page.evaluate(() => localStorage.getItem('token'));
     const user = await page.evaluate(() => localStorage.getItem('user'));
-    
+
     expect(token).toBeTruthy();
     expect(user).toBeTruthy();
-    
+
     const userData = JSON.parse(user);
     expect(userData.email).toBe(validEmail);
   });
@@ -261,13 +262,13 @@ test.describe('Login Functionality', () => {
     // Fill in admin credentials
     await page.locator('input[name="email"]').fill(adminEmail);
     await page.locator('input[name="password"]').fill(adminPassword);
-    
+
     // Submit form
     await page.locator('button:has-text("Sign In")').click();
-    
+
     // Wait for navigation to admin dashboard
     await page.waitForURL('**/admin', { timeout: 5000 });
-    
+
     // Verify we're on the admin page
     expect(page.url()).toContain('/admin');
   });
@@ -275,10 +276,10 @@ test.describe('Login Functionality', () => {
   test('should navigate to signup page when clicking signup link', async ({ page }) => {
     // Click on signup link
     await page.locator('a:has-text("Create one here")').click();
-    
+
     // Wait for navigation to signup page
     await page.waitForURL('**/signup', { timeout: 5000 });
-    
+
     // Verify we're on the signup page
     expect(page.url()).toContain('/signup');
   });
@@ -286,10 +287,10 @@ test.describe('Login Functionality', () => {
   test('should navigate to forgot password page when clicking forgot password link', async ({ page }) => {
     // Click on forgot password link
     await page.locator('a:has-text("Forgot password?")').click();
-    
+
     // Wait for navigation to forgot password page
     await page.waitForURL('**/forgot-password', { timeout: 5000 });
-    
+
     // Verify we're on the forgot password page
     expect(page.url()).toContain('/forgot-password');
   });
@@ -298,13 +299,13 @@ test.describe('Login Functionality', () => {
     // Fill in invalid email and valid password
     await page.locator('input[name="email"]').fill(invalidEmail);
     await page.locator('input[name="password"]').fill(validPassword);
-    
+
     // Try to submit form
     await page.locator('button:has-text("Sign In")').click();
-    
+
     // Should still be on login page
     expect(page.url()).toContain('/login');
-    
+
     // Should show validation error
     await expect(page.locator('text=Please enter a valid email address')).toBeVisible();
   });
@@ -318,10 +319,10 @@ test.describe('Login Functionality', () => {
     // Fill in credentials
     await page.locator('input[name="email"]').fill(validEmail);
     await page.locator('input[name="password"]').fill(validPassword);
-    
+
     // Submit form
     await page.locator('button:has-text("Sign In")').click();
-    
+
     // Wait for error message
     await expect(page.locator('text=Network error')).toBeVisible();
   });
@@ -331,13 +332,13 @@ test.describe('Login Functionality', () => {
     const emailInput = page.locator('input[name="email"]');
     await emailInput.focus();
     await emailInput.blur();
-    
+
     // Verify error is shown
     await expect(page.locator('text=Email is required')).toBeVisible();
-    
+
     // Start typing
     await emailInput.fill('test');
-    
+
     // Error should be cleared
     await expect(page.locator('text=Email is required')).not.toBeVisible();
   });
@@ -365,13 +366,13 @@ test.describe('Login Functionality', () => {
     // Navigate to login page - the Login component should redirect if user exists
     // Use waitUntil: 'domcontentloaded' to catch redirects faster
     const navigationPromise = page.goto('/login', { waitUntil: 'domcontentloaded' });
-    
+
     // Wait for either navigation to complete or redirect to happen
     await navigationPromise;
-    
+
     // Give React time to process the redirect (useEffect runs after render)
     await page.waitForTimeout(500);
-    
+
     // Check the final URL - should not be on login page
     const finalUrl = page.url();
     // The redirect should take us to home page

@@ -2,56 +2,20 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './ShoppingCart.css';
 
-const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }) => {
-  const [cart, setCart] = useState(() => {
-    if (cartItems && cartItems.length) return cartItems;
-    try {
-      const saved = localStorage.getItem('cart');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-  // const [isLoading, setIsLoading] = useState(false); // Removed unused state
+const ShoppingCart = ({ cartItems = [], onUpdateQuantity, onRemoveItem, onClearCart }) => {
   const navigate = useNavigate();
 
   // Image URL resolution function
   const resolveImageUrl = useMemo(() => {
     return (src) => {
       if (!src) return 'https://images.unsplash.com/photo-1509423350716-97f2360af5e4?auto=format&fit=crop&w=200&q=80';
-      // If it's already a full URL, return as is
       if (/^https?:\/\//i.test(src)) return src;
-      // If it's a local path that already starts with /uploads/, prepend the backend URL
-      if (src.startsWith('/uploads/')) {
-        const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
-        const host = apiBase.replace(/\/api\/?$/, '');
-        return host + src;
-      }
-      // If it's a local path, prepend the API base URL
       const apiBase = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
       const host = apiBase.replace(/\/api\/?$/, '');
+      if (src.startsWith('/uploads/')) return host + src;
       return src.startsWith('/') ? host + src : host + '/' + src;
     };
   }, []);
-
-  // Keep local state in sync with props or restore from localStorage on refresh
-  useEffect(() => {
-    if (cartItems && cartItems.length > 0) {
-      setCart(cartItems);
-    } else {
-      try {
-        const saved = localStorage.getItem('cart');
-        if (saved) setCart(JSON.parse(saved));
-      } catch { }
-    }
-  }, [cartItems]);
-
-  // Persist cart locally so refresh restores it
-  useEffect(() => {
-    try {
-      localStorage.setItem('cart', JSON.stringify(cart));
-    } catch { }
-  }, [cart]);
 
   const handleQuantityChange = async (itemId, newQuantity) => {
     if (newQuantity < 1) {
@@ -72,7 +36,6 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
         const data = await response.json();
         if (!data.available) {
           alert(`Only ${data.maxAvailable} items available in stock`);
-          // Update to maximum available quantity
           onUpdateQuantity(itemId, data.maxAvailable);
           return;
         }
@@ -84,16 +47,8 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
     onUpdateQuantity(itemId, newQuantity);
   };
 
-  const handleRemoveItem = (itemId) => {
-    onRemoveItem(itemId);
-  };
-
-  const handleClearCart = () => {
-    onClearCart();
-  };
-
   const calculateSubtotal = () => {
-    return cart.reduce((total, item) => total + (item.finalPrice * item.quantity), 0);
+    return cartItems.reduce((total, item) => total + (item.finalPrice * item.quantity), 0);
   };
 
   const calculateDiscount = () => {
@@ -103,41 +58,33 @@ const ShoppingCart = ({ cartItems, onUpdateQuantity, onRemoveItem, onClearCart }
 
   const calculateShipping = () => {
     const subtotal = calculateSubtotal();
-    if (subtotal >= 499) return 0; // Free shipping over ₹499
-    return 49; // Standard shipping ₹49
+    if (subtotal >= 499) return 0;
+    return 49;
   };
 
   const calculateTax = () => {
     const subtotal = calculateSubtotal();
     const discount = calculateDiscount();
-    return (subtotal - discount) * 0.08; // 8% tax on discounted total
+    return (subtotal - discount) * 0.08;
   };
 
   const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const discount = calculateDiscount();
-    const shipping = calculateShipping();
-    const tax = calculateTax();
-    return subtotal - discount + shipping + tax;
+    return calculateSubtotal() - calculateDiscount() + calculateShipping() + calculateTax();
   };
 
   const getShippingMessage = () => {
     const subtotal = calculateSubtotal();
-    if (subtotal >= 499) {
-      return "🎉 You qualify for FREE shipping!";
-    } else {
-      return `Add ₹${(499 - subtotal).toFixed(0)} more for FREE shipping!`;
-    }
+    if (subtotal >= 499) return "🎉 You qualify for FREE shipping!";
+    return `Add ₹${(499 - subtotal).toFixed(0)} more for FREE shipping!`;
   };
 
-  if (cart.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="shopping-cart">
         <div className="container">
           <div className="cart-header">
             <h1>Your Shopping Cart</h1>
           </div>
-
           <div className="empty-cart">
             <div className="empty-cart-content">
               <span className="material-icons">shopping_cart</span>
